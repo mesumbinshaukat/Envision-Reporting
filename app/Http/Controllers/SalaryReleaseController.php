@@ -94,6 +94,24 @@ class SalaryReleaseController extends Controller
         
         $employee = Employee::findOrFail($validated['employee_id']);
         
+        // Check if salary has already been released for this employee and month
+        $existingRelease = SalaryRelease::where('employee_id', $validated['employee_id'])
+            ->where('month', $validated['month'])
+            ->where('release_type', 'full')
+            ->first();
+        
+        if ($existingRelease) {
+            return redirect()->back()->withErrors([
+                'month' => 'Salary has already been fully released for this employee for ' . date('F Y', strtotime($validated['month'] . '-01'))
+            ])->withInput();
+        }
+        
+        // Check total partial payments
+        $totalPartialPaid = SalaryRelease::where('employee_id', $validated['employee_id'])
+            ->where('month', $validated['month'])
+            ->where('release_type', 'partial')
+            ->sum('total_amount');
+        
         // Calculate commission from PAID invoices only (status = 'Payment Done')
         $commissionAmount = $employee->invoices()
             ->where('status', 'Payment Done')
@@ -115,11 +133,34 @@ class SalaryReleaseController extends Controller
         
         // Handle partial release
         if ($validated['release_type'] === 'partial') {
+            // Calculate remaining amount after previous partial payments
+            $remainingAmount = $totalCalculated - $totalPartialPaid;
+            
+            if ($remainingAmount <= 0) {
+                return redirect()->back()->withErrors([
+                    'partial_amount' => 'Full salary has already been paid through partial payments for ' . date('F Y', strtotime($validated['month'] . '-01'))
+                ])->withInput();
+            }
+            
             $request->validate([
-                'partial_amount' => 'required|numeric|min:0|max:' . $totalCalculated,
+                'partial_amount' => 'required|numeric|min:0.01|max:' . $remainingAmount,
+            ], [
+                'partial_amount.max' => 'Payment amount cannot exceed remaining amount of Rs.' . number_format($remainingAmount, 2)
             ]);
+            
             $totalAmount = $validated['partial_amount'];
+            
+            // Check if this partial payment completes the salary
+            if (($totalPartialPaid + $totalAmount) >= $totalCalculated) {
+                $validated['release_type'] = 'full';
+            }
         } else {
+            // For full release, check if any partial payments exist
+            if ($totalPartialPaid > 0) {
+                return redirect()->back()->withErrors([
+                    'release_type' => 'Partial payments already exist for this month. Cannot release full salary. Remaining: Rs.' . number_format($totalCalculated - $totalPartialPaid, 2)
+                ])->withInput();
+            }
             $totalAmount = $totalCalculated;
         }
         

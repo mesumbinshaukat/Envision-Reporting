@@ -16,6 +16,10 @@ class Invoice extends Model
         'status',
         'due_date',
         'amount',
+        'paid_amount',
+        'remaining_amount',
+        'payment_date',
+        'payment_month',
         'tax',
         'special_note',
         'commission_paid',
@@ -23,6 +27,7 @@ class Invoice extends Model
 
     protected $casts = [
         'due_date' => 'date',
+        'payment_date' => 'date',
     ];
 
     public function user()

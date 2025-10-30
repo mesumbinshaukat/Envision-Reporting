@@ -67,10 +67,10 @@
                 </div>
                 <div class="mt-4 p-4 bg-navy-900 text-white rounded">
                     <div class="flex justify-between items-center">
-                        <span class="text-lg font-semibold">Net Income (Invoices - Expenses - Salaries):</span>
+                        <span class="text-lg font-semibold">Net Income (Paid Invoices - Expenses - Salaries):</span>
                         <span class="text-2xl font-bold">Rs.{{ number_format($reportData['net_income'], 2) }}</span>
                     </div>
-                    <div class="text-sm mt-1 opacity-75">Note: Bonuses are excluded from net income calculation</div>
+                    <div class="text-sm mt-1 opacity-75">Note: Net income only includes paid invoices. Unpaid invoices are excluded from calculations.</div>
                 </div>
             </div>
 

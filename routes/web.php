@@ -22,6 +22,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('employees', EmployeeController::class);
     Route::resource('invoices', InvoiceController::class);
     Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('invoices.pdf');
+    Route::put('/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->name('invoices.pay');
     
     Route::resource('expenses', ExpenseController::class);
     Route::resource('bonuses', BonusController::class);

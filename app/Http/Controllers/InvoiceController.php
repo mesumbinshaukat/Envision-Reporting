@@ -63,6 +63,8 @@ class InvoiceController extends Controller
         
         $validated['user_id'] = auth()->id();
         $validated['tax'] = $validated['tax'] ?? 0;
+        $validated['paid_amount'] = 0;
+        $validated['remaining_amount'] = $validated['amount'];
         
         Invoice::create($validated);
         
@@ -120,5 +122,48 @@ class InvoiceController extends Controller
         
         $pdf = Pdf::loadView('invoices.pdf', compact('invoice'));
         return $pdf->download('invoice-' . $invoice->id . '.pdf');
+    }
+
+    public function pay(Request $request, Invoice $invoice)
+    {
+        $this->authorize('update', $invoice);
+        
+        // Calculate remaining amount
+        $remainingAmount = $invoice->remaining_amount > 0 ? $invoice->remaining_amount : $invoice->amount;
+        
+        $validated = $request->validate([
+            'payment_amount' => [
+                'required',
+                'numeric',
+                'min:0.01',
+                'max:' . $remainingAmount
+            ],
+            'payment_date' => 'required|date',
+        ]);
+        
+        $paymentAmount = $validated['payment_amount'];
+        $paymentDate = $validated['payment_date'];
+        
+        // Update paid amount
+        $invoice->paid_amount += $paymentAmount;
+        
+        // Calculate new remaining amount
+        $invoice->remaining_amount = $invoice->amount - $invoice->paid_amount;
+        
+        // Update status based on payment
+        if ($invoice->remaining_amount <= 0.01) { // Account for floating point precision
+            $invoice->status = 'Payment Done';
+            $invoice->remaining_amount = 0;
+        } else {
+            $invoice->status = 'Partial Paid';
+        }
+        
+        // Set payment date and month
+        $invoice->payment_date = $paymentDate;
+        $invoice->payment_month = date('Y-m', strtotime($paymentDate));
+        
+        $invoice->save();
+        
+        return redirect()->route('invoices.index')->with('success', 'Payment processed successfully. Status: ' . $invoice->status);
     }
 }

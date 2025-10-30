@@ -58,8 +58,8 @@ class ReportController extends Controller
                 'total_expenses' => $expenses->sum('amount'),
                 'total_salaries' => $salaryReleases->sum('total_amount'),
                 'total_bonuses' => $bonuses->sum('amount'),
-                // Net Income = Total Invoices - Expenses - Salaries (bonuses excluded)
-                'net_income' => $invoices->sum('amount') - $expenses->sum('amount') - $salaryReleases->sum('total_amount'),
+                // Net Income = ONLY Paid Invoices - Expenses - Salaries (unpaid invoices excluded)
+                'net_income' => $paidInvoices->sum('amount') - $expenses->sum('amount') - $salaryReleases->sum('total_amount'),
             ];
         }
         
@@ -114,8 +114,8 @@ class ReportController extends Controller
             'total_expenses' => $expenses->sum('amount'),
             'total_salaries' => $salaryReleases->sum('total_amount'),
             'total_bonuses' => $bonuses->sum('amount'),
-            // Net Income = Total Invoices - Expenses - Salaries (bonuses excluded)
-            'net_income' => $invoices->sum('amount') - $expenses->sum('amount') - $salaryReleases->sum('total_amount'),
+            // Net Income = ONLY Paid Invoices - Expenses - Salaries (unpaid invoices excluded)
+            'net_income' => $paidInvoices->sum('amount') - $expenses->sum('amount') - $salaryReleases->sum('total_amount'),
         ];
         
         $pdf = Pdf::loadView('reports.audit-pdf', $data);

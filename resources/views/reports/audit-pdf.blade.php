@@ -4,19 +4,19 @@
     <meta charset="utf-8">
     <title>Audit Report</title>
     <style>
-        body { font-family: Arial, sans-serif; color: #000; font-size: 11px; }
+        body { font-family: Arial, sans-serif; color: #000; font-size: 12px; }
         .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #001F3F; padding-bottom: 15px; }
         .logo { max-height: 60px; margin-bottom: 10px; }
-        .title { color: #001F3F; font-size: 20px; font-weight: bold; }
-        .section-title { color: #001F3F; font-size: 14px; font-weight: bold; margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #001F3F; padding-bottom: 5px; }
-        .subsection-title { color: #001F3F; font-size: 12px; font-weight: bold; margin-top: 15px; margin-bottom: 8px; }
+        .title { color: #001F3F; font-size: 22px; font-weight: bold; }
+        .section-title { color: #001F3F; font-size: 15px; font-weight: bold; margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #001F3F; padding-bottom: 5px; }
+        .subsection-title { color: #001F3F; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 8px; }
         .summary-box { background-color: #f0f0f0; padding: 10px; margin-bottom: 15px; border: 1px solid #001F3F; }
-        .summary-item { margin: 5px 0; }
-        .data-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 10px; }
-        .data-table th, .data-table td { border: 1px solid #001F3F; padding: 5px; text-align: left; }
-        .data-table th { background-color: #001F3F; color: white; }
+        .summary-item { margin: 5px 0; font-size: 12px; }
+        .data-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; }
+        .data-table th, .data-table td { border: 1px solid #001F3F; padding: 6px 8px; text-align: left; }
+        .data-table th { background-color: #001F3F; color: white; font-size: 11px; }
         .total-row { font-weight: bold; background-color: #f0f0f0; }
-        .footer { margin-top: 30px; text-align: center; font-size: 9px; color: #666; page-break-inside: avoid; }
+        .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #666; page-break-inside: avoid; }
         .paid { color: #006400; }
         .unpaid { color: #8B0000; }
     </style>
@@ -36,9 +36,8 @@
         <div class="summary-item" style="margin-left: 15px;"><span class="unpaid">• Unpaid Invoices:</span> Rs.{{ number_format($total_unpaid_invoices, 2) }}</div>
         <div class="summary-item"><strong>Total Expenses:</strong> Rs.{{ number_format($total_expenses, 2) }}</div>
         <div class="summary-item"><strong>Total Salaries Released:</strong> Rs.{{ number_format($total_salaries, 2) }}</div>
-        <div class="summary-item"><strong>Total Bonuses:</strong> Rs.{{ number_format($total_bonuses, 2) }} <em>(Separate from net income)</em></div>
-        <div class="summary-item" style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #001F3F;"><strong>Net Income (Invoices - Expenses - Salaries):</strong> Rs.{{ number_format($net_income, 2) }}</div>
-        <div class="summary-item" style="font-size: 9px; font-style: italic; color: #666;">Note: Bonuses are excluded from net income calculation as they are separate rewards.</div>
+        <div class="summary-item" style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #001F3F;"><strong>Net Income (Paid Invoices - Expenses - Salaries):</strong> Rs.{{ number_format($net_income, 2) }}</div>
+        <div class="summary-item" style="font-size: 9px; font-style: italic; color: #666;">Note: Net income only includes paid invoices. Unpaid invoices are excluded from calculations.</div>
     </div>
 
     <div class="section-title">Invoices ({{ $invoices->count() }})</div>
@@ -162,6 +161,7 @@
                     <th>Month</th>
                     <th>Base</th>
                     <th>Commission</th>
+                    <th>Bonus</th>
                     <th>Deductions</th>
                     <th>Total</th>
                 </tr>
@@ -174,53 +174,24 @@
                         <td>{{ $release->month ? date('M Y', strtotime($release->month . '-01')) : 'N/A' }}</td>
                         <td>Rs.{{ number_format($release->base_salary, 2) }}</td>
                         <td>Rs.{{ number_format($release->commission_amount, 2) }}</td>
+                        <td>Rs.{{ number_format($release->bonus_amount ?? 0, 2) }}</td>
                         <td>Rs.{{ number_format($release->deductions, 2) }}</td>
                         <td>Rs.{{ number_format($release->total_amount, 2) }}</td>
                     </tr>
                 @endforeach
                 <tr class="total-row">
-                    <td colspan="6"><strong>Total</strong></td>
+                    <td colspan="3"><strong>Total</strong></td>
+                    <td><strong>Rs.{{ number_format($salaryReleases->sum('base_salary'), 2) }}</strong></td>
+                    <td><strong>Rs.{{ number_format($salaryReleases->sum('commission_amount'), 2) }}</strong></td>
+                    <td><strong>Rs.{{ number_format($salaryReleases->sum('bonus_amount'), 2) }}</strong></td>
+                    <td><strong>Rs.{{ number_format($salaryReleases->sum('deductions'), 2) }}</strong></td>
                     <td><strong>Rs.{{ number_format($salaryReleases->sum('total_amount'), 2) }}</strong></td>
                 </tr>
             </tbody>
         </table>
-        <p style="font-size: 9px; font-style: italic; margin-top: 5px;">Note: Commissions are from paid invoices only. Bonuses are tracked separately.</p>
+        <p style="font-size: 9px; font-style: italic; margin-top: 5px;">Note: Commissions are from paid invoices only. Bonuses are included in the total amount.</p>
     @else
         <p>No salary releases in this period.</p>
-    @endif
-
-    <div class="section-title">Bonuses ({{ $bonuses->count() }})</div>
-    @if($bonuses->count() > 0)
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Employee</th>
-                    <th>Description</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($bonuses as $bonus)
-                    <tr>
-                        <td>{{ $bonus->date->format('M d, Y') }}</td>
-                        <td>{{ $bonus->employee->name }}</td>
-                        <td>{{ $bonus->description ?? 'Bonus' }}</td>
-                        <td>Rs.{{ number_format($bonus->amount, 2) }}</td>
-                        <td>{{ $bonus->released ? 'Released' : 'Pending' }}</td>
-                    </tr>
-                @endforeach
-                <tr class="total-row">
-                    <td colspan="3"><strong>Total</strong></td>
-                    <td><strong>Rs.{{ number_format($bonuses->sum('amount'), 2) }}</strong></td>
-                    <td></td>
-                </tr>
-            </tbody>
-        </table>
-        <p style="font-size: 9px; font-style: italic; margin-top: 5px;">Note: Bonuses are separate rewards and not included in net income calculation.</p>
-    @else
-        <p>No bonuses in this period.</p>
     @endif
 
     <div class="footer">
