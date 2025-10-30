@@ -30,19 +30,44 @@ class SalaryReleaseController extends Controller
     {
         $request->validate([
             'employee_id' => 'required|exists:employees,id',
+            'month' => 'nullable|string',
         ]);
 
         $employee = Employee::findOrFail($request->employee_id);
         
-        // Calculate commission from PAID invoices only (status = 'Payment Done')
-        $paidInvoices = $employee->invoices()
-            ->where('status', 'Payment Done')
-            ->where('commission_paid', false)
+        // Get the salary release month (current month if not specified)
+        $releaseMonth = $request->month ?? date('Y-m');
+        $releaseMonthEnd = date('Y-m-t', strtotime($releaseMonth . '-01'));
+        
+        // Get all invoices with payments up to the release month
+        $invoices = $employee->invoices()
+            ->with(['payments' => function($query) use ($releaseMonthEnd) {
+                $query->where('payment_date', '<=', $releaseMonthEnd)
+                      ->where('commission_paid', false);
+            }])
             ->get();
         
-        $commissionAmount = $paidInvoices->sum(function($invoice) {
-            return $invoice->calculateCommission();
-        });
+        // Calculate commission based on unpaid payments received up to release month
+        $commissionAmount = 0;
+        $commissionDetails = [];
+        
+        foreach($invoices as $invoice) {
+            $unpaidPayments = $invoice->payments->where('commission_paid', false);
+            if($unpaidPayments->count() > 0) {
+                $paidAmount = $unpaidPayments->sum('amount');
+                $commissionRate = $invoice->commission_rate / 100;
+                $invoiceCommission = $paidAmount * $commissionRate;
+                $commissionAmount += $invoiceCommission;
+                
+                $commissionDetails[] = [
+                    'id' => $invoice->id,
+                    'client' => $invoice->client->name,
+                    'paid_amount' => number_format($paidAmount, 2),
+                    'commission_rate' => $invoice->commission_rate,
+                    'commission' => number_format($invoiceCommission, 2),
+                ];
+            }
+        }
         
         // Get unpaid bonuses
         $bonuses = $employee->bonuses()
@@ -62,14 +87,7 @@ class SalaryReleaseController extends Controller
             'bonus_amount' => number_format($bonusAmount, 2),
             'deductions' => number_format($deductions, 2),
             'total_calculated' => number_format($totalCalculated, 2),
-            'paid_invoices' => $paidInvoices->map(function($invoice) {
-                return [
-                    'id' => $invoice->id,
-                    'client' => $invoice->client->name,
-                    'amount' => number_format($invoice->amount, 2),
-                    'commission' => number_format($invoice->calculateCommission(), 2),
-                ];
-            }),
+            'paid_invoices' => $commissionDetails,
             'bonuses' => $bonuses->map(function($bonus) {
                 return [
                     'id' => $bonus->id,
@@ -103,14 +121,33 @@ class SalaryReleaseController extends Controller
             ])->withInput();
         }
         
-        // Calculate commission from PAID invoices only (status = 'Payment Done')
-        $commissionAmount = $employee->invoices()
-            ->where('status', 'Payment Done')
-            ->where('commission_paid', false)
-            ->get()
-            ->sum(function($invoice) {
-                return $invoice->calculateCommission();
-            });
+        // Get the salary release month end date
+        $releaseMonthEnd = date('Y-m-t', strtotime($validated['month'] . '-01'));
+        
+        // Get all invoices with payments up to the release month
+        $invoices = $employee->invoices()
+            ->with(['payments' => function($query) use ($releaseMonthEnd) {
+                $query->where('payment_date', '<=', $releaseMonthEnd)
+                      ->where('commission_paid', false);
+            }])
+            ->get();
+        
+        // Calculate commission based on unpaid payments received up to release month
+        $commissionAmount = 0;
+        $paymentIds = [];
+        
+        foreach($invoices as $invoice) {
+            $unpaidPayments = $invoice->payments->where('commission_paid', false);
+            if($unpaidPayments->count() > 0) {
+                $paidAmount = $unpaidPayments->sum('amount');
+                $commissionRate = $invoice->commission_rate / 100;
+                $invoiceCommission = $paidAmount * $commissionRate;
+                $commissionAmount += $invoiceCommission;
+                
+                // Collect payment IDs to mark as commission paid
+                $paymentIds = array_merge($paymentIds, $unpaidPayments->pluck('id')->toArray());
+            }
+        }
         
         // Get unpaid bonuses
         $bonusAmount = $employee->bonuses()
@@ -130,11 +167,11 @@ class SalaryReleaseController extends Controller
         
         $salaryRelease = SalaryRelease::create($validated);
         
-        // Mark PAID invoices as commission paid
-        $employee->invoices()
-            ->where('status', 'Payment Done')
-            ->where('commission_paid', false)
-            ->update(['commission_paid' => true]);
+        // Mark payments as commission paid
+        if(!empty($paymentIds)) {
+            \App\Models\Payment::whereIn('id', $paymentIds)
+                ->update(['commission_paid' => true]);
+        }
         
         // Mark bonuses as released
         $employee->bonuses()

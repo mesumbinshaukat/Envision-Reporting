@@ -29,64 +29,89 @@
 
         <div class="bg-white border border-navy-900 rounded-lg overflow-hidden">
             @if($invoices->count() > 0)
-                <table class="min-w-full">
-                    <thead class="bg-navy-900 text-white">
-                        <tr>
-                            <th class="text-left py-3 px-4">Client</th>
-                            <th class="text-left py-3 px-4">Salesperson</th>
-                            <th class="text-left py-3 px-4">Amount</th>
-                            <th class="text-left py-3 px-4">Paid</th>
-                            <th class="text-left py-3 px-4">Remaining</th>
-                            <th class="text-left py-3 px-4">Status</th>
-                            <th class="text-left py-3 px-4">Due Date</th>
-                            <th class="text-left py-3 px-4">Latest Payment</th>
-                            <th class="text-left py-3 px-4">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($invoices as $invoice)
-                            <tr class="border-b">
-                                <td class="py-3 px-4 font-semibold">{{ $invoice->client->name }}</td>
-                                <td class="py-3 px-4">{{ $invoice->employee ? $invoice->employee->name : 'Self' }}</td>
-                                <td class="py-3 px-4">Rs.{{ number_format($invoice->amount, 2) }}</td>
-                                <td class="py-3 px-4 text-green-600 font-semibold">Rs.{{ number_format($invoice->paid_amount, 2) }}</td>
-                                <td class="py-3 px-4 text-red-600 font-semibold">Rs.{{ number_format($invoice->remaining_amount, 2) }}</td>
-                                <td class="py-3 px-4">
-                                    <span class="px-2 py-1 rounded text-sm {{ $invoice->status == 'Payment Done' ? 'bg-green-100 text-green-800' : ($invoice->status == 'Partial Paid' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
-                                        {{ $invoice->status }}
-                                    </span>
-                                </td>
-                                <td class="py-3 px-4">{{ $invoice->due_date ? $invoice->due_date->format('M d, Y') : 'N/A' }}</td>
-                                <td class="py-3 px-4">
-                                    @php
-                                        $latestPayment = $invoice->payments()->latest('payment_date')->first();
-                                    @endphp
-                                    @if($latestPayment)
-                                        <span class="text-blue-600 font-semibold">{{ $latestPayment->payment_date->format('M d, Y') }}</span>
-                                    @else
-                                        <span class="text-gray-400">Not paid yet</span>
-                                    @endif
-                                </td>
-                                <td class="py-3 px-4">
-                                    <div class="flex gap-2">
-                                        @if($invoice->status != 'Payment Done')
-                                            <button onclick="openPaymentModal({{ $invoice->id }}, '{{ $invoice->client->name }}', {{ $invoice->amount }}, {{ $invoice->paid_amount }}, {{ $invoice->remaining_amount > 0 ? $invoice->remaining_amount : $invoice->amount }})" class="text-green-600 hover:underline font-semibold">Pay</button>
-                                        @endif
-                                        <a href="{{ route('invoices.show', $invoice) }}" class="text-navy-900 hover:underline">View</a>
-                                        <a href="{{ route('invoices.pdf', $invoice) }}" class="text-navy-900 hover:underline">PDF</a>
-                                        <a href="{{ route('invoices.edit', $invoice) }}" class="text-navy-900 hover:underline">Edit</a>
-                                        <form method="POST" action="{{ route('invoices.destroy', $invoice) }}" class="inline" onsubmit="return confirm('Are you sure?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:underline">Delete</button>
-                                        </form>
-                                    </div>
-                                </td>
+                <!-- Mobile scroll hint -->
+                <div class="md:hidden bg-blue-50 border-b border-blue-200 px-4 py-2 text-xs text-blue-800">
+                    <span class="flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+                        </svg>
+                        Scroll horizontally to view all columns
+                    </span>
+                </div>
+                
+                <!-- Responsive table wrapper with horizontal scroll -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-navy-900 text-white">
+                            <tr>
+                                <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Client</th>
+                                <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Salesperson</th>
+                                <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Amount</th>
+                                <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Paid</th>
+                                <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Remaining</th>
+                                <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Status</th>
+                                <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Due Date</th>
+                                <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Latest Payment</th>
+                                <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Actions</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-                <div class="p-4">{{ $invoices->links() }}</div>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach($invoices as $invoice)
+                                <tr class="hover:bg-gray-50">
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">
+                                        <div class="font-semibold whitespace-nowrap">
+                                            @if($invoice->is_one_time)
+                                                <span class="text-blue-600">{{ Str::limit($invoice->one_time_client_name, 20) }}</span>
+                                                <span class="text-xs text-gray-500 block md:inline md:ml-1">(One-Time)</span>
+                                            @else
+                                                {{ Str::limit($invoice->client->name, 20) }}
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm whitespace-nowrap">{{ $invoice->employee ? Str::limit($invoice->employee->name, 15) : 'Self' }}</td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm whitespace-nowrap">Rs.{{ number_format($invoice->amount, 2) }}</td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm text-green-600 font-semibold whitespace-nowrap">Rs.{{ number_format($invoice->paid_amount, 2) }}</td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm text-red-600 font-semibold whitespace-nowrap">Rs.{{ number_format($invoice->remaining_amount, 2) }}</td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">
+                                        <span class="px-2 py-1 rounded text-xs whitespace-nowrap {{ $invoice->status == 'Payment Done' ? 'bg-green-100 text-green-800' : ($invoice->status == 'Partial Paid' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
+                                            {{ $invoice->status }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm whitespace-nowrap">{{ $invoice->due_date ? $invoice->due_date->format('M d, Y') : 'N/A' }}</td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm whitespace-nowrap">
+                                        @php
+                                            $latestPayment = $invoice->payments()->latest('payment_date')->first();
+                                        @endphp
+                                        @if($latestPayment)
+                                            <span class="text-blue-600 font-semibold">{{ $latestPayment->payment_date->format('M d, Y') }}</span>
+                                        @else
+                                            <span class="text-gray-400 text-xs">Not paid yet</span>
+                                        @endif
+                                    </td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">
+                                        <div class="flex flex-col md:flex-row gap-1 md:gap-2 whitespace-nowrap">
+                                            @if($invoice->status != 'Payment Done')
+                                                <button onclick="openPaymentModal({{ $invoice->id }}, '{{ $invoice->is_one_time ? addslashes($invoice->one_time_client_name) : addslashes($invoice->client->name) }}', {{ $invoice->amount }}, {{ $invoice->paid_amount }}, {{ $invoice->remaining_amount > 0 ? $invoice->remaining_amount : $invoice->amount }})" class="text-green-600 hover:underline font-semibold text-xs">Pay</button>
+                                            @endif
+                                            <a href="{{ route('invoices.show', $invoice) }}" class="text-navy-900 hover:underline text-xs">View</a>
+                                            <a href="{{ route('invoices.pdf', $invoice) }}" class="text-navy-900 hover:underline text-xs">PDF</a>
+                                            <a href="{{ route('invoices.edit', $invoice) }}" class="text-navy-900 hover:underline text-xs">Edit</a>
+                                            <form method="POST" action="{{ route('invoices.destroy', $invoice) }}" class="inline" onsubmit="return confirm('Are you sure?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:underline text-xs">Delete</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <div class="px-4 py-3 border-t border-gray-200 bg-gray-50">
+                    {{ $invoices->appends(request()->query())->links() }}</div>
             @else
                 <div class="p-8 text-center text-gray-600">
                     <p>No invoices found.</p>

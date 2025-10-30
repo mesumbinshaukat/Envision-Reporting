@@ -95,16 +95,20 @@
                         @php
                             $allTransactions = collect();
                             
+                            // Add payments (not invoices) to transactions
                             foreach($reportData['invoices'] as $invoice) {
-                                $allTransactions->push([
-                                    'date' => $invoice->created_at,
-                                    'type' => 'Invoice',
-                                    'description' => 'Invoice #' . $invoice->id,
-                                    'related' => $invoice->client->name . ($invoice->employee ? ' (via ' . $invoice->employee->name . ')' : ''),
-                                    'status' => $invoice->status,
-                                    'amount' => $invoice->amount,
-                                    'is_income' => true,
-                                ]);
+                                foreach($invoice->payments as $payment) {
+                                    $clientName = $invoice->is_one_time ? $invoice->one_time_client_name : $invoice->client->name;
+                                    $allTransactions->push([
+                                        'date' => $payment->payment_date,
+                                        'type' => 'Payment',
+                                        'description' => 'Payment for Invoice #' . $invoice->id,
+                                        'related' => $clientName . ($invoice->employee ? ' (via ' . $invoice->employee->name . ')' : ''),
+                                        'status' => 'Received',
+                                        'amount' => $payment->amount,
+                                        'is_income' => true,
+                                    ]);
+                                }
                             }
                             
                             foreach($reportData['expenses'] as $expense) {

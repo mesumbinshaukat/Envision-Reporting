@@ -65,10 +65,11 @@
                         $paymentDates = $paymentsInPeriod->pluck('payment_date')->map(function($date) {
                             return $date->format('M d');
                         })->join(', ');
+                        $clientName = $invoice->is_one_time ? $invoice->one_time_client_name : $invoice->client->name;
                     @endphp
                     <tr>
                         <td>{{ $invoice->created_at->format('M d, Y') }}</td>
-                        <td>{{ $invoice->client->name }}</td>
+                        <td>{{ $clientName }}</td>
                         <td>{{ $invoice->employee ? $invoice->employee->name : 'Self' }}</td>
                         <td>Rs.{{ number_format($invoice->amount, 2) }}</td>
                         <td>Rs.{{ number_format($totalPaidInPeriod, 2) }}</td>
@@ -109,10 +110,11 @@
                         $paymentDates = $paymentsInPeriod->pluck('payment_date')->map(function($date) {
                             return $date->format('M d');
                         })->join(', ');
+                        $clientName = $invoice->is_one_time ? $invoice->one_time_client_name : $invoice->client->name;
                     @endphp
                     <tr>
                         <td>{{ $invoice->created_at->format('M d, Y') }}</td>
-                        <td>{{ $invoice->client->name }}</td>
+                        <td>{{ $clientName }}</td>
                         <td>{{ $invoice->employee ? $invoice->employee->name : 'Self' }}</td>
                         <td>Rs.{{ number_format($invoice->amount, 2) }}</td>
                         <td>Rs.{{ number_format($totalPaidInPeriod, 2) }}</td>

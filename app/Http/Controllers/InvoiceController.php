@@ -20,8 +20,10 @@ class InvoiceController extends Controller
         
         if ($request->has('search')) {
             $search = $request->search;
-            $query->whereHas('client', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
+            $query->where(function($q) use ($search) {
+                $q->whereHas('client', function($subQ) use ($search) {
+                    $subQ->where('name', 'like', "%{$search}%");
+                })->orWhere('one_time_client_name', 'like', "%{$search}%");
             });
         }
         
@@ -52,20 +54,48 @@ class InvoiceController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
+        // Check if it's a one-time invoice or new client creation
+        $isOneTime = $request->has('is_one_time') && $request->is_one_time;
+        $isNewClient = $request->client_id === 'new_client';
+        
+        $rules = [
             'employee_id' => 'nullable|exists:employees,id',
             'status' => 'required|in:Pending,Partial Paid,Payment Done',
             'due_date' => 'nullable|date',
             'amount' => 'required|numeric|min:0',
             'tax' => 'nullable|numeric|min:0',
             'special_note' => 'nullable|string',
-        ]);
+        ];
+        
+        if ($isOneTime) {
+            $rules['one_time_client_name'] = 'required|string|max:255';
+        } elseif ($isNewClient) {
+            $rules['new_client_name'] = 'required|string|max:255';
+        } else {
+            $rules['client_id'] = 'required|exists:clients,id';
+        }
+        
+        $validated = $request->validate($rules);
+        
+        // Handle new client creation
+        if ($isNewClient && !$isOneTime) {
+            $client = \App\Models\Client::create([
+                'user_id' => auth()->id(),
+                'name' => $request->new_client_name,
+            ]);
+            $validated['client_id'] = $client->id;
+        }
         
         $validated['user_id'] = auth()->id();
         $validated['tax'] = $validated['tax'] ?? 0;
         $validated['paid_amount'] = 0;
         $validated['remaining_amount'] = $validated['amount'];
+        $validated['is_one_time'] = $isOneTime;
+        
+        // Set client_id to null for one-time invoices
+        if ($isOneTime) {
+            $validated['client_id'] = null;
+        }
         
         Invoice::create($validated);
         

@@ -34,9 +34,14 @@
             </td>
             <td width="50%">
                 <div class="label">To:</div>
-                <div>{{ $invoice->client->name }}</div>
-                <div>{{ $invoice->client->email }}</div>
-                <div>{{ $invoice->client->primary_contact }}</div>
+                @if($invoice->is_one_time)
+                    <div>{{ $invoice->one_time_client_name }}</div>
+                    <div style="font-size: 12px; color: #666;">(One-Time Project)</div>
+                @else
+                    <div>{{ $invoice->client->name }}</div>
+                    <div>{{ $invoice->client->email }}</div>
+                    <div>{{ $invoice->client->primary_contact }}</div>
+                @endif
             </td>
         </tr>
         <tr>

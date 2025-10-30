@@ -100,6 +100,7 @@
     <script>
         function updatePreview() {
             const employeeId = document.getElementById('employee_id').value;
+            const month = document.getElementById('month').value;
             const deductions = document.getElementById('deductions').value || 0;
             
             if (!employeeId) {
@@ -115,6 +116,7 @@
                 },
                 body: JSON.stringify({
                     employee_id: employeeId,
+                    month: month,
                     deductions: deductions
                 })
             })
@@ -132,11 +134,11 @@
                 if (data.paid_invoices.length > 0) {
                     invoiceHtml = '<ul class="list-disc list-inside">';
                     data.paid_invoices.forEach(invoice => {
-                        invoiceHtml += `<li>${invoice.client}: Rs.${invoice.amount} (Commission: Rs.${invoice.commission})</li>`;
+                        invoiceHtml += `<li>${invoice.client}: Rs.${invoice.paid_amount} paid (${invoice.commission_rate}% commission = Rs.${invoice.commission})</li>`;
                     });
                     invoiceHtml += '</ul>';
                 } else {
-                    invoiceHtml = '<p class="text-gray-500">No paid invoices with unpaid commissions</p>';
+                    invoiceHtml = '<p class="text-gray-500">No payments with unpaid commissions up to this month</p>';
                 }
                 document.getElementById('invoice_list').innerHTML = invoiceHtml;
                 
@@ -161,6 +163,9 @@
             if (document.getElementById('employee_id').value) {
                 updatePreview();
             }
+            
+            // Add event listener for month field
+            document.getElementById('month').addEventListener('change', updatePreview);
         });
     </script>
 </x-app-layout>

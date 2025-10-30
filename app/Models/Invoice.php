@@ -23,6 +23,8 @@ class Invoice extends Model
         'tax',
         'special_note',
         'commission_paid',
+        'is_one_time',
+        'one_time_client_name',
     ];
 
     protected $casts = [
@@ -57,5 +59,13 @@ class Invoice extends Model
             return $netAmount * ($this->employee->commission_rate / 100);
         }
         return 0;
+    }
+    
+    public function getClientNameAttribute()
+    {
+        if ($this->is_one_time) {
+            return $this->one_time_client_name ?? 'One-Time Project';
+        }
+        return $this->client ? $this->client->name : 'N/A';
     }
 }

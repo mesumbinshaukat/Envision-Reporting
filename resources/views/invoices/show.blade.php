@@ -15,7 +15,14 @@
             <div class="grid grid-cols-2 gap-6">
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Client</h3>
-                    <p class="text-lg text-navy-900">{{ $invoice->client->name }}</p>
+                    <p class="text-lg text-navy-900">
+                        @if($invoice->is_one_time)
+                            {{ $invoice->one_time_client_name }}
+                            <span class="text-xs text-gray-500">(One-Time Project)</span>
+                        @else
+                            {{ $invoice->client->name }}
+                        @endif
+                    </p>
                 </div>
 
                 <div>

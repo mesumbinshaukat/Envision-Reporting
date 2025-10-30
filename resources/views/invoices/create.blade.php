@@ -7,14 +7,36 @@
         <form method="POST" action="{{ route('invoices.store') }}" class="bg-white border border-navy-900 rounded-lg p-6 space-y-4">
             @csrf
 
+            <!-- One-Time Invoice Checkbox -->
             <div>
+                <label class="flex items-center">
+                    <input type="checkbox" name="is_one_time" id="is_one_time" value="1" {{ old('is_one_time') ? 'checked' : '' }} class="mr-2" onchange="toggleOneTimeInvoice()">
+                    <span class="text-sm font-semibold text-navy-900">One-Time Project (No Regular Client)</span>
+                </label>
+            </div>
+
+            <!-- Client Selection -->
+            <div id="client_section">
                 <label for="client_id" class="block text-sm font-semibold text-navy-900 mb-1">Client *</label>
-                <select name="client_id" id="client_id" required class="w-full px-4 py-2 border border-navy-900 rounded">
+                <select name="client_id" id="client_id" class="w-full px-4 py-2 border border-navy-900 rounded" onchange="toggleNewClientField()">
                     <option value="">Select Client...</option>
+                    <option value="new_client" style="background-color: #f0f9ff; font-weight: bold;">➕ Create New Client</option>
                     @foreach($clients as $client)
                         <option value="{{ $client->id }}" {{ old('client_id') == $client->id ? 'selected' : '' }}>{{ $client->name }}</option>
                     @endforeach
                 </select>
+            </div>
+
+            <!-- New Client Name Field (Hidden by default) -->
+            <div id="new_client_section" style="display: none;">
+                <label for="new_client_name" class="block text-sm font-semibold text-navy-900 mb-1">New Client Name *</label>
+                <input type="text" name="new_client_name" id="new_client_name" value="{{ old('new_client_name') }}" class="w-full px-4 py-2 border border-navy-900 rounded" placeholder="Enter client name">
+            </div>
+
+            <!-- One-Time Client Name Field (Hidden by default) -->
+            <div id="one_time_client_section" style="display: none;">
+                <label for="one_time_client_name" class="block text-sm font-semibold text-navy-900 mb-1">Project/Client Name *</label>
+                <input type="text" name="one_time_client_name" id="one_time_client_name" value="{{ old('one_time_client_name') }}" class="w-full px-4 py-2 border border-navy-900 rounded" placeholder="Enter project or client name">
             </div>
 
             <div>
@@ -76,4 +98,55 @@
             </div>
         </form>
     </div>
+
+    <script>
+        function toggleOneTimeInvoice() {
+            const isOneTime = document.getElementById('is_one_time').checked;
+            const clientSection = document.getElementById('client_section');
+            const oneTimeSection = document.getElementById('one_time_client_section');
+            const newClientSection = document.getElementById('new_client_section');
+            const clientSelect = document.getElementById('client_id');
+            const oneTimeInput = document.getElementById('one_time_client_name');
+            
+            if (isOneTime) {
+                clientSection.style.display = 'none';
+                oneTimeSection.style.display = 'block';
+                newClientSection.style.display = 'none';
+                clientSelect.required = false;
+                clientSelect.value = '';
+                oneTimeInput.required = true;
+            } else {
+                clientSection.style.display = 'block';
+                oneTimeSection.style.display = 'none';
+                clientSelect.required = true;
+                oneTimeInput.required = false;
+                oneTimeInput.value = '';
+            }
+        }
+        
+        function toggleNewClientField() {
+            const clientSelect = document.getElementById('client_id');
+            const newClientSection = document.getElementById('new_client_section');
+            const newClientInput = document.getElementById('new_client_name');
+            
+            if (clientSelect.value === 'new_client') {
+                newClientSection.style.display = 'block';
+                newClientInput.required = true;
+            } else {
+                newClientSection.style.display = 'none';
+                newClientInput.required = false;
+                newClientInput.value = '';
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('is_one_time').checked) {
+                toggleOneTimeInvoice();
+            }
+            if (document.getElementById('client_id').value === 'new_client') {
+                toggleNewClientField();
+            }
+        });
+    </script>
 </x-app-layout>
