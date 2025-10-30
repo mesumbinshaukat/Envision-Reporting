@@ -20,10 +20,23 @@ class ReportController extends Controller
                 'date_to' => 'required|date|after_or_equal:date_from',
             ]);
             
+            // Get invoices that have payments in the selected date range
             $invoices = $user->invoices()
-                ->with(['client', 'employee'])
-                ->whereBetween('created_at', [$validated['date_from'], $validated['date_to']])
+                ->with(['client', 'employee', 'payments'])
+                ->whereHas('payments', function($query) use ($validated) {
+                    $query->whereBetween('payment_date', [$validated['date_from'], $validated['date_to']]);
+                })
                 ->get();
+            
+            // Filter payments within the date range for each invoice
+            $invoices->each(function($invoice) use ($validated) {
+                $invoice->setRelation('payments', 
+                    $invoice->payments->filter(function($payment) use ($validated) {
+                        return $payment->payment_date >= $validated['date_from'] 
+                            && $payment->payment_date <= $validated['date_to'];
+                    })
+                );
+            });
             
             $expenses = $user->expenses()
                 ->whereBetween('date', [$validated['date_from'], $validated['date_to']])
@@ -39,27 +52,33 @@ class ReportController extends Controller
                 ->whereBetween('date', [$validated['date_from'], $validated['date_to']])
                 ->get();
             
-            // Separate paid and unpaid invoices
+            // Calculate total payments made in this date range
+            $totalPaymentsInRange = $invoices->sum(function($invoice) {
+                return $invoice->payments->sum('amount');
+            });
+            
+            // Separate invoices by status
             $paidInvoices = $invoices->where('status', 'Payment Done');
-            $unpaidInvoices = $invoices->whereIn('status', ['Pending', 'Partial Paid']);
+            $partialPaidInvoices = $invoices->where('status', 'Partial Paid');
+            $pendingInvoices = $invoices->where('status', 'Pending');
             
             $reportData = [
                 'date_from' => $validated['date_from'],
                 'date_to' => $validated['date_to'],
                 'invoices' => $invoices,
                 'paid_invoices' => $paidInvoices,
-                'unpaid_invoices' => $unpaidInvoices,
+                'partial_paid_invoices' => $partialPaidInvoices,
+                'pending_invoices' => $pendingInvoices,
                 'expenses' => $expenses,
                 'salaryReleases' => $salaryReleases,
                 'bonuses' => $bonuses,
+                'total_payments_in_range' => $totalPaymentsInRange,
                 'total_invoices' => $invoices->sum('amount'),
-                'total_paid_invoices' => $paidInvoices->sum('amount'),
-                'total_unpaid_invoices' => $unpaidInvoices->sum('amount'),
                 'total_expenses' => $expenses->sum('amount'),
                 'total_salaries' => $salaryReleases->sum('total_amount'),
                 'total_bonuses' => $bonuses->sum('amount'),
-                // Net Income = ONLY Paid Invoices - Expenses - Salaries (unpaid invoices excluded)
-                'net_income' => $paidInvoices->sum('amount') - $expenses->sum('amount') - $salaryReleases->sum('total_amount'),
+                // Net Income = Payments received in date range - Expenses - Salaries
+                'net_income' => $totalPaymentsInRange - $expenses->sum('amount') - $salaryReleases->sum('total_amount'),
             ];
         }
         
@@ -75,10 +94,23 @@ class ReportController extends Controller
         
         $user = auth()->user();
         
+        // Get invoices that have payments in the selected date range
         $invoices = $user->invoices()
-            ->with(['client', 'employee'])
-            ->whereBetween('created_at', [$validated['date_from'], $validated['date_to']])
+            ->with(['client', 'employee', 'payments'])
+            ->whereHas('payments', function($query) use ($validated) {
+                $query->whereBetween('payment_date', [$validated['date_from'], $validated['date_to']]);
+            })
             ->get();
+        
+        // Filter payments within the date range for each invoice
+        $invoices->each(function($invoice) use ($validated) {
+            $invoice->setRelation('payments', 
+                $invoice->payments->filter(function($payment) use ($validated) {
+                    return $payment->payment_date >= $validated['date_from'] 
+                        && $payment->payment_date <= $validated['date_to'];
+                })
+            );
+        });
         
         $expenses = $user->expenses()
             ->whereBetween('date', [$validated['date_from'], $validated['date_to']])
@@ -94,9 +126,15 @@ class ReportController extends Controller
             ->whereBetween('date', [$validated['date_from'], $validated['date_to']])
             ->get();
         
-        // Separate paid and unpaid invoices
+        // Calculate total payments made in this date range
+        $totalPaymentsInRange = $invoices->sum(function($invoice) {
+            return $invoice->payments->sum('amount');
+        });
+        
+        // Separate invoices by status
         $paidInvoices = $invoices->where('status', 'Payment Done');
-        $unpaidInvoices = $invoices->whereIn('status', ['Pending', 'Partial Paid']);
+        $partialPaidInvoices = $invoices->where('status', 'Partial Paid');
+        $pendingInvoices = $invoices->where('status', 'Pending');
         
         $data = [
             'user' => $user,
@@ -104,18 +142,18 @@ class ReportController extends Controller
             'date_to' => $validated['date_to'],
             'invoices' => $invoices,
             'paid_invoices' => $paidInvoices,
-            'unpaid_invoices' => $unpaidInvoices,
+            'partial_paid_invoices' => $partialPaidInvoices,
+            'pending_invoices' => $pendingInvoices,
             'expenses' => $expenses,
             'salaryReleases' => $salaryReleases,
             'bonuses' => $bonuses,
+            'total_payments_in_range' => $totalPaymentsInRange,
             'total_invoices' => $invoices->sum('amount'),
-            'total_paid_invoices' => $paidInvoices->sum('amount'),
-            'total_unpaid_invoices' => $unpaidInvoices->sum('amount'),
             'total_expenses' => $expenses->sum('amount'),
             'total_salaries' => $salaryReleases->sum('total_amount'),
             'total_bonuses' => $bonuses->sum('amount'),
-            // Net Income = ONLY Paid Invoices - Expenses - Salaries (unpaid invoices excluded)
-            'net_income' => $paidInvoices->sum('amount') - $expenses->sum('amount') - $salaryReleases->sum('total_amount'),
+            // Net Income = Payments received in date range - Expenses - Salaries
+            'net_income' => $totalPaymentsInRange - $expenses->sum('amount') - $salaryReleases->sum('total_amount'),
         ];
         
         $pdf = Pdf::loadView('reports.audit-pdf', $data);

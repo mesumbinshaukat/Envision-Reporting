@@ -36,20 +36,6 @@
             </div>
 
             <div>
-                <label for="release_type" class="block text-sm font-semibold text-navy-900 mb-1">Release Type *</label>
-                <select name="release_type" id="release_type" required class="w-full px-4 py-2 border border-navy-900 rounded" onchange="togglePartialAmount()">
-                    <option value="full" {{ old('release_type') == 'full' ? 'selected' : '' }}>Full</option>
-                    <option value="partial" {{ old('release_type') == 'partial' ? 'selected' : '' }}>Partial</option>
-                </select>
-            </div>
-
-            <div id="partial_amount_field" style="display: none;">
-                <label for="partial_amount" class="block text-sm font-semibold text-navy-900 mb-1">Partial Amount *</label>
-                <input type="number" name="partial_amount" id="partial_amount" value="{{ old('partial_amount') }}" step="0.01" min="0" class="w-full px-4 py-2 border border-navy-900 rounded">
-                <p class="text-sm text-gray-600 mt-1">Enter amount to release (must be ≤ total calculated)</p>
-            </div>
-
-            <div>
                 <label for="notes" class="block text-sm font-semibold text-navy-900 mb-1">Notes</label>
                 <textarea name="notes" id="notes" rows="3" class="w-full px-4 py-2 border border-navy-900 rounded">{{ old('notes') }}</textarea>
             </div>
@@ -61,13 +47,13 @@
                 <div class="space-y-4">
                     <div class="flex justify-between border-b border-gray-300 pb-2">
                         <span class="font-semibold text-navy-900">Base Salary:</span>
-                        <span id="preview_base" class="text-navy-900">$0.00</span>
+                        <span id="preview_base" class="text-navy-900">Rs.0.00</span>
                     </div>
 
                     <div>
                         <div class="flex justify-between border-b border-gray-300 pb-2">
                             <span class="font-semibold text-navy-900">Commission from paid invoices:</span>
-                            <span id="preview_commission" class="text-navy-900">$0.00</span>
+                            <span id="preview_commission" class="text-navy-900">Rs.0.00</span>
                         </div>
                         <div id="invoice_list" class="ml-4 mt-2 text-sm text-gray-700"></div>
                     </div>
@@ -75,25 +61,21 @@
                     <div>
                         <div class="flex justify-between border-b border-gray-300 pb-2">
                             <span class="font-semibold text-navy-900">Bonuses (with salary):</span>
-                            <span id="preview_bonus" class="text-navy-900">$0.00</span>
+                            <span id="preview_bonus" class="text-navy-900">Rs.0.00</span>
                         </div>
                         <div id="bonus_list" class="ml-4 mt-2 text-sm text-gray-700"></div>
                     </div>
 
                     <div class="flex justify-between border-b border-gray-300 pb-2">
                         <span class="font-semibold text-navy-900">Deductions:</span>
-                        <span id="preview_deductions" class="text-navy-900">$0.00</span>
+                        <span id="preview_deductions" class="text-navy-900">Rs.0.00</span>
                     </div>
 
                     <div class="flex justify-between border-t-2 border-navy-900 pt-4 mt-4">
                         <span class="font-bold text-lg text-navy-900">Total Calculated:</span>
-                        <span id="preview_total" class="font-bold text-lg text-navy-900">$0.00</span>
+                        <span id="preview_total" class="font-bold text-lg text-navy-900">Rs.0.00</span>
                     </div>
 
-                    <div id="partial_preview" style="display: none;" class="flex justify-between bg-yellow-50 p-3 rounded">
-                        <span class="font-bold text-navy-900">Partial Amount to Release:</span>
-                        <span id="preview_partial" class="font-bold text-navy-900">$0.00</span>
-                    </div>
                 </div>
             </div>
 
@@ -104,6 +86,7 @@
                     <li>• Commission from paid invoices only (status = 'Payment Done')</li>
                     <li>• Bonuses marked "with salary" that are not yet released</li>
                     <li>• Minus any deductions entered above</li>
+                    <li>• <strong>Full calculated amount will be released</strong></li>
                 </ul>
             </div>
 
@@ -115,24 +98,6 @@
     </div>
 
     <script>
-        let totalCalculated = 0;
-
-        function togglePartialAmount() {
-            const releaseType = document.getElementById('release_type').value;
-            const partialField = document.getElementById('partial_amount_field');
-            const partialPreview = document.getElementById('partial_preview');
-            const partialInput = document.getElementById('partial_amount');
-            
-            if (releaseType === 'partial') {
-                partialField.style.display = 'block';
-                partialInput.required = true;
-            } else {
-                partialField.style.display = 'none';
-                partialInput.required = false;
-                partialPreview.style.display = 'none';
-            }
-        }
-
         function updatePreview() {
             const employeeId = document.getElementById('employee_id').value;
             const deductions = document.getElementById('deductions').value || 0;
@@ -156,20 +121,18 @@
             .then(response => response.json())
             .then(data => {
                 document.getElementById('preview_section').style.display = 'block';
-                document.getElementById('preview_base').textContent = '$' + data.base_salary;
-                document.getElementById('preview_commission').textContent = '$' + data.commission_amount;
-                document.getElementById('preview_bonus').textContent = '$' + data.bonus_amount;
-                document.getElementById('preview_deductions').textContent = '$' + data.deductions;
-                document.getElementById('preview_total').textContent = '$' + data.total_calculated;
-                
-                totalCalculated = parseFloat(data.total_calculated.replace(/,/g, ''));
+                document.getElementById('preview_base').textContent = 'Rs.' + data.base_salary;
+                document.getElementById('preview_commission').textContent = 'Rs.' + data.commission_amount;
+                document.getElementById('preview_bonus').textContent = 'Rs.' + data.bonus_amount;
+                document.getElementById('preview_deductions').textContent = 'Rs.' + data.deductions;
+                document.getElementById('preview_total').textContent = 'Rs.' + data.total_calculated;
                 
                 // Update invoice list
                 let invoiceHtml = '';
                 if (data.paid_invoices.length > 0) {
                     invoiceHtml = '<ul class="list-disc list-inside">';
                     data.paid_invoices.forEach(invoice => {
-                        invoiceHtml += `<li>${invoice.client}: $${invoice.amount} (Commission: $${invoice.commission})</li>`;
+                        invoiceHtml += `<li>${invoice.client}: Rs.${invoice.amount} (Commission: Rs.${invoice.commission})</li>`;
                     });
                     invoiceHtml += '</ul>';
                 } else {
@@ -182,35 +145,19 @@
                 if (data.bonuses.length > 0) {
                     bonusHtml = '<ul class="list-disc list-inside">';
                     data.bonuses.forEach(bonus => {
-                        bonusHtml += `<li>${bonus.description}: $${bonus.amount}</li>`;
+                        bonusHtml += `<li>${bonus.description}: Rs.${bonus.amount}</li>`;
                     });
                     bonusHtml += '</ul>';
                 } else {
                     bonusHtml = '<p class="text-gray-500">No unreleased bonuses</p>';
                 }
                 document.getElementById('bonus_list').innerHTML = bonusHtml;
-                
-                // Set max for partial amount
-                document.getElementById('partial_amount').max = totalCalculated;
             })
             .catch(error => console.error('Error:', error));
         }
 
-        document.getElementById('partial_amount').addEventListener('input', function() {
-            const partialAmount = parseFloat(this.value) || 0;
-            const partialPreview = document.getElementById('partial_preview');
-            
-            if (document.getElementById('release_type').value === 'partial' && partialAmount > 0) {
-                partialPreview.style.display = 'flex';
-                document.getElementById('preview_partial').textContent = '$' + partialAmount.toFixed(2);
-            } else {
-                partialPreview.style.display = 'none';
-            }
-        });
-
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            togglePartialAmount();
             if (document.getElementById('employee_id').value) {
                 updatePreview();
             }

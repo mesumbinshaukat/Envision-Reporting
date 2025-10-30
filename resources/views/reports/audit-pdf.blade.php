@@ -31,13 +31,15 @@
 
     <div class="summary-box">
         <div class="section-title">Executive Summary</div>
-        <div class="summary-item"><strong>Total Invoices:</strong> Rs.{{ number_format($total_invoices, 2) }}</div>
-        <div class="summary-item" style="margin-left: 15px;"><span class="paid">• Paid Invoices:</span> Rs.{{ number_format($total_paid_invoices, 2) }}</div>
-        <div class="summary-item" style="margin-left: 15px;"><span class="unpaid">• Unpaid Invoices:</span> Rs.{{ number_format($total_unpaid_invoices, 2) }}</div>
-        <div class="summary-item"><strong>Total Expenses:</strong> Rs.{{ number_format($total_expenses, 2) }}</div>
-        <div class="summary-item"><strong>Total Salaries Released:</strong> Rs.{{ number_format($total_salaries, 2) }}</div>
-        <div class="summary-item" style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #001F3F;"><strong>Net Income (Paid Invoices - Expenses - Salaries):</strong> Rs.{{ number_format($net_income, 2) }}</div>
-        <div class="summary-item" style="font-size: 9px; font-style: italic; color: #666;">Note: Net income only includes paid invoices. Unpaid invoices are excluded from calculations.</div>
+        <div class="summary">
+            <div class="summary-item"><strong>Payments Received in Period:</strong> Rs.{{ number_format($total_payments_in_range, 2) }}</div>
+            <div class="summary-item"><strong>From Invoices:</strong> {{ $invoices->count() }} invoice(s)</div>
+            <div class="summary-item"><strong>Total Expenses:</strong> Rs.{{ number_format($total_expenses, 2) }}</div>
+            <div class="summary-item"><strong>Total Salaries:</strong> Rs.{{ number_format($total_salaries, 2) }}</div>
+            <div class="summary-item"><strong>Total Bonuses:</strong> Rs.{{ number_format($total_bonuses, 2) }}</div>
+            <div class="summary-item net-income"><strong>Net Income:</strong> Rs.{{ number_format($net_income, 2) }}</div>
+            <div class="summary-item" style="font-size: 9px; font-style: italic; color: #666;">Note: Net income is based on actual payments received in this period ({{ date('M d, Y', strtotime($date_from)) }} to {{ date('M d, Y', strtotime($date_to)) }}), not invoice creation dates.</div>
+        </div>
     </div>
 
     <div class="section-title">Invoices ({{ $invoices->count() }})</div>
@@ -47,30 +49,36 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Date</th>
+                    <th>Invoice Date</th>
                     <th>Client</th>
                     <th>Salesperson</th>
-                    <th>Amount</th>
-                    <th>Tax</th>
-                    <th>Net</th>
+                    <th>Invoice Total</th>
+                    <th>Paid in Period</th>
+                    <th>Payment Dates</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($paid_invoices as $invoice)
+                    @php
+                        $paymentsInPeriod = $invoice->payments;
+                        $totalPaidInPeriod = $paymentsInPeriod->sum('amount');
+                        $paymentDates = $paymentsInPeriod->pluck('payment_date')->map(function($date) {
+                            return $date->format('M d');
+                        })->join(', ');
+                    @endphp
                     <tr>
                         <td>{{ $invoice->created_at->format('M d, Y') }}</td>
                         <td>{{ $invoice->client->name }}</td>
                         <td>{{ $invoice->employee ? $invoice->employee->name : 'Self' }}</td>
                         <td>Rs.{{ number_format($invoice->amount, 2) }}</td>
-                        <td>Rs.{{ number_format($invoice->tax, 2) }}</td>
-                        <td>Rs.{{ number_format($invoice->amount - $invoice->tax, 2) }}</td>
+                        <td>Rs.{{ number_format($totalPaidInPeriod, 2) }}</td>
+                        <td>{{ $paymentDates }}</td>
                     </tr>
                 @endforeach
                 <tr class="total-row">
-                    <td colspan="3"><strong>Paid Subtotal</strong></td>
-                    <td><strong>Rs.{{ number_format($paid_invoices->sum('amount'), 2) }}</strong></td>
-                    <td><strong>Rs.{{ number_format($paid_invoices->sum('tax'), 2) }}</strong></td>
-                    <td><strong>Rs.{{ number_format($paid_invoices->sum('amount') - $paid_invoices->sum('tax'), 2) }}</strong></td>
+                    <td colspan="4"><strong>Total Payments Received</strong></td>
+                    <td><strong>Rs.{{ number_format($paid_invoices->sum(function($inv) { return $inv->payments->sum('amount'); }), 2) }}</strong></td>
+                    <td></td>
                 </tr>
             </tbody>
         </table>
@@ -78,35 +86,45 @@
         <p>No paid invoices in this period.</p>
     @endif
 
-    @if($unpaid_invoices->count() > 0)
-        <div class="subsection-title unpaid">✗ Unpaid Invoices ({{ $unpaid_invoices->count() }})</div>
+    @if($partial_paid_invoices->count() > 0)
+        <div class="subsection-title unpaid">◐ Partial Paid Invoices ({{ $partial_paid_invoices->count() }})</div>
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Date</th>
+                    <th>Invoice Date</th>
                     <th>Client</th>
                     <th>Salesperson</th>
                     <th>Amount</th>
-                    <th>Tax</th>
+                    <th>Paid</th>
+                    <th>Remaining</th>
+                    <th>Latest Payment</th>
                     <th>Status</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($unpaid_invoices as $invoice)
+                @foreach($partial_paid_invoices as $invoice)
+                    @php
+                        $paymentsInPeriod = $invoice->payments;
+                        $totalPaidInPeriod = $paymentsInPeriod->sum('amount');
+                        $paymentDates = $paymentsInPeriod->pluck('payment_date')->map(function($date) {
+                            return $date->format('M d');
+                        })->join(', ');
+                    @endphp
                     <tr>
                         <td>{{ $invoice->created_at->format('M d, Y') }}</td>
                         <td>{{ $invoice->client->name }}</td>
                         <td>{{ $invoice->employee ? $invoice->employee->name : 'Self' }}</td>
                         <td>Rs.{{ number_format($invoice->amount, 2) }}</td>
-                        <td>Rs.{{ number_format($invoice->tax, 2) }}</td>
+                        <td>Rs.{{ number_format($totalPaidInPeriod, 2) }}</td>
+                        <td>Rs.{{ number_format($invoice->remaining_amount, 2) }}</td>
+                        <td>{{ $paymentDates }}</td>
                         <td>{{ $invoice->status }}</td>
                     </tr>
                 @endforeach
                 <tr class="total-row">
-                    <td colspan="3"><strong>Unpaid Subtotal</strong></td>
-                    <td><strong>Rs.{{ number_format($unpaid_invoices->sum('amount'), 2) }}</strong></td>
-                    <td><strong>Rs.{{ number_format($unpaid_invoices->sum('tax'), 2) }}</strong></td>
-                    <td></td>
+                    <td colspan="4"><strong>Partial Paid Subtotal</strong></td>
+                    <td><strong>Rs.{{ number_format($partial_paid_invoices->sum(function($inv) { return $inv->payments->sum('amount'); }), 2) }}</strong></td>
+                    <td colspan="3"></td>
                 </tr>
             </tbody>
         </table>

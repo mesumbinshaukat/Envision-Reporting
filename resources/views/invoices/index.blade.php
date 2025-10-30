@@ -35,9 +35,11 @@
                             <th class="text-left py-3 px-4">Client</th>
                             <th class="text-left py-3 px-4">Salesperson</th>
                             <th class="text-left py-3 px-4">Amount</th>
-                            <th class="text-left py-3 px-4">Tax</th>
+                            <th class="text-left py-3 px-4">Paid</th>
+                            <th class="text-left py-3 px-4">Remaining</th>
                             <th class="text-left py-3 px-4">Status</th>
                             <th class="text-left py-3 px-4">Due Date</th>
+                            <th class="text-left py-3 px-4">Latest Payment</th>
                             <th class="text-left py-3 px-4">Actions</th>
                         </tr>
                     </thead>
@@ -47,13 +49,24 @@
                                 <td class="py-3 px-4 font-semibold">{{ $invoice->client->name }}</td>
                                 <td class="py-3 px-4">{{ $invoice->employee ? $invoice->employee->name : 'Self' }}</td>
                                 <td class="py-3 px-4">Rs.{{ number_format($invoice->amount, 2) }}</td>
-                                <td class="py-3 px-4">Rs.{{ number_format($invoice->tax, 2) }}</td>
+                                <td class="py-3 px-4 text-green-600 font-semibold">Rs.{{ number_format($invoice->paid_amount, 2) }}</td>
+                                <td class="py-3 px-4 text-red-600 font-semibold">Rs.{{ number_format($invoice->remaining_amount, 2) }}</td>
                                 <td class="py-3 px-4">
                                     <span class="px-2 py-1 rounded text-sm {{ $invoice->status == 'Payment Done' ? 'bg-green-100 text-green-800' : ($invoice->status == 'Partial Paid' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
                                         {{ $invoice->status }}
                                     </span>
                                 </td>
                                 <td class="py-3 px-4">{{ $invoice->due_date ? $invoice->due_date->format('M d, Y') : 'N/A' }}</td>
+                                <td class="py-3 px-4">
+                                    @php
+                                        $latestPayment = $invoice->payments()->latest('payment_date')->first();
+                                    @endphp
+                                    @if($latestPayment)
+                                        <span class="text-blue-600 font-semibold">{{ $latestPayment->payment_date->format('M d, Y') }}</span>
+                                    @else
+                                        <span class="text-gray-400">Not paid yet</span>
+                                    @endif
+                                </td>
                                 <td class="py-3 px-4">
                                     <div class="flex gap-2">
                                         @if($invoice->status != 'Payment Done')
@@ -84,9 +97,10 @@
     </div>
 
     <!-- Payment Modal -->
-    <div id="paymentModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md border-2 border-navy-900">
-            <div class="flex justify-between items-center mb-4">
+    <div id="paymentModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div class="bg-white rounded-lg p-6 w-full max-w-3xl border-2 border-navy-900 my-8 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-bold text-navy-900">Pay Invoice</h3>
                 <button onclick="closePaymentModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
             </div>
@@ -95,54 +109,68 @@
                 @csrf
                 @method('PUT')
 
-                <div class="space-y-4">
+                <!-- Invoice Details (Read-only) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div>
                         <label class="block text-sm font-semibold text-navy-900 mb-1">Client</label>
-                        <input type="text" id="modalClientName" readonly class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50">
+                        <input type="text" id="modalClientName" readonly class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50 text-sm">
                     </div>
 
                     <div>
                         <label class="block text-sm font-semibold text-navy-900 mb-1">Total Invoice Amount</label>
-                        <input type="text" id="modalTotalAmount" readonly class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50">
+                        <input type="text" id="modalTotalAmount" readonly class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50 text-sm">
                     </div>
 
                     <div>
                         <label class="block text-sm font-semibold text-navy-900 mb-1">Already Paid</label>
-                        <input type="text" id="modalPaidAmount" readonly class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50">
+                        <input type="text" id="modalPaidAmount" readonly class="w-full px-4 py-2 border border-gray-300 rounded bg-green-50 text-green-700 font-semibold text-sm">
                     </div>
 
                     <div>
                         <label class="block text-sm font-semibold text-navy-900 mb-1">Remaining Amount Due</label>
-                        <input type="text" id="modalRemainingAmount" readonly class="w-full px-4 py-2 border border-gray-300 rounded bg-red-50 font-bold text-red-600">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-navy-900 mb-1">Payment Amount *</label>
-                        <input type="number" name="payment_amount" id="paymentAmount" step="0.01" min="0.01" required class="w-full px-4 py-2 border border-navy-900 rounded" placeholder="Enter amount to pay">
-                        <p class="text-xs text-gray-600 mt-1">Enter the amount you're paying now</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-navy-900 mb-1">Payment Date *</label>
-                        <input type="date" name="payment_date" id="paymentDate" required class="w-full px-4 py-2 border border-navy-900 rounded" value="{{ date('Y-m-d') }}">
-                    </div>
-
-                    <div class="bg-blue-50 border border-blue-200 rounded p-3">
-                        <p class="text-sm text-blue-800">
-                            <strong>Note:</strong> If payment amount equals remaining amount, status will be "Payment Done". If less, status will be "Partial Paid".
-                        </p>
+                        <input type="text" id="modalRemainingAmount" readonly class="w-full px-4 py-2 border border-gray-300 rounded bg-red-50 font-bold text-red-600 text-sm">
                     </div>
                 </div>
 
-                <div class="flex gap-3 mt-6">
-                    <button type="submit" class="flex-1 px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90 font-semibold">
+                <!-- Payment Input Fields -->
+                <div class="border-t border-gray-300 pt-6 mb-6">
+                    <h4 class="text-lg font-semibold text-navy-900 mb-4">Payment Details</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-navy-900 mb-1">Payment Amount *</label>
+                            <input type="number" name="payment_amount" id="paymentAmount" step="0.01" min="0.01" required class="w-full px-4 py-2 border border-navy-900 rounded" placeholder="Enter amount to pay">
+                            <p class="text-xs text-gray-600 mt-1">Enter the amount you're paying now</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-navy-900 mb-1">Payment Date *</label>
+                            <input type="date" name="payment_date" id="paymentDate" required class="w-full px-4 py-2 border border-navy-900 rounded" value="{{ date('Y-m-d') }}">
+                            <p class="text-xs text-gray-600 mt-1">Date when payment was received</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="block text-sm font-semibold text-navy-900 mb-1">Notes (Optional)</label>
+                        <textarea name="notes" id="paymentNotes" rows="2" class="w-full px-4 py-2 border border-navy-900 rounded" placeholder="Add payment notes or milestone details (e.g., '20% upfront', 'Milestone 1 completed')"></textarea>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-6">
+                    <p class="text-sm text-blue-800">
+                        <strong>Note:</strong> If payment amount equals remaining amount, status will be "Payment Done". If less, status will be "Partial Paid".
+                    </p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button type="submit" class="flex-1 px-6 py-3 bg-navy-900 text-white rounded hover:bg-opacity-90 font-semibold">
                         Process Payment
                     </button>
-                    <button type="button" onclick="closePaymentModal()" class="px-6 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">
+                    <button type="button" onclick="closePaymentModal()" class="px-6 py-3 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">
                         Cancel
                     </button>
                 </div>
             </form>
+            </div>
         </div>
     </div>
 
@@ -186,6 +214,13 @@
         // Close modal on escape key
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
+                closePaymentModal();
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('paymentModal').addEventListener('click', function(event) {
+            if (event.target === this) {
                 closePaymentModal();
             }
         });

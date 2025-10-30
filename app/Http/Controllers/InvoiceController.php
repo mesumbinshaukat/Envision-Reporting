@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\Client;
 use App\Models\Employee;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -15,7 +16,7 @@ class InvoiceController extends Controller
     use AuthorizesRequests;
     public function index(Request $request)
     {
-        $query = auth()->user()->invoices()->with(['client', 'employee']);
+        $query = Invoice::with(['client', 'employee', 'payments']);
         
         if ($request->has('search')) {
             $search = $request->search;
@@ -128,8 +129,9 @@ class InvoiceController extends Controller
     {
         $this->authorize('update', $invoice);
         
-        // Calculate remaining amount
-        $remainingAmount = $invoice->remaining_amount > 0 ? $invoice->remaining_amount : $invoice->amount;
+        // Calculate remaining amount from payments
+        $totalPaid = $invoice->payments()->sum('amount');
+        $remainingAmount = $invoice->amount - $totalPaid;
         
         $validated = $request->validate([
             'payment_amount' => [
@@ -139,31 +141,47 @@ class InvoiceController extends Controller
                 'max:' . $remainingAmount
             ],
             'payment_date' => 'required|date',
+            'notes' => 'nullable|string',
         ]);
         
         $paymentAmount = $validated['payment_amount'];
         $paymentDate = $validated['payment_date'];
         
-        // Update paid amount
-        $invoice->paid_amount += $paymentAmount;
+        // Create payment record
+        Payment::create([
+            'invoice_id' => $invoice->id,
+            'user_id' => auth()->id(),
+            'amount' => $paymentAmount,
+            'payment_date' => $paymentDate,
+            'payment_month' => date('Y-m', strtotime($paymentDate)),
+            'notes' => $validated['notes'] ?? null,
+        ]);
         
-        // Calculate new remaining amount
-        $invoice->remaining_amount = $invoice->amount - $invoice->paid_amount;
+        // Recalculate totals
+        $newTotalPaid = $invoice->payments()->sum('amount');
+        $newRemainingAmount = $invoice->amount - $newTotalPaid;
+        
+        // Update invoice paid_amount and remaining_amount
+        $invoice->paid_amount = $newTotalPaid;
+        $invoice->remaining_amount = $newRemainingAmount;
         
         // Update status based on payment
-        if ($invoice->remaining_amount <= 0.01) { // Account for floating point precision
+        if ($newRemainingAmount <= 0.01) { // Account for floating point precision
             $invoice->status = 'Payment Done';
             $invoice->remaining_amount = 0;
         } else {
             $invoice->status = 'Partial Paid';
         }
         
-        // Set payment date and month
-        $invoice->payment_date = $paymentDate;
-        $invoice->payment_month = date('Y-m', strtotime($paymentDate));
+        // Set payment date and month to latest payment
+        $latestPayment = $invoice->payments()->latest('payment_date')->first();
+        if ($latestPayment) {
+            $invoice->payment_date = $latestPayment->payment_date;
+            $invoice->payment_month = $latestPayment->payment_month;
+        }
         
         $invoice->save();
         
-        return redirect()->route('invoices.index')->with('success', 'Payment processed successfully. Status: ' . $invoice->status);
+        return redirect()->route('invoices.index')->with('success', 'Payment of Rs.' . number_format($paymentAmount, 2) . ' recorded successfully. Status: ' . $invoice->status);
     }
 }

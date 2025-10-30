@@ -45,6 +45,11 @@ class Invoice extends Model
         return $this->belongsTo(Employee::class);
     }
 
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
     public function calculateCommission()
     {
         if ($this->employee_id && $this->employee) {
