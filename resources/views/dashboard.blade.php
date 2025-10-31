@@ -41,6 +41,7 @@
                         </thead>
                         <tbody>
                             @foreach($recent_invoices as $invoice)
+                                @if($invoice->client)
                                 <tr class="border-b">
                                     <td class="py-2 px-4">{{ $invoice->client->name }}</td>
                                     <td class="py-2 px-4">{{ $invoice->employee ? $invoice->employee->name : 'Self' }}</td>
@@ -52,6 +53,7 @@
                                     </td>
                                     <td class="py-2 px-4">{{ $invoice->due_date ? $invoice->due_date->format('M d, Y') : 'N/A' }}</td>
                                 </tr>
+                                @endif
                             @endforeach
                         </tbody>
                     </table>

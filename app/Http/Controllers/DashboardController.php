@@ -23,7 +23,7 @@ class DashboardController extends Controller
             'total_employees' => $user->employees()->count(),
             'pending_invoices' => $user->invoices()->where('status', 'Pending')->count(),
             'total_expenses' => $user->expenses()->sum('amount'),
-            'recent_invoices' => $user->invoices()->with(['client', 'employee'])->latest()->take(5)->get(),
+            'recent_invoices' => $user->invoices()->with(['client', 'employee'])->whereHas('client')->latest()->take(5)->get(),
             'recent_expenses' => $user->expenses()->latest()->take(5)->get(),
         ];
         
