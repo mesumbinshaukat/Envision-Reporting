@@ -14,6 +14,7 @@ class Payment extends Model
         'payment_month',
         'notes',
         'commission_paid',
+        'salary_release_id',
     ];
 
     protected $casts = [
@@ -28,5 +29,10 @@ class Payment extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function salaryRelease()
+    {
+        return $this->belongsTo(SalaryRelease::class);
     }
 }

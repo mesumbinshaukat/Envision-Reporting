@@ -30,13 +30,13 @@
             <!-- New Client Name Field (Hidden by default) -->
             <div id="new_client_section" style="display: none;">
                 <label for="new_client_name" class="block text-sm font-semibold text-navy-900 mb-1">New Client Name *</label>
-                <input type="text" name="new_client_name" id="new_client_name" value="{{ old('new_client_name') }}" class="w-full px-4 py-2 border border-navy-900 rounded" placeholder="Enter client name">
+                <input type="text" name="new_client_name" id="new_client_name" value="{{ old('new_client_name') }}" class="w-full px-4 py-2 border border-navy-900 rounded" placeholder="Enter client name" disabled>
             </div>
 
             <!-- One-Time Client Name Field (Hidden by default) -->
             <div id="one_time_client_section" style="display: none;">
                 <label for="one_time_client_name" class="block text-sm font-semibold text-navy-900 mb-1">Project/Client Name *</label>
-                <input type="text" name="one_time_client_name" id="one_time_client_name" value="{{ old('one_time_client_name') }}" class="w-full px-4 py-2 border border-navy-900 rounded" placeholder="Enter project or client name">
+                <input type="text" name="one_time_client_name" id="one_time_client_name" value="{{ old('one_time_client_name') }}" class="w-full px-4 py-2 border border-navy-900 rounded" placeholder="Enter project or client name" disabled>
             </div>
 
             <div>
@@ -93,13 +93,52 @@
             </div>
 
             <div class="flex gap-4">
-                <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Create Invoice</button>
+                <button type="submit" id="submit_btn" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Create Invoice</button>
                 <a href="{{ route('invoices.index') }}" class="px-6 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">Cancel</a>
             </div>
         </form>
     </div>
 
     <script>
+        function validateForm() {
+            const isOneTime = document.getElementById('is_one_time').checked;
+            const clientSelect = document.getElementById('client_id');
+            const newClientInput = document.getElementById('new_client_name');
+            const oneTimeInput = document.getElementById('one_time_client_name');
+            const amountInput = document.getElementById('amount');
+            const statusSelect = document.getElementById('status');
+            const submitBtn = document.getElementById('submit_btn');
+            
+            let isValid = true;
+            
+            // Check amount (required)
+            if (!amountInput.value || parseFloat(amountInput.value) <= 0) {
+                isValid = false;
+            }
+            
+            // Check status (required)
+            if (!statusSelect.value) {
+                isValid = false;
+            }
+            
+            // Check client/project name based on type
+            if (isOneTime) {
+                if (!oneTimeInput.value || oneTimeInput.value.trim() === '') {
+                    isValid = false;
+                }
+            } else {
+                if (clientSelect.value === 'new_client') {
+                    if (!newClientInput.value || newClientInput.value.trim() === '') {
+                        isValid = false;
+                    }
+                } else if (!clientSelect.value) {
+                    isValid = false;
+                }
+            }
+            
+            submitBtn.disabled = !isValid;
+        }
+        
         function toggleOneTimeInvoice() {
             const isOneTime = document.getElementById('is_one_time').checked;
             const clientSection = document.getElementById('client_section');
@@ -107,21 +146,30 @@
             const newClientSection = document.getElementById('new_client_section');
             const clientSelect = document.getElementById('client_id');
             const oneTimeInput = document.getElementById('one_time_client_name');
+            const newClientInput = document.getElementById('new_client_name');
             
             if (isOneTime) {
                 clientSection.style.display = 'none';
                 oneTimeSection.style.display = 'block';
                 newClientSection.style.display = 'none';
                 clientSelect.required = false;
+                clientSelect.disabled = true;
                 clientSelect.value = '';
+                newClientInput.required = false;
+                newClientInput.disabled = true;
+                newClientInput.value = '';
                 oneTimeInput.required = true;
+                oneTimeInput.disabled = false;
             } else {
                 clientSection.style.display = 'block';
                 oneTimeSection.style.display = 'none';
                 clientSelect.required = true;
+                clientSelect.disabled = false;
                 oneTimeInput.required = false;
+                oneTimeInput.disabled = true;
                 oneTimeInput.value = '';
             }
+            validateForm();
         }
         
         function toggleNewClientField() {
@@ -132,21 +180,35 @@
             if (clientSelect.value === 'new_client') {
                 newClientSection.style.display = 'block';
                 newClientInput.required = true;
+                newClientInput.disabled = false;
             } else {
                 newClientSection.style.display = 'none';
                 newClientInput.required = false;
+                newClientInput.disabled = true;
                 newClientInput.value = '';
             }
+            validateForm();
         }
         
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
+            // Add event listeners for validation
+            document.getElementById('amount').addEventListener('input', validateForm);
+            document.getElementById('status').addEventListener('change', validateForm);
+            document.getElementById('client_id').addEventListener('change', validateForm);
+            document.getElementById('new_client_name').addEventListener('input', validateForm);
+            document.getElementById('one_time_client_name').addEventListener('input', validateForm);
+            document.getElementById('is_one_time').addEventListener('change', validateForm);
+            
             if (document.getElementById('is_one_time').checked) {
                 toggleOneTimeInvoice();
             }
             if (document.getElementById('client_id').value === 'new_client') {
                 toggleNewClientField();
             }
+            
+            // Initial validation
+            validateForm();
         });
     </script>
 </x-app-layout>

@@ -37,4 +37,9 @@ class SalaryRelease extends Model
     {
         return $this->belongsTo(Employee::class);
     }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
 }

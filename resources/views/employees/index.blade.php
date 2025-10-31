@@ -7,9 +7,9 @@
     </x-slot>
 
     <div class="space-y-6">
-        <form method="GET" action="{{ route('employees.index') }}" class="flex gap-4">
-            <input type="text" name="search" value="{{ request('search') }}" placeholder="Search by name, email, or role..." class="flex-1 px-4 py-2 border border-navy-900 rounded">
-            <select name="employment_type" class="px-4 py-2 border border-navy-900 rounded">
+        <form method="GET" action="{{ route('employees.index') }}" class="flex gap-4" id="employeeSearchForm">
+            <input type="text" name="search" id="employeeSearch" value="{{ request('search') }}" placeholder="Search by name, email, or role..." class="flex-1 px-4 py-2 border border-navy-900 rounded">
+            <select name="employment_type" id="employmentTypeFilter" class="px-4 py-2 border border-navy-900 rounded">
                 <option value="">All Types</option>
                 <option value="Onsite" {{ request('employment_type') == 'Onsite' ? 'selected' : '' }}>Onsite</option>
                 <option value="Project-Based (Freelancer) - Remote" {{ request('employment_type') == 'Project-Based (Freelancer) - Remote' ? 'selected' : '' }}>Remote</option>
@@ -23,7 +23,7 @@
             @endif
         </form>
 
-        <div class="bg-white border border-navy-900 rounded-lg overflow-hidden">
+        <div class="bg-white border border-navy-900 rounded-lg overflow-hidden" id="employeesTableContainer">
             @if($employees->count() > 0)
                 <table class="min-w-full">
                     <thead class="bg-navy-900 text-white">
@@ -61,7 +61,7 @@
                         @endforeach
                     </tbody>
                 </table>
-                <div class="p-4">{{ $employees->links() }}</div>
+                <div class="p-4" id="employeesPagination">{{ $employees->links() }}</div>
             @else
                 <div class="p-8 text-center text-gray-600">
                     <p>No employees found.</p>
@@ -70,4 +70,54 @@
             @endif
         </div>
     </div>
+
+    <script>
+        let searchTimeout;
+        const searchInput = document.getElementById('employeeSearch');
+        const typeFilter = document.getElementById('employmentTypeFilter');
+        const tableContainer = document.getElementById('employeesTableContainer');
+
+        function performSearch() {
+            const searchValue = searchInput.value;
+            const typeValue = typeFilter.value;
+            const url = new URL('{{ route('employees.index') }}');
+            
+            if (searchValue) url.searchParams.set('search', searchValue);
+            if (typeValue) url.searchParams.set('employment_type', typeValue);
+
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newContent = doc.getElementById('employeesTableContainer');
+                if (newContent) {
+                    tableContainer.innerHTML = newContent.innerHTML;
+                }
+                
+                // Update URL without reload
+                window.history.pushState({}, '', url);
+            })
+            .catch(error => console.error('Search error:', error));
+        }
+
+        // Debounced search on input
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(performSearch, 300);
+        });
+
+        // Immediate search on filter change
+        typeFilter.addEventListener('change', performSearch);
+
+        // Prevent form submission
+        document.getElementById('employeeSearchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            performSearch();
+        });
+    </script>
 </x-app-layout>

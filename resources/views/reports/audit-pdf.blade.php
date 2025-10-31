@@ -31,15 +31,15 @@
 
     <div class="summary-box">
         <div class="section-title">Executive Summary</div>
-        <div class="summary">
-            <div class="summary-item"><strong>Payments Received in Period:</strong> Rs.{{ number_format($total_payments_in_range, 2) }}</div>
-            <div class="summary-item"><strong>From Invoices:</strong> {{ $invoices->count() }} invoice(s)</div>
-            <div class="summary-item"><strong>Total Expenses:</strong> Rs.{{ number_format($total_expenses, 2) }}</div>
-            <div class="summary-item"><strong>Total Salaries:</strong> Rs.{{ number_format($total_salaries, 2) }}</div>
-            <div class="summary-item"><strong>Total Bonuses:</strong> Rs.{{ number_format($total_bonuses, 2) }}</div>
-            <div class="summary-item net-income"><strong>Net Income:</strong> Rs.{{ number_format($net_income, 2) }}</div>
-            <div class="summary-item" style="font-size: 9px; font-style: italic; color: #666;">Note: Net income is based on actual payments received in this period ({{ date('M d, Y', strtotime($date_from)) }} to {{ date('M d, Y', strtotime($date_to)) }}), not invoice creation dates.</div>
-        </div>
+        <div class="summary-item"><strong>Payments Received in Period:</strong> <span class="paid">Rs.{{ number_format($total_payments_in_range, 2) }}</span></div>
+        <div class="summary-item"><strong>Total Invoice Amount:</strong> Rs.{{ number_format($total_invoices, 2) }} <em>({{ $invoices->count() }} invoices)</em></div>
+        <div class="summary-item" style="margin-left: 15px;"><span class="paid">• Fully Paid:</span> {{ $paid_invoices->count() }} invoices</div>
+        <div class="summary-item" style="margin-left: 15px;"><span class="unpaid">• Partial/Pending:</span> {{ $partial_paid_invoices->count() + $pending_invoices->count() }} invoices</div>
+        <div class="summary-item"><strong>Total Expenses:</strong> Rs.{{ number_format($total_expenses, 2) }}</div>
+        <div class="summary-item"><strong>Total Salaries Released:</strong> Rs.{{ number_format($total_salaries, 2) }}</div>
+        <div class="summary-item"><strong>Total Bonuses:</strong> Rs.{{ number_format($total_bonuses, 2) }} <em>(Separate from net income)</em></div>
+        <div class="summary-item" style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #001F3F;"><strong>Net Income (Payments - Expenses - Salaries):</strong> Rs.{{ number_format($net_income, 2) }}</div>
+        <div class="summary-item" style="font-size: 9px; font-style: italic; color: #666;">Note: Net income based on actual payments received in this period. Bonuses are excluded as they are separate rewards.</div>
     </div>
 
     <div class="section-title">Invoices ({{ $invoices->count() }})</div>

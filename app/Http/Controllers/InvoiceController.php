@@ -97,7 +97,26 @@ class InvoiceController extends Controller
             $validated['client_id'] = null;
         }
         
-        Invoice::create($validated);
+        $invoice = Invoice::create($validated);
+        
+        // If status is "Payment Done", automatically create a payment record
+        if ($validated['status'] === 'Payment Done') {
+            Payment::create([
+                'invoice_id' => $invoice->id,
+                'user_id' => auth()->id(),
+                'amount' => $validated['amount'],
+                'payment_date' => now(),
+                'payment_month' => now()->format('Y-m'),
+                'notes' => 'Full payment received on invoice creation',
+                'commission_paid' => false,
+            ]);
+            
+            // Update invoice paid and remaining amounts
+            $invoice->update([
+                'paid_amount' => $validated['amount'],
+                'remaining_amount' => 0,
+            ]);
+        }
         
         return redirect()->route('invoices.index')->with('success', 'Invoice created successfully.');
     }
@@ -133,7 +152,35 @@ class InvoiceController extends Controller
         
         $validated['tax'] = $validated['tax'] ?? 0;
         
+        // Check if status changed to "Payment Done" and no payment exists yet
+        $oldStatus = $invoice->status;
+        $newStatus = $validated['status'];
+        
         $invoice->update($validated);
+        
+        // If status changed to "Payment Done" and total not yet paid
+        if ($newStatus === 'Payment Done' && $oldStatus !== 'Payment Done') {
+            $totalPaid = $invoice->payments()->sum('amount');
+            $remainingAmount = $invoice->amount - $totalPaid;
+            
+            if ($remainingAmount > 0) {
+                Payment::create([
+                    'invoice_id' => $invoice->id,
+                    'user_id' => auth()->id(),
+                    'amount' => $remainingAmount,
+                    'payment_date' => now(),
+                    'payment_month' => now()->format('Y-m'),
+                    'notes' => 'Remaining payment received on status update',
+                    'commission_paid' => false,
+                ]);
+                
+                // Update invoice paid and remaining amounts
+                $invoice->update([
+                    'paid_amount' => $invoice->amount,
+                    'remaining_amount' => 0,
+                ]);
+            }
+        }
         
         return redirect()->route('invoices.index')->with('success', 'Invoice updated successfully.');
     }

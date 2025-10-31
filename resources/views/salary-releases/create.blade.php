@@ -23,11 +23,17 @@
                 <label for="month" class="block text-sm font-semibold text-navy-900 mb-1">Month *</label>
                 <input type="month" name="month" id="month" value="{{ old('month', date('Y-m')) }}" required class="w-full px-4 py-2 border border-navy-900 rounded">
                 <p class="text-sm text-gray-600 mt-1">Select the month this salary is for</p>
+                <div id="month_warning" class="text-sm text-red-600 font-semibold mt-1" style="display: none;"></div>
+                @error('month')
+                    <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
+                @enderror
             </div>
 
             <div>
                 <label for="release_date" class="block text-sm font-semibold text-navy-900 mb-1">Release Date *</label>
                 <input type="date" name="release_date" id="release_date" value="{{ old('release_date', date('Y-m-d')) }}" required class="w-full px-4 py-2 border border-navy-900 rounded">
+                <p class="text-sm text-gray-600 mt-1">Must be in or after the salary month</p>
+                <div id="release_date_warning" class="text-sm text-red-600 font-semibold mt-1" style="display: none;"></div>
             </div>
 
             <div>
@@ -100,11 +106,12 @@
     <script>
         function updatePreview() {
             const employeeId = document.getElementById('employee_id').value;
-            const month = document.getElementById('month').value;
             const deductions = document.getElementById('deductions').value || 0;
+            const month = document.getElementById('month').value;
             
             if (!employeeId) {
                 document.getElementById('preview_section').style.display = 'none';
+                document.getElementById('month_warning').style.display = 'none';
                 return;
             }
 
@@ -116,12 +123,23 @@
                 },
                 body: JSON.stringify({
                     employee_id: employeeId,
+                    deductions: deductions,
                     month: month,
-                    deductions: deductions
+                    release_date: document.getElementById('release_date').value
                 })
             })
             .then(response => response.json())
             .then(data => {
+                // Check if salary already released
+                const monthWarning = document.getElementById('month_warning');
+                if (data.already_released) {
+                    const monthName = new Date(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                    monthWarning.textContent = '⚠️ Salary has already been released for ' + monthName;
+                    monthWarning.style.display = 'block';
+                } else {
+                    monthWarning.style.display = 'none';
+                }
+                
                 document.getElementById('preview_section').style.display = 'block';
                 document.getElementById('preview_base').textContent = 'Rs.' + data.base_salary;
                 document.getElementById('preview_commission').textContent = 'Rs.' + data.commission_amount;
@@ -129,16 +147,25 @@
                 document.getElementById('preview_deductions').textContent = 'Rs.' + data.deductions;
                 document.getElementById('preview_total').textContent = 'Rs.' + data.total_calculated;
                 
-                // Update invoice list
+                // Update invoice list with detailed payment breakdown
                 let invoiceHtml = '';
                 if (data.paid_invoices.length > 0) {
-                    invoiceHtml = '<ul class="list-disc list-inside">';
+                    invoiceHtml = '<div class="space-y-2">';
                     data.paid_invoices.forEach(invoice => {
-                        invoiceHtml += `<li>${invoice.client}: Rs.${invoice.paid_amount} paid (${invoice.commission_rate}% commission = Rs.${invoice.commission})</li>`;
+                        invoiceHtml += `
+                            <div class="border-l-4 border-green-500 pl-3 py-1">
+                                <div class="font-semibold">${invoice.client}</div>
+                                <div class="text-sm text-gray-600">
+                                    Payments: Rs.${invoice.paid_amount} | 
+                                    Rate: ${invoice.commission_rate}% | 
+                                    Commission: <span class="text-green-600 font-semibold">Rs.${invoice.commission}</span>
+                                </div>
+                            </div>
+                        `;
                     });
-                    invoiceHtml += '</ul>';
+                    invoiceHtml += '</div>';
                 } else {
-                    invoiceHtml = '<p class="text-gray-500">No payments with unpaid commissions up to this month</p>';
+                    invoiceHtml = '<p class="text-gray-500">No payments with unpaid commissions up to the release date</p>';
                 }
                 document.getElementById('invoice_list').innerHTML = invoiceHtml;
                 
@@ -158,14 +185,58 @@
             .catch(error => console.error('Error:', error));
         }
 
+        // Validate release date
+        function validateReleaseDate() {
+            const monthInput = document.getElementById('month').value;
+            const releaseDateInput = document.getElementById('release_date').value;
+            const warningDiv = document.getElementById('release_date_warning');
+            const submitBtn = document.querySelector('button[type="submit"]');
+            
+            if (!monthInput || !releaseDateInput) {
+                warningDiv.style.display = 'none';
+                return;
+            }
+            
+            // Get first day of salary month
+            const salaryMonthStart = new Date(monthInput + '-01');
+            const releaseDate = new Date(releaseDateInput);
+            
+            // Release date must be >= first day of salary month
+            if (releaseDate < salaryMonthStart) {
+                const monthName = salaryMonthStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                warningDiv.textContent = '⚠️ Release date cannot be before ' + monthName;
+                warningDiv.style.display = 'block';
+                submitBtn.disabled = true;
+                return false;
+            } else {
+                warningDiv.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+            
+            // Set min date for release_date picker
+            document.getElementById('release_date').min = monthInput + '-01';
+            
+            return true;
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             if (document.getElementById('employee_id').value) {
                 updatePreview();
             }
             
-            // Add event listener for month field
-            document.getElementById('month').addEventListener('change', updatePreview);
+            // Add event listeners
+            document.getElementById('month').addEventListener('change', function() {
+                validateReleaseDate();
+                updatePreview();
+            });
+            document.getElementById('release_date').addEventListener('change', function() {
+                validateReleaseDate();
+                updatePreview();
+            });
+            
+            // Initial validation
+            validateReleaseDate();
         });
     </script>
 </x-app-layout>

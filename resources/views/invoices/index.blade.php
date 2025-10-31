@@ -7,27 +7,27 @@
     </x-slot>
 
     <div class="space-y-6">
-        <form method="GET" action="{{ route('invoices.index') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <input type="text" name="search" value="{{ request('search') }}" placeholder="Search client..." class="px-4 py-2 border border-navy-900 rounded">
-            <select name="status" class="px-4 py-2 border border-navy-900 rounded">
+        <form method="GET" action="{{ route('invoices.index') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4" id="invoiceSearchForm">
+            <input type="text" name="search" id="invoiceSearch" value="{{ request('search') }}" placeholder="Search client..." class="px-4 py-2 border border-navy-900 rounded">
+            <select name="status" id="statusFilter" class="px-4 py-2 border border-navy-900 rounded">
                 <option value="">All Status</option>
                 <option value="Pending" {{ request('status') == 'Pending' ? 'selected' : '' }}>Pending</option>
                 <option value="Partial Paid" {{ request('status') == 'Partial Paid' ? 'selected' : '' }}>Partial Paid</option>
                 <option value="Payment Done" {{ request('status') == 'Payment Done' ? 'selected' : '' }}>Payment Done</option>
             </select>
-            <input type="date" name="date_from" value="{{ request('date_from') }}" placeholder="From" class="px-4 py-2 border border-navy-900 rounded">
-            <input type="date" name="date_to" value="{{ request('date_to') }}" placeholder="To" class="px-4 py-2 border border-navy-900 rounded">
+            <input type="date" name="date_from" id="dateFrom" value="{{ request('date_from') }}" placeholder="From" class="px-4 py-2 border border-navy-900 rounded">
+            <input type="date" name="date_to" id="dateTo" value="{{ request('date_to') }}" placeholder="To" class="px-4 py-2 border border-navy-900 rounded">
             <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Filter</button>
             @if(request()->hasAny(['search', 'status', 'date_from', 'date_to']))
                 <a href="{{ route('invoices.index') }}" class="px-6 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">Clear</a>
             @endif
         </form>
 
-        <div class="bg-navy-900 text-white p-4 rounded-lg">
+        <div class="bg-navy-900 text-white p-4 rounded-lg" id="totalAmountBox">
             <h3 class="text-lg font-semibold">Total Amount: Rs.{{ number_format($totalAmount, 2) }}</h3>
         </div>
 
-        <div class="bg-white border border-navy-900 rounded-lg overflow-hidden">
+        <div class="bg-white border border-navy-900 rounded-lg overflow-hidden" id="invoicesTableContainer">
             @if($invoices->count() > 0)
                 <!-- Mobile scroll hint -->
                 <div class="md:hidden bg-blue-50 border-b border-blue-200 px-4 py-2 text-xs text-blue-800">
@@ -89,17 +89,17 @@
                                         @endif
                                     </td>
                                     <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">
-                                        <div class="flex flex-col md:flex-row gap-1 md:gap-2 whitespace-nowrap">
+                                        <div class="flex flex-col gap-1">
                                             @if($invoice->status != 'Payment Done')
-                                                <button onclick="openPaymentModal({{ $invoice->id }}, '{{ $invoice->is_one_time ? addslashes($invoice->one_time_client_name) : addslashes($invoice->client->name) }}', {{ $invoice->amount }}, {{ $invoice->paid_amount }}, {{ $invoice->remaining_amount > 0 ? $invoice->remaining_amount : $invoice->amount }})" class="text-green-600 hover:underline font-semibold text-xs">Pay</button>
+                                                <button onclick="openPaymentModal({{ $invoice->id }}, '{{ $invoice->is_one_time ? addslashes($invoice->one_time_client_name) : addslashes($invoice->client->name) }}', {{ $invoice->amount }}, {{ $invoice->paid_amount }}, {{ $invoice->remaining_amount > 0 ? $invoice->remaining_amount : $invoice->amount }})" class="text-green-600 hover:underline font-semibold text-xs text-left">Pay</button>
                                             @endif
                                             <a href="{{ route('invoices.show', $invoice) }}" class="text-navy-900 hover:underline text-xs">View</a>
                                             <a href="{{ route('invoices.pdf', $invoice) }}" class="text-navy-900 hover:underline text-xs">PDF</a>
                                             <a href="{{ route('invoices.edit', $invoice) }}" class="text-navy-900 hover:underline text-xs">Edit</a>
-                                            <form method="POST" action="{{ route('invoices.destroy', $invoice) }}" class="inline" onsubmit="return confirm('Are you sure?');">
+                                            <form method="POST" action="{{ route('invoices.destroy', $invoice) }}" onsubmit="return confirm('Are you sure?');">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:underline text-xs">Delete</button>
+                                                <button type="submit" class="text-red-600 hover:underline text-xs text-left">Delete</button>
                                             </form>
                                         </div>
                                     </td>
@@ -248,6 +248,70 @@
             if (event.target === this) {
                 closePaymentModal();
             }
+        });
+
+        // Async Search Functionality
+        let searchTimeout;
+        const searchInput = document.getElementById('invoiceSearch');
+        const statusFilter = document.getElementById('statusFilter');
+        const dateFrom = document.getElementById('dateFrom');
+        const dateTo = document.getElementById('dateTo');
+        const tableContainer = document.getElementById('invoicesTableContainer');
+        const totalAmountBox = document.getElementById('totalAmountBox');
+
+        function performSearch() {
+            const searchValue = searchInput.value;
+            const statusValue = statusFilter.value;
+            const dateFromValue = dateFrom.value;
+            const dateToValue = dateTo.value;
+            const url = new URL('{{ route('invoices.index') }}');
+            
+            if (searchValue) url.searchParams.set('search', searchValue);
+            if (statusValue) url.searchParams.set('status', statusValue);
+            if (dateFromValue) url.searchParams.set('date_from', dateFromValue);
+            if (dateToValue) url.searchParams.set('date_to', dateToValue);
+
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                const newTableContent = doc.getElementById('invoicesTableContainer');
+                const newTotalAmount = doc.getElementById('totalAmountBox');
+                
+                if (newTableContent) {
+                    tableContainer.innerHTML = newTableContent.innerHTML;
+                }
+                if (newTotalAmount) {
+                    totalAmountBox.innerHTML = newTotalAmount.innerHTML;
+                }
+                
+                // Update URL without reload
+                window.history.pushState({}, '', url);
+            })
+            .catch(error => console.error('Search error:', error));
+        }
+
+        // Debounced search on input
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(performSearch, 300);
+        });
+
+        // Immediate search on filter changes
+        statusFilter.addEventListener('change', performSearch);
+        dateFrom.addEventListener('change', performSearch);
+        dateTo.addEventListener('change', performSearch);
+
+        // Prevent form submission
+        document.getElementById('invoiceSearchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            performSearch();
         });
     </script>
 </x-app-layout>

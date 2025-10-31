@@ -57,6 +57,13 @@
                     <p class="text-lg text-navy-900">{{ ucfirst($salaryRelease->release_type) }}</p>
                 </div>
 
+                @if($salaryRelease->partial_amount)
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-600 mb-1">Partial Amount Released</h3>
+                    <p class="text-lg text-yellow-600 font-semibold">Rs.{{ number_format($salaryRelease->partial_amount, 2) }}</p>
+                </div>
+                @endif
+
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Created</h3>
                     <p class="text-lg text-navy-900">{{ $salaryRelease->created_at->format('M d, Y') }}</p>
@@ -69,6 +76,88 @@
                 </div>
                 @endif
             </div>
+
+            <!-- Commission Breakdown -->
+            @php
+                // Get payments whose commission was paid in THIS specific salary release
+                // Using salary_release_id ensures we only show payments that were actually included in this release
+                $paymentsForThisRelease = \App\Models\Payment::where('salary_release_id', $salaryRelease->id)
+                    ->where('commission_paid', true)
+                    ->whereHas('invoice', function($q) use ($salaryRelease) {
+                        $q->where('employee_id', $salaryRelease->employee_id);
+                    })
+                    ->with('invoice.client')
+                    ->get();
+            @endphp
+
+            @if($paymentsForThisRelease->count() > 0 && $salaryRelease->commission_amount > 0)
+            <div class="mt-6 border-t border-gray-300 pt-6">
+                <h3 class="text-lg font-bold text-navy-900 mb-4">Commission Breakdown</h3>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="border-b border-gray-300">
+                                <th class="text-left py-2 text-sm font-semibold text-gray-700">Client</th>
+                                <th class="text-left py-2 text-sm font-semibold text-gray-700">Payment Date</th>
+                                <th class="text-right py-2 text-sm font-semibold text-gray-700">Amount Paid</th>
+                                <th class="text-right py-2 text-sm font-semibold text-gray-700">Commission</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($paymentsForThisRelease as $payment)
+                                @php
+                                    $invoice = $payment->invoice;
+                                    $taxPerPayment = ($invoice->tax / $invoice->amount) * $payment->amount;
+                                    $netAmount = $payment->amount - $taxPerPayment;
+                                    $commission = $netAmount * ($salaryRelease->employee->commission_rate / 100);
+                                @endphp
+                                <tr class="border-b border-gray-200">
+                                    <td class="py-2 text-sm">{{ $invoice->client ? $invoice->client->name : 'N/A' }}</td>
+                                    <td class="py-2 text-sm">{{ $payment->payment_date->format('M d, Y') }}</td>
+                                    <td class="py-2 text-sm text-right">Rs.{{ number_format($payment->amount, 2) }}</td>
+                                    <td class="py-2 text-sm text-right text-green-600 font-semibold">Rs.{{ number_format($commission, 2) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endif
+
+            <!-- Bonuses Breakdown -->
+            @php
+                $bonuses = $salaryRelease->employee->bonuses()
+                    ->where('released', true)
+                    ->where('release_type', 'with_salary')
+                    ->where('date', '<=', $salaryRelease->release_date)
+                    ->get();
+            @endphp
+
+            @if($bonuses->count() > 0 && $salaryRelease->bonus_amount > 0)
+            <div class="mt-6 border-t border-gray-300 pt-6">
+                <h3 class="text-lg font-bold text-navy-900 mb-4">Bonuses Included</h3>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="border-b border-gray-300">
+                                <th class="text-left py-2 text-sm font-semibold text-gray-700">Date</th>
+                                <th class="text-left py-2 text-sm font-semibold text-gray-700">Description</th>
+                                <th class="text-right py-2 text-sm font-semibold text-gray-700">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($bonuses as $bonus)
+                                <tr class="border-b border-gray-200">
+                                    <td class="py-2 text-sm">{{ $bonus->date->format('M d, Y') }}</td>
+                                    <td class="py-2 text-sm">{{ $bonus->description ?? 'Bonus' }}</td>
+                                    <td class="py-2 text-sm text-right text-purple-600 font-semibold">Rs.{{ number_format($bonus->amount, 2) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

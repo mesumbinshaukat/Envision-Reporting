@@ -31,18 +31,27 @@ class SalaryReleaseController extends Controller
         $request->validate([
             'employee_id' => 'required|exists:employees,id',
             'month' => 'nullable|string',
+            'release_date' => 'nullable|date',
         ]);
 
         $employee = Employee::findOrFail($request->employee_id);
         
         // Get the salary release month (current month if not specified)
         $releaseMonth = $request->month ?? date('Y-m');
-        $releaseMonthEnd = date('Y-m-t', strtotime($releaseMonth . '-01'));
         
-        // Get all invoices with payments up to the release month
+        // Use release_date if provided, otherwise use end of salary month
+        $releaseDate = $request->release_date ?? date('Y-m-t', strtotime($releaseMonth . '-01'));
+        
+        // Check if salary already released for this month
+        $alreadyReleased = $employee->salaryReleases()
+            ->where('month', $releaseMonth)
+            ->exists();
+        
+        // Get all invoices where this employee is the salesperson
+        // Include payments up to the release date (not just the salary month)
         $invoices = $employee->invoices()
-            ->with(['payments' => function($query) use ($releaseMonthEnd) {
-                $query->where('payment_date', '<=', $releaseMonthEnd)
+            ->with(['client', 'payments' => function($query) use ($releaseDate) {
+                $query->where('payment_date', '<=', $releaseDate)
                       ->where('commission_paid', false);
             }])
             ->get();
@@ -52,20 +61,26 @@ class SalaryReleaseController extends Controller
         $commissionDetails = [];
         
         foreach($invoices as $invoice) {
-            $unpaidPayments = $invoice->payments->where('commission_paid', false);
-            if($unpaidPayments->count() > 0) {
-                $paidAmount = $unpaidPayments->sum('amount');
-                $commissionRate = $invoice->commission_rate / 100;
-                $invoiceCommission = $paidAmount * $commissionRate;
-                $commissionAmount += $invoiceCommission;
-                
-                $commissionDetails[] = [
-                    'id' => $invoice->id,
-                    'client' => $invoice->client->name,
-                    'paid_amount' => number_format($paidAmount, 2),
-                    'commission_rate' => $invoice->commission_rate,
-                    'commission' => number_format($invoiceCommission, 2),
-                ];
+            // Only calculate if employee has commission rate
+            if($employee->commission_rate && $employee->commission_rate > 0) {
+                $unpaidPayments = $invoice->payments->where('commission_paid', false);
+                if($unpaidPayments->count() > 0) {
+                    $paidAmount = $unpaidPayments->sum('amount');
+                    // Calculate commission after tax deduction
+                    $taxPerPayment = ($invoice->tax / $invoice->amount) * $paidAmount;
+                    $netAmount = $paidAmount - $taxPerPayment;
+                    $commissionRate = $employee->commission_rate / 100;
+                    $invoiceCommission = $netAmount * $commissionRate;
+                    $commissionAmount += $invoiceCommission;
+                    
+                    $commissionDetails[] = [
+                        'id' => $invoice->id,
+                        'client' => $invoice->client ? $invoice->client->name : 'N/A',
+                        'paid_amount' => number_format($paidAmount, 2),
+                        'commission_rate' => $employee->commission_rate,
+                        'commission' => number_format($invoiceCommission, 2),
+                    ];
+                }
             }
         }
         
@@ -87,6 +102,7 @@ class SalaryReleaseController extends Controller
             'bonus_amount' => number_format($bonusAmount, 2),
             'deductions' => number_format($deductions, 2),
             'total_calculated' => number_format($totalCalculated, 2),
+            'already_released' => $alreadyReleased,
             'paid_invoices' => $commissionDetails,
             'bonuses' => $bonuses->map(function($bonus) {
                 return [
@@ -110,6 +126,14 @@ class SalaryReleaseController extends Controller
         
         $employee = Employee::findOrFail($validated['employee_id']);
         
+        // Validate that release_date is not before the salary month
+        $salaryMonthStart = date('Y-m-01', strtotime($validated['month'] . '-01'));
+        if ($validated['release_date'] < $salaryMonthStart) {
+            return redirect()->back()->withErrors([
+                'release_date' => 'Release date cannot be before the salary month (' . date('F Y', strtotime($validated['month'] . '-01')) . ')'
+            ])->withInput();
+        }
+        
         // Check if salary has already been released for this employee and month
         $existingRelease = SalaryRelease::where('employee_id', $validated['employee_id'])
             ->where('month', $validated['month'])
@@ -121,13 +145,10 @@ class SalaryReleaseController extends Controller
             ])->withInput();
         }
         
-        // Get the salary release month end date
-        $releaseMonthEnd = date('Y-m-t', strtotime($validated['month'] . '-01'));
-        
-        // Get all invoices with payments up to the release month
+        // Get all invoices with payments up to the release date
         $invoices = $employee->invoices()
-            ->with(['payments' => function($query) use ($releaseMonthEnd) {
-                $query->where('payment_date', '<=', $releaseMonthEnd)
+            ->with(['payments' => function($query) use ($validated) {
+                $query->where('payment_date', '<=', $validated['release_date'])
                       ->where('commission_paid', false);
             }])
             ->get();
@@ -137,15 +158,21 @@ class SalaryReleaseController extends Controller
         $paymentIds = [];
         
         foreach($invoices as $invoice) {
-            $unpaidPayments = $invoice->payments->where('commission_paid', false);
-            if($unpaidPayments->count() > 0) {
-                $paidAmount = $unpaidPayments->sum('amount');
-                $commissionRate = $invoice->commission_rate / 100;
-                $invoiceCommission = $paidAmount * $commissionRate;
-                $commissionAmount += $invoiceCommission;
-                
-                // Collect payment IDs to mark as commission paid
-                $paymentIds = array_merge($paymentIds, $unpaidPayments->pluck('id')->toArray());
+            // Only calculate if employee has commission rate
+            if($employee->commission_rate && $employee->commission_rate > 0) {
+                $unpaidPayments = $invoice->payments->where('commission_paid', false);
+                if($unpaidPayments->count() > 0) {
+                    $paidAmount = $unpaidPayments->sum('amount');
+                    // Calculate commission after tax deduction
+                    $taxPerPayment = ($invoice->tax / $invoice->amount) * $paidAmount;
+                    $netAmount = $paidAmount - $taxPerPayment;
+                    $commissionRate = $employee->commission_rate / 100;
+                    $invoiceCommission = $netAmount * $commissionRate;
+                    $commissionAmount += $invoiceCommission;
+                    
+                    // Collect payment IDs to mark as commission paid
+                    $paymentIds = array_merge($paymentIds, $unpaidPayments->pluck('id')->toArray());
+                }
             }
         }
         
@@ -167,10 +194,13 @@ class SalaryReleaseController extends Controller
         
         $salaryRelease = SalaryRelease::create($validated);
         
-        // Mark payments as commission paid
+        // Mark payments as commission paid and link to this salary release
         if(!empty($paymentIds)) {
             \App\Models\Payment::whereIn('id', $paymentIds)
-                ->update(['commission_paid' => true]);
+                ->update([
+                    'commission_paid' => true,
+                    'salary_release_id' => $salaryRelease->id
+                ]);
         }
         
         // Mark bonuses as released

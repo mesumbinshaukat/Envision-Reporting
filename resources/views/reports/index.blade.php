@@ -44,12 +44,16 @@
             <!-- Summary Section -->
             <div class="bg-white border border-navy-900 rounded-lg p-6">
                 <h3 class="text-xl font-bold text-navy-900 mb-4">Summary ({{ date('M d, Y', strtotime($reportData['date_from'])) }} to {{ date('M d, Y', strtotime($reportData['date_to'])) }})</h3>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div class="border border-gray-300 rounded p-4">
                         <div class="text-sm text-gray-600">Payments Received</div>
                         <div class="text-2xl font-bold text-green-600">Rs.{{ number_format($reportData['total_payments_in_range'], 2) }}</div>
-                        <div class="text-xs text-gray-500 mt-1">From {{ $reportData['invoices']->count() }} invoice(s)</div>
-                        <div class="text-xs text-gray-500">In this period</div>
+                        <div class="text-xs text-gray-500 mt-1">In this period</div>
+                    </div>
+                    <div class="border border-gray-300 rounded p-4">
+                        <div class="text-sm text-gray-600">Total Invoices</div>
+                        <div class="text-2xl font-bold text-navy-900">Rs.{{ number_format($reportData['total_invoices'], 2) }}</div>
+                        <div class="text-xs text-gray-500 mt-1">{{ $reportData['invoices']->count() }} invoices</div>
                     </div>
                     <div class="border border-gray-300 rounded p-4">
                         <div class="text-sm text-gray-600">Total Expenses</div>
@@ -70,7 +74,7 @@
                         <span class="text-lg font-semibold">Net Income (Payments Received - Expenses - Salaries):</span>
                         <span class="text-2xl font-bold">Rs.{{ number_format($reportData['net_income'], 2) }}</span>
                     </div>
-                    <div class="text-sm mt-1 opacity-75">Note: Net income is calculated based on actual payments received in this period, not invoice creation dates.</div>
+                    <div class="text-sm mt-1 opacity-75">Note: Based on actual payments received in this period. Bonuses are excluded from net income calculation.</div>
                 </div>
             </div>
 

@@ -20,36 +20,43 @@ class ReportController extends Controller
                 'date_to' => 'required|date|after_or_equal:date_from',
             ]);
             
-            // Get invoices that have payments in the selected date range
+            // Get invoices that have payments in the selected date range (inclusive)
+            $dateFrom = $validated['date_from'];
+            $dateTo = date('Y-m-d 23:59:59', strtotime($validated['date_to']));
+            
             $invoices = $user->invoices()
                 ->with(['client', 'employee', 'payments'])
-                ->whereHas('payments', function($query) use ($validated) {
-                    $query->whereBetween('payment_date', [$validated['date_from'], $validated['date_to']]);
+                ->whereHas('payments', function($query) use ($dateFrom, $dateTo) {
+                    $query->where('payment_date', '>=', $dateFrom)
+                          ->where('payment_date', '<=', $dateTo);
                 })
                 ->get();
             
             // Filter payments within the date range for each invoice
-            $invoices->each(function($invoice) use ($validated) {
+            $invoices->each(function($invoice) use ($dateFrom, $dateTo) {
                 $invoice->setRelation('payments', 
-                    $invoice->payments->filter(function($payment) use ($validated) {
-                        return $payment->payment_date >= $validated['date_from'] 
-                            && $payment->payment_date <= $validated['date_to'];
+                    $invoice->payments->filter(function($payment) use ($dateFrom, $dateTo) {
+                        return $payment->payment_date >= $dateFrom 
+                            && $payment->payment_date <= $dateTo;
                     })
                 );
             });
             
             $expenses = $user->expenses()
-                ->whereBetween('date', [$validated['date_from'], $validated['date_to']])
+                ->where('date', '>=', $dateFrom)
+                ->where('date', '<=', $dateTo)
                 ->get();
             
             $salaryReleases = $user->salaryReleases()
                 ->with('employee')
-                ->whereBetween('release_date', [$validated['date_from'], $validated['date_to']])
+                ->where('release_date', '>=', $dateFrom)
+                ->where('release_date', '<=', $dateTo)
                 ->get();
             
             $bonuses = $user->bonuses()
                 ->with('employee')
-                ->whereBetween('date', [$validated['date_from'], $validated['date_to']])
+                ->where('date', '>=', $dateFrom)
+                ->where('date', '<=', $dateTo)
                 ->get();
             
             // Calculate total payments made in this date range
@@ -94,36 +101,43 @@ class ReportController extends Controller
         
         $user = auth()->user();
         
-        // Get invoices that have payments in the selected date range
+        // Get invoices that have payments in the selected date range (inclusive)
+        $dateFrom = $validated['date_from'];
+        $dateTo = date('Y-m-d 23:59:59', strtotime($validated['date_to']));
+        
         $invoices = $user->invoices()
             ->with(['client', 'employee', 'payments'])
-            ->whereHas('payments', function($query) use ($validated) {
-                $query->whereBetween('payment_date', [$validated['date_from'], $validated['date_to']]);
+            ->whereHas('payments', function($query) use ($dateFrom, $dateTo) {
+                $query->where('payment_date', '>=', $dateFrom)
+                      ->where('payment_date', '<=', $dateTo);
             })
             ->get();
         
         // Filter payments within the date range for each invoice
-        $invoices->each(function($invoice) use ($validated) {
+        $invoices->each(function($invoice) use ($dateFrom, $dateTo) {
             $invoice->setRelation('payments', 
-                $invoice->payments->filter(function($payment) use ($validated) {
-                    return $payment->payment_date >= $validated['date_from'] 
-                        && $payment->payment_date <= $validated['date_to'];
+                $invoice->payments->filter(function($payment) use ($dateFrom, $dateTo) {
+                    return $payment->payment_date >= $dateFrom 
+                        && $payment->payment_date <= $dateTo;
                 })
             );
         });
         
         $expenses = $user->expenses()
-            ->whereBetween('date', [$validated['date_from'], $validated['date_to']])
+            ->where('date', '>=', $dateFrom)
+            ->where('date', '<=', $dateTo)
             ->get();
         
         $salaryReleases = $user->salaryReleases()
             ->with('employee')
-            ->whereBetween('release_date', [$validated['date_from'], $validated['date_to']])
+            ->where('release_date', '>=', $dateFrom)
+            ->where('release_date', '<=', $dateTo)
             ->get();
         
         $bonuses = $user->bonuses()
             ->with('employee')
-            ->whereBetween('date', [$validated['date_from'], $validated['date_to']])
+            ->where('date', '>=', $dateFrom)
+            ->where('date', '<=', $dateTo)
             ->get();
         
         // Calculate total payments made in this date range

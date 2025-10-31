@@ -8,8 +8,8 @@
 
     <div class="space-y-6">
         <!-- Search Form -->
-        <form method="GET" action="{{ route('clients.index') }}" class="flex gap-4">
-            <input type="text" name="search" value="{{ request('search') }}" placeholder="Search by name or email..." class="flex-1 px-4 py-2 border border-navy-900 rounded">
+        <form method="GET" action="{{ route('clients.index') }}" class="flex gap-4" id="clientSearchForm">
+            <input type="text" name="search" id="clientSearch" value="{{ request('search') }}" placeholder="Search by name or email..." class="flex-1 px-4 py-2 border border-navy-900 rounded">
             <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Search</button>
             @if(request('search'))
                 <a href="{{ route('clients.index') }}" class="px-6 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">Clear</a>
@@ -17,7 +17,7 @@
         </form>
 
         <!-- Clients Table -->
-        <div class="bg-white border border-navy-900 rounded-lg overflow-hidden">
+        <div class="bg-white border border-navy-900 rounded-lg overflow-hidden" id="clientsTableContainer">
             @if($clients->count() > 0)
                 <table class="min-w-full">
                     <thead class="bg-navy-900 text-white">
@@ -70,14 +70,58 @@
                 
                 <!-- Pagination -->
                 <div class="p-4">
-                    {{ $clients->links() }}
+                   <div class="p-4" id="clientsPagination">{{ $clients->links() }}</div>
                 </div>
             @else
-                <div class="p-8 text-center text-gray-600">
+                <div class="p-8 text-center text-gray-600" id="noClientsFound">
                     <p>No clients found.</p>
                     <a href="{{ route('clients.create') }}" class="text-navy-900 hover:underline mt-2 inline-block">Create your first client</a>
                 </div>
             @endif
         </div>
     </div>
+
+    <script>
+        let searchTimeout;
+        const searchInput = document.getElementById('clientSearch');
+        const tableContainer = document.getElementById('clientsTableContainer');
+
+        function performSearch() {
+            const searchValue = searchInput.value;
+            const url = new URL('{{ route('clients.index') }}');
+            
+            if (searchValue) url.searchParams.set('search', searchValue);
+
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newContent = doc.getElementById('clientsTableContainer');
+                if (newContent) {
+                    tableContainer.innerHTML = newContent.innerHTML;
+                }
+                
+                // Update URL without reload
+                window.history.pushState({}, '', url);
+            })
+            .catch(error => console.error('Search error:', error));
+        }
+
+        // Debounced search on input
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(performSearch, 300);
+        });
+
+        // Prevent form submission
+        document.getElementById('clientSearchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            performSearch();
+        });
+    </script>
 </x-app-layout>
