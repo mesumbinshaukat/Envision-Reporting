@@ -2,7 +2,12 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-2xl text-navy-900">Clients</h2>
-            <a href="{{ route('clients.create') }}" class="px-4 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Add New Client</a>
+            <div class="flex gap-2">
+                <a href="{{ route('clients.create') }}" class="px-4 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Add New Client</a>
+                @if(auth()->guard('web')->check())
+                    <a href="{{ route('clients.trash') }}" class="px-4 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">Trash Clients</a>
+                @endif
+            </div>
         </div>
     </x-slot>
 

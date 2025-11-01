@@ -39,33 +39,35 @@
                 <input type="text" name="one_time_client_name" id="one_time_client_name" value="{{ old('one_time_client_name') }}" class="w-full px-4 py-2 border border-navy-900 rounded" placeholder="Enter project or client name" disabled>
             </div>
 
-            <div>
-                <label class="block text-sm font-semibold text-navy-900 mb-1">Salesperson *</label>
-                <div class="space-y-2">
-                    <label class="flex items-center">
-                        <input type="radio" name="salesperson_type" value="self" checked onclick="document.getElementById('employee_id').value=''; document.getElementById('employee_id').disabled=true;" class="mr-2">
-                        <span>Self (Default)</span>
-                    </label>
-                    <label class="flex items-center">
-                        <input type="radio" name="salesperson_type" value="employee" onclick="document.getElementById('employee_id').disabled=false;" class="mr-2">
-                        <span>Employee</span>
-                    </label>
+            @if(!isset($isEmployee) || !$isEmployee)
+                <div>
+                    <label class="block text-sm font-semibold text-navy-900 mb-1">Salesperson *</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="radio" name="salesperson_type" value="self" checked onclick="document.getElementById('employee_id').value=''; document.getElementById('employee_id').disabled=true;" class="mr-2">
+                            <span>Self (Default)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="salesperson_type" value="employee" onclick="document.getElementById('employee_id').disabled=false;" class="mr-2">
+                            <span>Employee</span>
+                        </label>
+                    </div>
                 </div>
-            </div>
 
-            <div>
-                <label for="employee_id" class="block text-sm font-semibold text-navy-900 mb-1">Select Employee</label>
-                <select name="employee_id" id="employee_id" disabled class="w-full px-4 py-2 border border-navy-900 rounded">
-                    <option value="">Select Employee...</option>
-                    @foreach($employees as $employee)
-                        <option value="{{ $employee->id }}" {{ old('employee_id') == $employee->id ? 'selected' : '' }}>{{ $employee->name }} ({{ $employee->commission_rate }}% commission)</option>
-                    @endforeach
-                </select>
-            </div>
+                <div>
+                    <label for="employee_id" class="block text-sm font-semibold text-navy-900 mb-1">Select Employee</label>
+                    <select name="employee_id" id="employee_id" disabled class="w-full px-4 py-2 border border-navy-900 rounded">
+                        <option value="">Select Employee...</option>
+                        @foreach($employees as $employee)
+                            <option value="{{ $employee->id }}" {{ old('employee_id') == $employee->id ? 'selected' : '' }}>{{ $employee->name }} ({{ $employee->commission_rate }}% commission)</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
 
             <div>
                 <label for="status" class="block text-sm font-semibold text-navy-900 mb-1">Status *</label>
-                <select name="status" id="status" required class="w-full px-4 py-2 border border-navy-900 rounded">
+                <select name="status" id="status" required class="w-full px-4 py-2 border border-navy-900 rounded" onchange="togglePartialPaymentField()">
                     <option value="Pending" {{ old('status') == 'Pending' ? 'selected' : '' }}>Pending</option>
                     <option value="Partial Paid" {{ old('status') == 'Partial Paid' ? 'selected' : '' }}>Partial Paid</option>
                     <option value="Payment Done" {{ old('status') == 'Payment Done' ? 'selected' : '' }}>Payment Done</option>
@@ -73,13 +75,28 @@
             </div>
 
             <div>
-                <label for="amount" class="block text-sm font-semibold text-navy-900 mb-1">Amount *</label>
-                <input type="number" name="amount" id="amount" value="{{ old('amount') }}" required step="0.01" min="0" class="w-full px-4 py-2 border border-navy-900 rounded">
+                <label for="amount" class="block text-sm font-semibold text-navy-900 mb-1">Total Amount *</label>
+                <input type="number" name="amount" id="amount" value="{{ old('amount') }}" required step="0.01" min="0" class="w-full px-4 py-2 border border-navy-900 rounded" onchange="calculateRemainingAmount()">
             </div>
 
             <div>
                 <label for="tax" class="block text-sm font-semibold text-navy-900 mb-1">Tax</label>
                 <input type="number" name="tax" id="tax" value="{{ old('tax', 0) }}" step="0.01" min="0" class="w-full px-4 py-2 border border-navy-900 rounded">
+            </div>
+
+            <!-- Partial Payment Amount Field (Hidden by default) -->
+            <div id="partial_payment_section" style="display: none;">
+                <label for="paid_amount" class="block text-sm font-semibold text-navy-900 mb-1">Partial Payment Amount *</label>
+                <input type="number" name="paid_amount" id="paid_amount" value="{{ old('paid_amount', 0) }}" step="0.01" min="0" class="w-full px-4 py-2 border border-navy-900 rounded" onchange="calculateRemainingAmount()">
+                <p class="text-xs text-gray-600 mt-1">Enter the amount that has been paid</p>
+            </div>
+
+            <!-- Remaining Amount Display -->
+            <div id="remaining_amount_section" style="display: none;">
+                <label class="block text-sm font-semibold text-navy-900 mb-1">Remaining Amount</label>
+                <div class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50">
+                    <span class="text-lg font-bold text-red-600">Rs.<span id="remaining_amount_display">0.00</span></span>
+                </div>
             </div>
 
             <div>
@@ -199,6 +216,7 @@
             document.getElementById('new_client_name').addEventListener('input', validateForm);
             document.getElementById('one_time_client_name').addEventListener('input', validateForm);
             document.getElementById('is_one_time').addEventListener('change', validateForm);
+            document.getElementById('paid_amount').addEventListener('input', validateForm);
             
             if (document.getElementById('is_one_time').checked) {
                 toggleOneTimeInvoice();
@@ -207,8 +225,62 @@
                 toggleNewClientField();
             }
             
+            // Check if status is Partial Paid on page load
+            togglePartialPaymentField();
+            
             // Initial validation
             validateForm();
         });
+
+        function togglePartialPaymentField() {
+            const status = document.getElementById('status').value;
+            const partialSection = document.getElementById('partial_payment_section');
+            const remainingSection = document.getElementById('remaining_amount_section');
+            const paidAmountInput = document.getElementById('paid_amount');
+            
+            if (status === 'Partial Paid') {
+                partialSection.style.display = 'block';
+                remainingSection.style.display = 'block';
+                paidAmountInput.required = true;
+                paidAmountInput.disabled = false;
+                calculateRemainingAmount();
+            } else if (status === 'Payment Done') {
+                partialSection.style.display = 'none';
+                remainingSection.style.display = 'none';
+                paidAmountInput.required = false;
+                paidAmountInput.disabled = true;
+                paidAmountInput.value = document.getElementById('amount').value || 0;
+            } else {
+                partialSection.style.display = 'none';
+                remainingSection.style.display = 'none';
+                paidAmountInput.required = false;
+                paidAmountInput.disabled = true;
+                paidAmountInput.value = 0;
+            }
+            
+            validateForm();
+        }
+
+        function calculateRemainingAmount() {
+            const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+            const paidAmount = parseFloat(document.getElementById('paid_amount').value) || 0;
+            const status = document.getElementById('status').value;
+            
+            if (status === 'Partial Paid') {
+                const remaining = totalAmount - paidAmount;
+                document.getElementById('remaining_amount_display').textContent = remaining.toFixed(2);
+                
+                // Validation: paid amount should not exceed total amount
+                if (paidAmount > totalAmount) {
+                    document.getElementById('paid_amount').setCustomValidity('Paid amount cannot exceed total amount');
+                } else if (paidAmount <= 0) {
+                    document.getElementById('paid_amount').setCustomValidity('Paid amount must be greater than 0');
+                } else if (paidAmount >= totalAmount) {
+                    document.getElementById('paid_amount').setCustomValidity('For full payment, select "Payment Done" status');
+                } else {
+                    document.getElementById('paid_amount').setCustomValidity('');
+                }
+            }
+        }
     </script>
 </x-app-layout>

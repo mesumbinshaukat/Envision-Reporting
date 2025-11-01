@@ -16,7 +16,22 @@ class InvoiceController extends Controller
     use AuthorizesRequests;
     public function index(Request $request)
     {
-        $query = Invoice::with(['client', 'employee', 'payments']);
+        $isEmployee = auth()->guard('employee')->check();
+        $user = $isEmployee ? auth()->guard('employee')->user() : auth()->user();
+        
+        $query = Invoice::with(['client', 'employee', 'payments', 'createdByEmployee']);
+        
+        // Filter based on user type
+        if ($isEmployee) {
+            // Employee sees only approved invoices they created or their own employee invoices
+            $query->where(function($q) use ($user) {
+                $q->where('created_by_employee_id', $user->id)
+                  ->orWhere('employee_id', $user->employee_id);
+            })->where('approval_status', '!=', 'rejected');
+        } else {
+            // Admin sees all invoices from their account
+            $query->where('user_id', $user->id);
+        }
         
         if ($request->has('search')) {
             $search = $request->search;
@@ -32,24 +47,46 @@ class InvoiceController extends Controller
         }
         
         if ($request->has('date_from')) {
-            $query->whereDate('created_at', '>=', $request->date_from);
+            $dateFrom = $request->date_from;
+            $dateTo = date('Y-m-d 23:59:59', strtotime($request->date_to ?? $dateFrom));
+            $query->where('created_at', '>=', $dateFrom)
+                  ->where('created_at', '<=', $dateTo);
         }
         
-        if ($request->has('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date_to);
+        if ($request->has('date_to') && !$request->has('date_from')) {
+            $dateTo = date('Y-m-d 23:59:59', strtotime($request->date_to));
+            $query->where('created_at', '<=', $dateTo);
         }
         
         $invoices = $query->latest()->paginate(10);
         $totalAmount = $query->sum('amount');
         
-        return view('invoices.index', compact('invoices', 'totalAmount'));
+        return view('invoices.index', compact('invoices', 'totalAmount', 'isEmployee'));
     }
 
     public function create()
     {
-        $clients = auth()->user()->clients;
-        $employees = auth()->user()->employees;
-        return view('invoices.create', compact('clients', 'employees'));
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            $userId = $employeeUser->admin_id;
+            $employeeId = $employeeUser->employee_id;
+            
+            // Employee only sees clients assigned to them in previous invoices
+            $clients = Client::where('user_id', $userId)
+                ->whereHas('invoices', function($q) use ($employeeId) {
+                    $q->where('employee_id', $employeeId);
+                })
+                ->get();
+        } else {
+            $userId = auth()->id();
+            $clients = Client::where('user_id', $userId)->get();
+        }
+        
+        $employees = Employee::where('user_id', $userId)->get();
+        
+        return view('invoices.create', compact('clients', 'employees', 'isEmployee'));
     }
 
     public function store(Request $request)
@@ -67,6 +104,11 @@ class InvoiceController extends Controller
             'special_note' => 'nullable|string',
         ];
         
+        // Add paid_amount validation for Partial Paid status
+        if ($request->status === 'Partial Paid') {
+            $rules['paid_amount'] = 'required|numeric|min:0.01|lt:amount';
+        }
+        
         if ($isOneTime) {
             $rules['one_time_client_name'] = 'required|string|max:255';
         } elseif ($isNewClient) {
@@ -77,19 +119,61 @@ class InvoiceController extends Controller
         
         $validated = $request->validate($rules);
         
+        $isEmployee = auth()->guard('employee')->check();
+        
         // Handle new client creation
         if ($isNewClient && !$isOneTime) {
+            if ($isEmployee) {
+                $employeeUser = auth()->guard('employee')->user();
+                $adminId = $employeeUser->admin_id;
+                $createdByEmployeeId = $employeeUser->id;
+            } else {
+                $adminId = auth()->id();
+                $createdByEmployeeId = null;
+            }
+            
             $client = \App\Models\Client::create([
-                'user_id' => auth()->id(),
+                'user_id' => $adminId,
                 'name' => $request->new_client_name,
+                'created_by_employee_id' => $createdByEmployeeId,
             ]);
             $validated['client_id'] = $client->id;
         }
         
-        $validated['user_id'] = auth()->id();
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            $validated['user_id'] = $employeeUser->admin_id;
+            $validated['created_by_employee_id'] = $employeeUser->id;
+            $validated['approval_status'] = 'pending'; // Employee invoices need approval
+            
+            // If employee didn't select a salesperson, automatically assign themselves
+            if (empty($validated['employee_id'])) {
+                $validated['employee_id'] = $employeeUser->employee_id;
+            }
+        } else {
+            $validated['user_id'] = auth()->id();
+            $validated['approval_status'] = 'approved'; // Admin invoices auto-approved
+            $validated['approved_at'] = now();
+            $validated['approved_by'] = auth()->id();
+        }
+        
         $validated['tax'] = $validated['tax'] ?? 0;
-        $validated['paid_amount'] = 0;
-        $validated['remaining_amount'] = $validated['amount'];
+        
+        // Handle paid_amount and remaining_amount based on status
+        if ($validated['status'] === 'Partial Paid') {
+            // Use the provided paid_amount
+            $validated['paid_amount'] = $validated['paid_amount'] ?? 0;
+            $validated['remaining_amount'] = $validated['amount'] - $validated['paid_amount'];
+        } elseif ($validated['status'] === 'Payment Done') {
+            // Full payment
+            $validated['paid_amount'] = $validated['amount'];
+            $validated['remaining_amount'] = 0;
+        } else {
+            // Pending - no payment yet
+            $validated['paid_amount'] = 0;
+            $validated['remaining_amount'] = $validated['amount'];
+        }
+        
         $validated['is_one_time'] = $isOneTime;
         
         // Set client_id to null for one-time invoices
@@ -99,11 +183,25 @@ class InvoiceController extends Controller
         
         $invoice = Invoice::create($validated);
         
+        // If status is "Partial Paid", create a payment record for the partial amount
+        if ($validated['status'] === 'Partial Paid' && $validated['paid_amount'] > 0) {
+            \App\Models\Payment::create([
+                'invoice_id' => $invoice->id,
+                'user_id' => $validated['user_id'], // Use the already determined user_id
+                'amount' => $validated['paid_amount'],
+                'payment_date' => now(),
+                'payment_month' => now()->format('Y-m'),
+                'payment_method' => 'Initial Partial Payment',
+                'notes' => 'Partial payment on invoice creation',
+                'commission_paid' => false,
+            ]);
+        }
+        
         // If status is "Payment Done", automatically create a payment record
         if ($validated['status'] === 'Payment Done') {
             Payment::create([
                 'invoice_id' => $invoice->id,
-                'user_id' => auth()->id(),
+                'user_id' => $validated['user_id'], // Use the already determined user_id
                 'amount' => $validated['amount'],
                 'payment_date' => now(),
                 'payment_month' => now()->format('Y-m'),
@@ -123,17 +221,49 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice)
     {
-        $this->authorize('view', $invoice);
+        // Manual authorization check for both guards
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            if ($employeeUser->admin_id !== $invoice->user_id) {
+                abort(403, 'This action is unauthorized.');
+            }
+        } else {
+            $this->authorize('view', $invoice);
+        }
+        
         $invoice->load(['client', 'employee']);
         return view('invoices.show', compact('invoice'));
     }
 
     public function edit(Invoice $invoice)
     {
-        $this->authorize('update', $invoice);
-        $clients = auth()->user()->clients;
-        $employees = auth()->user()->employees;
-        return view('invoices.edit', compact('invoice', 'clients', 'employees'));
+        // Manual authorization check for both guards
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            if ($employeeUser->admin_id !== $invoice->user_id) {
+                abort(403, 'This action is unauthorized.');
+            }
+            $userId = $employeeUser->admin_id;
+            $employeeId = $employeeUser->employee_id;
+            
+            // Employee only sees clients assigned to them
+            $clients = Client::where('user_id', $userId)
+                ->whereHas('invoices', function($q) use ($employeeId) {
+                    $q->where('employee_id', $employeeId);
+                })
+                ->get();
+        } else {
+            $userId = auth()->id();
+            $clients = Client::where('user_id', $userId)->get();
+        }
+        
+        $employees = Employee::where('user_id', $userId)->get();
+        
+        return view('invoices.edit', compact('invoice', 'clients', 'employees', 'isEmployee'));
     }
 
     public function update(Request $request, Invoice $invoice)
@@ -195,8 +325,19 @@ class InvoiceController extends Controller
 
     public function pdf(Invoice $invoice)
     {
-        $this->authorize('view', $invoice);
-        $invoice->load(['client', 'employee', 'user']);
+        // Manual authorization check for both guards
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            if ($employeeUser->admin_id !== $invoice->user_id) {
+                abort(403, 'This action is unauthorized.');
+            }
+        } else {
+            $this->authorize('view', $invoice);
+        }
+        
+        $invoice->load(['client', 'employee', 'user', 'payments']);
         
         $pdf = Pdf::loadView('invoices.pdf', compact('invoice'));
         return $pdf->download('invoice-' . $invoice->id . '.pdf');
@@ -204,7 +345,23 @@ class InvoiceController extends Controller
 
     public function pay(Request $request, Invoice $invoice)
     {
-        $this->authorize('update', $invoice);
+        // Manual authorization check for both guards
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            // Check if employee has access to this invoice
+            if ($employeeUser->admin_id !== $invoice->user_id) {
+                abort(403, 'This action is unauthorized.');
+            }
+            // Check if invoice is approved
+            if ($invoice->approval_status !== 'approved') {
+                abort(403, 'Cannot make payment on unapproved invoice.');
+            }
+        } else {
+            // Admin authorization
+            $this->authorize('update', $invoice);
+        }
         
         // Calculate remaining amount from payments
         $totalPaid = $invoice->payments()->sum('amount');
@@ -224,10 +381,17 @@ class InvoiceController extends Controller
         $paymentAmount = $validated['payment_amount'];
         $paymentDate = $validated['payment_date'];
         
+        // Get user_id based on guard
+        if ($isEmployee) {
+            $userId = $employeeUser->admin_id;
+        } else {
+            $userId = auth()->id();
+        }
+        
         // Create payment record
         Payment::create([
             'invoice_id' => $invoice->id,
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
             'amount' => $paymentAmount,
             'payment_date' => $paymentDate,
             'payment_month' => date('Y-m', strtotime($paymentDate)),
@@ -260,5 +424,60 @@ class InvoiceController extends Controller
         $invoice->save();
         
         return redirect()->route('invoices.index')->with('success', 'Payment of Rs.' . number_format($paymentAmount, 2) . ' recorded successfully. Status: ' . $invoice->status);
+    }
+
+    public function approve(Invoice $invoice)
+    {
+        $invoice->update([
+            'approval_status' => 'approved',
+            'approved_at' => now(),
+            'approved_by' => auth()->id(),
+        ]);
+
+        return redirect()->back()->with('success', 'Invoice approved successfully.');
+    }
+
+    public function reject(Invoice $invoice)
+    {
+        $invoice->update(['approval_status' => 'rejected']);
+        $invoice->delete(); // Soft delete
+
+        return redirect()->back()->with('success', 'Invoice rejected and moved to trash.');
+    }
+
+    public function trash()
+    {
+        $isEmployee = auth()->guard('employee')->check();
+        $user = $isEmployee ? auth()->guard('employee')->user() : auth()->user();
+
+        $query = Invoice::onlyTrashed()->with(['client', 'employee', 'createdByEmployee']);
+
+        if (!$isEmployee) {
+            $query->where('user_id', $user->id);
+        } else {
+            // Employees don't see trash
+            abort(403);
+        }
+
+        $invoices = $query->latest('deleted_at')->paginate(10);
+
+        return view('invoices.trash', compact('invoices'));
+    }
+
+    public function restore($id)
+    {
+        $invoice = Invoice::withTrashed()->findOrFail($id);
+        $invoice->restore();
+        $invoice->update(['approval_status' => 'approved']);
+
+        return redirect()->back()->with('success', 'Invoice restored successfully.');
+    }
+
+    public function forceDelete($id)
+    {
+        $invoice = Invoice::withTrashed()->findOrFail($id);
+        $invoice->forceDelete();
+
+        return redirect()->back()->with('success', 'Invoice permanently deleted.');
     }
 }

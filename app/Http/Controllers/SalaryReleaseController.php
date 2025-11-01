@@ -16,13 +16,15 @@ class SalaryReleaseController extends Controller
     use AuthorizesRequests;
     public function index()
     {
-        $salaryReleases = auth()->user()->salaryReleases()->with('employee')->latest()->paginate(10);
+        $userId = auth()->id();
+        $salaryReleases = SalaryRelease::where('user_id', $userId)->with('employee')->latest()->paginate(10);
         return view('salary-releases.index', compact('salaryReleases'));
     }
 
     public function create()
     {
-        $employees = auth()->user()->employees;
+        $userId = auth()->id();
+        $employees = Employee::where('user_id', $userId)->get();
         return view('salary-releases.create', compact('employees'));
     }
 
@@ -222,7 +224,8 @@ class SalaryReleaseController extends Controller
     public function edit(SalaryRelease $salaryRelease)
     {
         $this->authorize('update', $salaryRelease);
-        $employees = auth()->user()->employees;
+        $userId = auth()->id();
+        $employees = Employee::where('user_id', $userId)->get();
         return view('salary-releases.edit', compact('salaryRelease', 'employees'));
     }
 

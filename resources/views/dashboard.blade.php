@@ -5,7 +5,7 @@
 
     <div class="space-y-6">
         <!-- Statistics Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <div class="bg-white border border-navy-900 rounded-lg p-6">
                 <h3 class="text-sm font-semibold text-gray-600 mb-2">Total Clients</h3>
                 <p class="text-3xl font-bold text-navy-900">{{ $total_clients }}</p>
@@ -17,6 +17,11 @@
             <div class="bg-white border border-navy-900 rounded-lg p-6">
                 <h3 class="text-sm font-semibold text-gray-600 mb-2">Pending Invoices</h3>
                 <p class="text-3xl font-bold text-navy-900">{{ $pending_invoices }}</p>
+            </div>
+            <div class="bg-white border border-navy-900 rounded-lg p-6">
+                <h3 class="text-sm font-semibold text-gray-600 mb-2">Pending Approvals</h3>
+                <p class="text-3xl font-bold text-yellow-600">{{ $pending_approvals }}</p>
+                <p class="text-xs text-gray-500 mt-1">Employee invoices</p>
             </div>
             <div class="bg-white border border-navy-900 rounded-lg p-6">
                 <h3 class="text-sm font-semibold text-gray-600 mb-2">Total Expenses</h3>

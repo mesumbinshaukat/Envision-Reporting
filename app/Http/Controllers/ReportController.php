@@ -11,7 +11,7 @@ class ReportController extends Controller
     use AuthorizesRequests;
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $userId = auth()->id();
         $reportData = null;
         
         if ($request->has('date_from') && $request->has('date_to')) {
@@ -24,7 +24,7 @@ class ReportController extends Controller
             $dateFrom = $validated['date_from'];
             $dateTo = date('Y-m-d 23:59:59', strtotime($validated['date_to']));
             
-            $invoices = $user->invoices()
+            $invoices = Invoice::where('user_id', $userId)
                 ->with(['client', 'employee', 'payments'])
                 ->whereHas('payments', function($query) use ($dateFrom, $dateTo) {
                     $query->where('payment_date', '>=', $dateFrom)
@@ -42,18 +42,18 @@ class ReportController extends Controller
                 );
             });
             
-            $expenses = $user->expenses()
+            $expenses = Expense::where('user_id', $userId)
                 ->where('date', '>=', $dateFrom)
                 ->where('date', '<=', $dateTo)
                 ->get();
             
-            $salaryReleases = $user->salaryReleases()
+            $salaryReleases = SalaryRelease::where('user_id', $userId)
                 ->with('employee')
                 ->where('release_date', '>=', $dateFrom)
                 ->where('release_date', '<=', $dateTo)
                 ->get();
             
-            $bonuses = $user->bonuses()
+            $bonuses = Bonus::where('user_id', $userId)
                 ->with('employee')
                 ->where('date', '>=', $dateFrom)
                 ->where('date', '<=', $dateTo)
@@ -99,13 +99,13 @@ class ReportController extends Controller
             'date_to' => 'required|date|after_or_equal:date_from',
         ]);
         
-        $user = auth()->user();
+        $userId = auth()->id();
         
         // Get invoices that have payments in the selected date range (inclusive)
         $dateFrom = $validated['date_from'];
         $dateTo = date('Y-m-d 23:59:59', strtotime($validated['date_to']));
         
-        $invoices = $user->invoices()
+        $invoices = Invoice::where('user_id', $userId)
             ->with(['client', 'employee', 'payments'])
             ->whereHas('payments', function($query) use ($dateFrom, $dateTo) {
                 $query->where('payment_date', '>=', $dateFrom)

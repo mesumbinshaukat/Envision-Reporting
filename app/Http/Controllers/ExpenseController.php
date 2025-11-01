@@ -12,7 +12,8 @@ class ExpenseController extends Controller
     use AuthorizesRequests;
     public function index(Request $request)
     {
-        $query = auth()->user()->expenses();
+        $userId = auth()->id();
+        $query = Expense::where('user_id', $userId);
         
         if ($request->has('date_from')) {
             $query->whereDate('date', '>=', $request->date_from);

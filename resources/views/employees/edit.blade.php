@@ -79,8 +79,60 @@
 
             <div class="flex gap-4">
                 <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Update Employee</button>
+                @if(!$employee->employeeUser)
+                    <button type="button" onclick="openEmployeeUserModal()" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700">Create User Account</button>
+                @else
+                    <span class="px-6 py-2 bg-gray-200 text-gray-600 rounded">User Account Active</span>
+                @endif
                 <a href="{{ route('employees.index') }}" class="px-6 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">Cancel</a>
             </div>
         </form>
+
+        <!-- Employee User Creation Modal -->
+        <div id="employeeUserModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 class="text-xl font-bold text-navy-900 mb-4">Create Employee User Account</h3>
+                
+                <form method="POST" action="{{ route('employee-users.store', $employee) }}" id="employeeUserForm">
+                    @csrf
+                    
+                    <div class="mb-4">
+                        <label for="user_email" class="block text-sm font-semibold text-navy-900 mb-1">Email *</label>
+                        <input type="email" name="email" id="user_email" value="{{ $employee->email }}" required class="w-full px-4 py-2 border border-navy-900 rounded">
+                        <p class="text-xs text-gray-600 mt-1">Default is employee's email. You can change it.</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="user_password" class="block text-sm font-semibold text-navy-900 mb-1">Password *</label>
+                        <input type="password" name="password" id="user_password" required minlength="8" class="w-full px-4 py-2 border border-navy-900 rounded">
+                        <p class="text-xs text-gray-600 mt-1">Minimum 8 characters</p>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Create Account</button>
+                        <button type="button" onclick="closeEmployeeUserModal()" class="px-6 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
+
+    <script>
+        function openEmployeeUserModal() {
+            document.getElementById('employeeUserModal').classList.remove('hidden');
+            document.getElementById('employeeUserModal').classList.add('flex');
+        }
+
+        function closeEmployeeUserModal() {
+            document.getElementById('employeeUserModal').classList.add('hidden');
+            document.getElementById('employeeUserModal').classList.remove('flex');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('employeeUserModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEmployeeUserModal();
+            }
+        });
+    </script>
 </x-app-layout>

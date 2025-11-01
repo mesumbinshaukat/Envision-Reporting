@@ -75,4 +75,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(SalaryRelease::class);
     }
+
+    public function employeeUsers()
+    {
+        return $this->hasMany(EmployeeUser::class, 'admin_id');
+    }
+
+    // Helper method to check if this is an admin user
+    public function isAdmin()
+    {
+        return true;
+    }
+
+    public function isEmployee()
+    {
+        return false;
+    }
 }

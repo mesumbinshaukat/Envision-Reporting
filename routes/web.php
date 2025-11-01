@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EmployeeUserController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\BonusController;
@@ -15,14 +16,37 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+// Routes accessible by both admin and employee
+Route::middleware(['auth.both'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
-    Route::resource('clients', ClientController::class);
-    Route::resource('employees', EmployeeController::class);
+    // Invoices - accessible by both but with different permissions
     Route::resource('invoices', InvoiceController::class);
     Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('invoices.pdf');
     Route::put('/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->name('invoices.pay');
+    Route::get('/invoices/trash/index', [InvoiceController::class, 'trash'])->name('invoices.trash');
+    Route::post('/invoices/{invoice}/restore', [InvoiceController::class, 'restore'])->name('invoices.restore');
+    Route::delete('/invoices/{invoice}/force-delete', [InvoiceController::class, 'forceDelete'])->name('invoices.force-delete');
+    Route::post('/invoices/{invoice}/approve', [InvoiceController::class, 'approve'])->name('invoices.approve');
+    Route::post('/invoices/{invoice}/reject', [InvoiceController::class, 'reject'])->name('invoices.reject');
+    
+    // Clients - accessible by both
+    Route::resource('clients', ClientController::class);
+    Route::get('/clients/trash/index', [ClientController::class, 'trash'])->name('clients.trash');
+    Route::post('/clients/{client}/restore', [ClientController::class, 'restore'])->name('clients.restore');
+    Route::delete('/clients/{client}/force-delete', [ClientController::class, 'forceDelete'])->name('clients.force-delete');
+    
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+// Admin-only routes
+Route::middleware(['auth.both', 'admin'])->group(function () {
+    Route::resource('employees', EmployeeController::class);
+    Route::post('/employees/{employee}/employee-user', [EmployeeUserController::class, 'store'])->name('employee-users.store');
+    Route::delete('/employee-users/{employeeUser}', [EmployeeUserController::class, 'destroy'])->name('employee-users.destroy');
+    Route::delete('/employees/{employee}/full-delete', [EmployeeUserController::class, 'destroyFull'])->name('employees.full-delete');
     
     Route::resource('expenses', ExpenseController::class);
     Route::resource('bonuses', BonusController::class);
@@ -33,10 +57,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::post('/reports/audit', [ReportController::class, 'audit'])->name('reports.audit');
-    
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 require __DIR__.'/auth.php';

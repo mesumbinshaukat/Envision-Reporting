@@ -13,13 +13,15 @@ class BonusController extends Controller
     use AuthorizesRequests;
     public function index()
     {
-        $bonuses = auth()->user()->bonuses()->with('employee')->latest()->paginate(10);
+        $userId = auth()->id();
+        $bonuses = Bonus::where('user_id', $userId)->with('employee')->latest()->paginate(10);
         return view('bonuses.index', compact('bonuses'));
     }
 
     public function create()
     {
-        $employees = auth()->user()->employees;
+        $userId = auth()->id();
+        $employees = Employee::where('user_id', $userId)->get();
         return view('bonuses.create', compact('employees'));
     }
 
@@ -51,7 +53,8 @@ class BonusController extends Controller
     public function edit(Bonus $bonus)
     {
         $this->authorize('update', $bonus);
-        $employees = auth()->user()->employees;
+        $userId = auth()->id();
+        $employees = Employee::where('user_id', $userId)->get();
         return view('bonuses.edit', compact('bonus', 'employees'));
     }
 

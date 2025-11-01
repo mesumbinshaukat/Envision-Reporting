@@ -14,6 +14,10 @@ class Invoice extends Model
         'client_id',
         'employee_id',
         'status',
+        'approval_status',
+        'created_by_employee_id',
+        'approved_at',
+        'approved_by',
         'due_date',
         'amount',
         'paid_amount',
@@ -30,6 +34,7 @@ class Invoice extends Model
     protected $casts = [
         'due_date' => 'date',
         'payment_date' => 'date',
+        'approved_at' => 'datetime',
     ];
 
     public function user()
@@ -50,6 +55,16 @@ class Invoice extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function createdByEmployee()
+    {
+        return $this->belongsTo(EmployeeUser::class, 'created_by_employee_id');
+    }
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function calculateCommission()

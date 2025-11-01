@@ -12,7 +12,8 @@ class EmployeeController extends Controller
     use AuthorizesRequests;
     public function index(Request $request)
     {
-        $query = auth()->user()->employees();
+        $userId = auth()->id();
+        $query = Employee::where('user_id', $userId);
         
         if ($request->has('search')) {
             $search = $request->search;
@@ -54,12 +55,25 @@ class EmployeeController extends Controller
             'last_date' => 'nullable|date',
             'salary' => 'required|numeric|min:0',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
+            'create_user_account' => 'nullable|boolean',
+            'user_password' => 'required_if:create_user_account,1|nullable|min:8',
         ]);
         
         $validated['user_id'] = auth()->id();
         $validated['commission_rate'] = $validated['commission_rate'] ?? 0;
         
-        Employee::create($validated);
+        $employee = Employee::create($validated);
+        
+        // Create employee user account if requested
+        if ($request->create_user_account && $request->user_password) {
+            \App\Models\EmployeeUser::create([
+                'employee_id' => $employee->id,
+                'admin_id' => auth()->id(),
+                'email' => $validated['email'],
+                'password' => \Hash::make($request->user_password),
+                'name' => $employee->name,
+            ]);
+        }
         
         return redirect()->route('employees.index')->with('success', 'Employee created successfully.');
     }

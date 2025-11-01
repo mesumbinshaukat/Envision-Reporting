@@ -15,7 +15,22 @@ class ClientController extends Controller
      */
     public function index(Request $request)
     {
-        $query = auth()->user()->clients();
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            $userId = $employeeUser->admin_id;
+            $employeeId = $employeeUser->employee_id;
+            
+            // Employee only sees clients assigned to them in invoices
+            $query = Client::where('user_id', $userId)
+                ->whereHas('invoices', function($q) use ($employeeId) {
+                    $q->where('employee_id', $employeeId);
+                });
+        } else {
+            $userId = auth()->id();
+            $query = Client::where('user_id', $userId);
+        }
         
         if ($request->has('search')) {
             $search = $request->search;
@@ -42,16 +57,30 @@ class ClientController extends Controller
      */
     public function store(Request $request)
     {
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            $userId = $employeeUser->admin_id;
+        } else {
+            $userId = auth()->id();
+        }
+        
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email|unique:clients,email,NULL,id,user_id,' . auth()->id(),
+            'email' => 'nullable|email|unique:clients,email,NULL,id,user_id,' . $userId,
             'primary_contact' => 'nullable|string|max:255',
             'secondary_contact' => 'nullable|string|max:255',
             'picture' => 'nullable|image|max:2048',
             'website' => 'nullable|url|max:255',
         ]);
         
-        $validated['user_id'] = auth()->id();
+        if ($isEmployee) {
+            $validated['user_id'] = $userId;
+            $validated['created_by_employee_id'] = $employeeUser->id;
+        } else {
+            $validated['user_id'] = $userId;
+        }
         
         if ($request->hasFile('picture')) {
             $validated['picture'] = $request->file('picture')->store('clients', 'public');
@@ -67,7 +96,18 @@ class ClientController extends Controller
      */
     public function show(Client $client)
     {
-        $this->authorize('view', $client);
+        // Manual authorization check for both guards
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            if ($employeeUser->admin_id !== $client->user_id) {
+                abort(403, 'This action is unauthorized.');
+            }
+        } else {
+            $this->authorize('view', $client);
+        }
+        
         return view('clients.show', compact('client'));
     }
 
@@ -76,7 +116,18 @@ class ClientController extends Controller
      */
     public function edit(Client $client)
     {
-        $this->authorize('update', $client);
+        // Manual authorization check for both guards
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            if ($employeeUser->admin_id !== $client->user_id) {
+                abort(403, 'This action is unauthorized.');
+            }
+        } else {
+            $this->authorize('update', $client);
+        }
+        
         return view('clients.edit', compact('client'));
     }
 
@@ -85,11 +136,28 @@ class ClientController extends Controller
      */
     public function update(Request $request, Client $client)
     {
-        $this->authorize('update', $client);
+        // Manual authorization check for both guards
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            if ($employeeUser->admin_id !== $client->user_id) {
+                abort(403, 'This action is unauthorized.');
+            }
+        } else {
+            $this->authorize('update', $client);
+        }
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            $userId = $employeeUser->admin_id;
+        } else {
+            $userId = auth()->id();
+        }
         
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email|unique:clients,email,' . $client->id . ',id,user_id,' . auth()->id(),
+            'email' => 'nullable|email|unique:clients,email,' . $client->id . ',id,user_id,' . $userId,
             'primary_contact' => 'nullable|string|max:255',
             'secondary_contact' => 'nullable|string|max:255',
             'picture' => 'nullable|image|max:2048',
@@ -113,14 +181,63 @@ class ClientController extends Controller
      */
     public function destroy(Client $client)
     {
-        $this->authorize('delete', $client);
+        // Manual authorization check for both guards
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            $employeeUser = auth()->guard('employee')->user();
+            if ($employeeUser->admin_id !== $client->user_id) {
+                abort(403, 'This action is unauthorized.');
+            }
+        } else {
+            $this->authorize('delete', $client);
+        }
+        
+        if ($isEmployee) {
+            // Employee soft delete - mark who deleted it
+            $employeeUser = auth()->guard('employee')->user();
+            $client->deleted_by_employee_id = $employeeUser->id;
+            $client->save();
+        }
+        
+        $client->delete(); // Soft delete
+        
+        return redirect()->route('clients.index')->with('success', 'Client deleted successfully.');
+    }
+
+    public function trash()
+    {
+        $isEmployee = auth()->guard('employee')->check();
+        
+        if ($isEmployee) {
+            abort(403); // Employees can't see trash
+        }
+        
+        $userId = auth()->id();
+        $clients = Client::where('user_id', $userId)->onlyTrashed()->with(['createdByEmployee', 'deletedByEmployee'])->latest('deleted_at')->paginate(10);
+        
+        return view('clients.trash', compact('clients'));
+    }
+
+    public function restore($id)
+    {
+        $client = Client::withTrashed()->findOrFail($id);
+        $client->restore();
+        $client->update(['deleted_by_employee_id' => null]);
+        
+        return redirect()->back()->with('success', 'Client restored successfully.');
+    }
+
+    public function forceDelete($id)
+    {
+        $client = Client::withTrashed()->findOrFail($id);
         
         if ($client->picture) {
             Storage::disk('public')->delete($client->picture);
         }
         
-        $client->delete();
+        $client->forceDelete();
         
-        return redirect()->route('clients.index')->with('success', 'Client deleted successfully.');
+        return redirect()->back()->with('success', 'Client permanently deleted.');
     }
 }

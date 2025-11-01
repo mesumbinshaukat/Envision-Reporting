@@ -2,7 +2,12 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-2xl text-navy-900">Invoices</h2>
-            <a href="{{ route('invoices.create') }}" class="px-4 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Create Invoice</a>
+            <div class="flex gap-2">
+                <a href="{{ route('invoices.create') }}" class="px-4 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Create Invoice</a>
+                @if(!isset($isEmployee) || !$isEmployee)
+                    <a href="{{ route('invoices.trash') }}" class="px-4 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">Trash Invoices</a>
+                @endif
+            </div>
         </div>
     </x-slot>
 
@@ -50,6 +55,9 @@
                                 <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Paid</th>
                                 <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Remaining</th>
                                 <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Status</th>
+                                @if(!isset($isEmployee) || !$isEmployee)
+                                    <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Approval</th>
+                                @endif
                                 <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Due Date</th>
                                 <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Latest Payment</th>
                                 <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Actions</th>
@@ -77,6 +85,26 @@
                                             {{ $invoice->status }}
                                         </span>
                                     </td>
+                                    @if(!isset($isEmployee) || !$isEmployee)
+                                        <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">
+                                            @if($invoice->approval_status == 'pending')
+                                                <div class="flex gap-1">
+                                                    <form method="POST" action="{{ route('invoices.approve', $invoice) }}">
+                                                        @csrf
+                                                        <button type="submit" class="px-2 py-1 bg-green-600 text-black rounded text-xs hover:bg-green-700">Approve</button>
+                                                    </form>
+                                                    <form method="POST" action="{{ route('invoices.reject', $invoice) }}" onsubmit="return confirm('Reject this invoice?');">
+                                                        @csrf
+                                                        <button type="submit" class="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">Reject</button>
+                                                    </form>
+                                                </div>
+                                            @else
+                                                <span class="px-2 py-1 rounded text-xs whitespace-nowrap {{ $invoice->approval_status == 'approved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                                    {{ ucfirst($invoice->approval_status) }}
+                                                </span>
+                                            @endif
+                                        </td>
+                                    @endif
                                     <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm whitespace-nowrap">{{ $invoice->due_date ? $invoice->due_date->format('M d, Y') : 'N/A' }}</td>
                                     <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm whitespace-nowrap">
                                         @php
@@ -91,16 +119,26 @@
                                     <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">
                                         <div class="flex flex-col gap-1">
                                             @if($invoice->status != 'Payment Done')
-                                                <button onclick="openPaymentModal({{ $invoice->id }}, '{{ $invoice->is_one_time ? addslashes($invoice->one_time_client_name) : addslashes($invoice->client->name) }}', {{ $invoice->amount }}, {{ $invoice->paid_amount }}, {{ $invoice->remaining_amount > 0 ? $invoice->remaining_amount : $invoice->amount }})" class="text-green-600 hover:underline font-semibold text-xs text-left">Pay</button>
+                                                @if($invoice->approval_status == 'approved')
+                                                    <button onclick="openPaymentModal({{ $invoice->id }}, '{{ $invoice->is_one_time ? addslashes($invoice->one_time_client_name) : addslashes($invoice->client->name) }}', {{ $invoice->amount }}, {{ $invoice->paid_amount }}, {{ $invoice->remaining_amount > 0 ? $invoice->remaining_amount : $invoice->amount }})" class="text-green-600 hover:underline font-semibold text-xs text-left">Pay</button>
+                                                @else
+                                                    <span class="text-gray-400 text-xs cursor-not-allowed" title="Invoice must be approved before payment">Pay</span>
+                                                @endif
                                             @endif
                                             <a href="{{ route('invoices.show', $invoice) }}" class="text-navy-900 hover:underline text-xs">View</a>
                                             <a href="{{ route('invoices.pdf', $invoice) }}" class="text-navy-900 hover:underline text-xs">PDF</a>
-                                            <a href="{{ route('invoices.edit', $invoice) }}" class="text-navy-900 hover:underline text-xs">Edit</a>
-                                            <form method="POST" action="{{ route('invoices.destroy', $invoice) }}" onsubmit="return confirm('Are you sure?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:underline text-xs text-left">Delete</button>
-                                            </form>
+                                            
+                                            @if(isset($isEmployee) && $isEmployee)
+                                                <span class="text-gray-400 text-xs cursor-not-allowed" title="You can't edit because you're not admin">Edit</span>
+                                                <span class="text-gray-400 text-xs cursor-not-allowed" title="You can't delete because you're not admin">Delete</span>
+                                            @else
+                                                <a href="{{ route('invoices.edit', $invoice) }}" class="text-navy-900 hover:underline text-xs">Edit</a>
+                                                <form method="POST" action="{{ route('invoices.destroy', $invoice) }}" onsubmit="return confirm('Are you sure?');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-red-600 hover:underline text-xs text-left">Delete</button>
+                                                </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

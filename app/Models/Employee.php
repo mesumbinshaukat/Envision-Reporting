@@ -48,4 +48,14 @@ class Employee extends Model
     {
         return $this->hasMany(SalaryRelease::class);
     }
+
+    public function employeeUser()
+    {
+        return $this->hasOne(EmployeeUser::class);
+    }
+
+    public function hasUserAccount()
+    {
+        return $this->employeeUser()->exists();
+    }
 }

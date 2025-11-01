@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +20,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Configure Gate to resolve user from both guards
+        Gate::before(function ($user, $ability) {
+            // If no user from default guard, try employee guard
+            if (!$user && auth()->guard('employee')->check()) {
+                return null; // Let the policy handle it
+            }
+        });
     }
 }

@@ -77,10 +77,52 @@
                 <p class="text-sm text-gray-600 mt-1">Enter commission percentage (e.g., 5 for 5%)</p>
             </div>
 
+            <!-- Create User Account Checkbox -->
+            <div class="border-t border-gray-300 pt-4">
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" name="create_user_account" id="create_user_account" value="1" class="mr-2 w-4 h-4" onchange="toggleUserPasswordField()">
+                    <span class="text-sm font-semibold text-navy-900">Create employee user account (allows employee to login)</span>
+                </label>
+            </div>
+
+            <!-- Password Field (Hidden by default) -->
+            <div id="password_field" style="display: none;">
+                <label for="user_password" class="block text-sm font-semibold text-navy-900 mb-1">User Password *</label>
+                <input type="password" name="user_password" id="user_password" minlength="8" class="w-full px-4 py-2 border border-navy-900 rounded" disabled>
+                <p class="text-sm text-gray-600 mt-1">Minimum 8 characters. Employee will use their email to login.</p>
+            </div>
+
             <div class="flex gap-4">
-                <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Create Employee</button>
+                <button type="submit" id="submit_btn" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Create Employee</button>
                 <a href="{{ route('employees.index') }}" class="px-6 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">Cancel</a>
             </div>
         </form>
     </div>
+
+    <script>
+        function toggleUserPasswordField() {
+            const checkbox = document.getElementById('create_user_account');
+            const passwordField = document.getElementById('password_field');
+            const passwordInput = document.getElementById('user_password');
+            const submitBtn = document.getElementById('submit_btn');
+
+            if (checkbox.checked) {
+                passwordField.style.display = 'block';
+                passwordInput.disabled = false;
+                passwordInput.required = true;
+                submitBtn.disabled = true; // Disable until password is entered
+                
+                // Enable submit when password is typed
+                passwordInput.addEventListener('input', function() {
+                    submitBtn.disabled = this.value.length < 8;
+                });
+            } else {
+                passwordField.style.display = 'none';
+                passwordInput.disabled = true;
+                passwordInput.required = false;
+                passwordInput.value = '';
+                submitBtn.disabled = false;
+            }
+        }
+    </script>
 </x-app-layout>
