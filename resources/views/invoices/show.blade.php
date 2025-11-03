@@ -32,17 +32,17 @@
 
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Amount</h3>
-                    <p class="text-lg text-navy-900">Rs.{{ number_format($invoice->amount, 2) }}</p>
+                    <p class="text-lg text-navy-900">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount, 2) }}</p>
                 </div>
 
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Tax</h3>
-                    <p class="text-lg text-navy-900">Rs.{{ number_format($invoice->tax, 2) }}</p>
+                    <p class="text-lg text-navy-900">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->tax, 2) }}</p>
                 </div>
 
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Net Amount</h3>
-                    <p class="text-lg text-navy-900">Rs.{{ number_format($invoice->amount - $invoice->tax, 2) }}</p>
+                    <p class="text-lg text-navy-900">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount - $invoice->tax, 2) }}</p>
                 </div>
 
                 <div>
@@ -65,7 +65,7 @@
                 @if($invoice->employee)
                 <div class="col-span-2">
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Commission</h3>
-                    <p class="text-lg text-navy-900">Rs.{{ number_format($invoice->calculateCommission(), 2) }} ({{ $invoice->employee->commission_rate }}%)</p>
+                    <p class="text-lg text-navy-900">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->calculateCommission(), 2) }} ({{ $invoice->employee->commission_rate }}%)</p>
                 </div>
                 @endif
 

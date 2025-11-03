@@ -44,7 +44,7 @@
                                 <td class="py-3 px-4">{{ $employee->email }}</td>
                                 <td class="py-3 px-4">{{ $employee->role }}</td>
                                 <td class="py-3 px-4">{{ $employee->employment_type }}</td>
-                                <td class="py-3 px-4">Rs.{{ number_format($employee->salary, 2) }}</td>
+                                <td class="py-3 px-4">{{ $employee->currency ? $employee->currency->symbol : 'Rs.' }}{{ number_format($employee->salary, 2) }}</td>
                                 <td class="py-3 px-4">{{ $employee->commission_rate }}%</td>
                                 <td class="py-3 px-4">
                                     <div class="flex gap-2">

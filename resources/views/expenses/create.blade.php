@@ -13,6 +13,18 @@
             </div>
 
             <div>
+                <label for="currency_id" class="block text-sm font-semibold text-navy-900 mb-1">Currency *</label>
+                <select name="currency_id" id="currency_id" required class="w-full px-4 py-2 border border-navy-900 rounded">
+                    @foreach($currencies as $currency)
+                        <option value="{{ $currency->id }}" {{ (old('currency_id', $baseCurrency->id ?? null) == $currency->id) ? 'selected' : '' }}>
+                            {{ $currency->code }} - {{ $currency->name }} ({{ $currency->symbol }})
+                            @if($currency->is_base) - BASE @endif
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
                 <label for="amount" class="block text-sm font-semibold text-navy-900 mb-1">Amount *</label>
                 <input type="number" name="amount" id="amount" value="{{ old('amount') }}" required step="0.01" min="0" class="w-full px-4 py-2 border border-navy-900 rounded">
             </div>

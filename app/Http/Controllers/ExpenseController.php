@@ -3,17 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Expense;
+use App\Models\Currency;
+use App\Traits\HandlesCurrency;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 
 class ExpenseController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, HandlesCurrency;
     public function index(Request $request)
     {
         $userId = auth()->id();
-        $query = Expense::where('user_id', $userId);
+        $query = Expense::where('user_id', $userId)->with('currency');
         
         if ($request->has('date_from')) {
             $query->whereDate('date', '>=', $request->date_from);
@@ -24,20 +26,34 @@ class ExpenseController extends Controller
         }
         
         $expenses = $query->latest('date')->paginate(10);
-        $totalAmount = $query->sum('amount');
         
-        return view('expenses.index', compact('expenses', 'totalAmount'));
+        // Convert all to base currency for total
+        $baseCurrency = $this->getBaseCurrency();
+        $allExpenses = Expense::where('user_id', $userId)->with('currency')->get();
+        $totalAmount = 0;
+        foreach ($allExpenses as $expense) {
+            if ($expense->currency_id && $expense->currency) {
+                $totalAmount += $expense->currency->toBase($expense->amount);
+            } else {
+                $totalAmount += $expense->amount;
+            }
+        }
+        
+        return view('expenses.index', compact('expenses', 'totalAmount', 'baseCurrency'));
     }
 
     public function create()
     {
-        return view('expenses.create');
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('expenses.create', compact('currencies', 'baseCurrency'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'description' => 'required|string',
+            'description' => 'required|string|max:255',
+            'currency_id' => 'required|exists:currencies,id',
             'amount' => 'required|numeric|min:0',
             'date' => 'required|date',
         ]);
@@ -58,7 +74,9 @@ class ExpenseController extends Controller
     public function edit(Expense $expense)
     {
         $this->authorize('update', $expense);
-        return view('expenses.edit', compact('expense'));
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('expenses.edit', compact('expense', 'currencies', 'baseCurrency'));
     }
 
     public function update(Request $request, Expense $expense)
@@ -66,7 +84,8 @@ class ExpenseController extends Controller
         $this->authorize('update', $expense);
         
         $validated = $request->validate([
-            'description' => 'required|string',
+            'description' => 'required|string|max:255',
+            'currency_id' => 'required|exists:currencies,id',
             'amount' => 'required|numeric|min:0',
             'date' => 'required|date',
         ]);

@@ -25,7 +25,8 @@
             </div>
             <div class="bg-white border border-navy-900 rounded-lg p-6">
                 <h3 class="text-sm font-semibold text-gray-600 mb-2">Total Expenses</h3>
-                <p class="text-3xl font-bold text-navy-900">Rs.{{ number_format($total_expenses, 2) }}</p>
+                <p class="text-3xl font-bold text-navy-900">{{ $baseCurrency->symbol ?? 'Rs.' }}{{ number_format($total_expenses, 2) }}</p>
+                <p class="text-xs text-gray-500 mt-1">In base currency</p>
             </div>
         </div>
 
@@ -50,13 +51,13 @@
                                 <tr class="border-b">
                                     <td class="py-2 px-4">{{ $invoice->client->name }}</td>
                                     <td class="py-2 px-4">{{ $invoice->employee ? $invoice->employee->name : 'Self' }}</td>
-                                    <td class="py-2 px-4">Rs.{{ number_format($invoice->amount, 2) }}</td>
+                                    <td class="py-2 px-4">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount, 2) }}</td>
                                     <td class="py-2 px-4">
                                         <span class="px-2 py-1 rounded text-sm {{ $invoice->status == 'Payment Done' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">
                                             {{ $invoice->status }}
                                         </span>
                                     </td>
-                                    <td class="py-2 px-4">{{ $invoice->due_date ? $invoice->due_date->format('M d, Y') : 'N/A' }}</td>
+                                    <td class="py-2 px-4">{{ $invoice->created_at->format('M d, Y') }}</td>
                                 </tr>
                                 @endif
                             @endforeach
@@ -85,7 +86,7 @@
                             @foreach($recent_expenses as $expense)
                                 <tr class="border-b">
                                     <td class="py-2 px-4">{{ $expense->description }}</td>
-                                    <td class="py-2 px-4">Rs.{{ number_format($expense->amount, 2) }}</td>
+                                    <td class="py-2 px-4">{{ $expense->currency ? $expense->currency->symbol : 'Rs.' }}{{ number_format($expense->amount, 2) }}</td>
                                     <td class="py-2 px-4">{{ $expense->date->format('M d, Y') }}</td>
                                 </tr>
                             @endforeach

@@ -25,7 +25,7 @@
                         @foreach($bonuses as $bonus)
                             <tr class="border-b">
                                 <td class="py-3 px-4 font-semibold">{{ $bonus->employee->name }}</td>
-                                <td class="py-3 px-4">Rs.{{ number_format($bonus->amount, 2) }}</td>
+                                <td class="py-3 px-4">{{ $bonus->currency ? $bonus->currency->symbol : ($baseCurrency->symbol ?? 'Rs.') }}{{ number_format($bonus->amount, 2) }}</td>
                                 <td class="py-3 px-4">{{ $bonus->description ?? 'N/A' }}</td>
                                 <td class="py-3 px-4">{{ $bonus->date->format('M d, Y') }}</td>
                                 <td class="py-3 px-4">{{ ucfirst(str_replace('_', ' ', $bonus->release_type)) }}</td>

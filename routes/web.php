@@ -13,6 +13,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AdminAttendanceController;
 use App\Http\Controllers\AttendanceFixRequestController;
+use App\Http\Controllers\CurrencyController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -103,6 +104,14 @@ Route::middleware(['auth.both', 'admin'])->group(function () {
         Route::put('/{attendance}', [AdminAttendanceController::class, 'update'])->name('update');
         Route::delete('/{attendance}', [AdminAttendanceController::class, 'destroy'])->name('destroy');
     });
+    
+    // Currency management (admin only)
+    Route::get('/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
+    Route::post('/currencies', [CurrencyController::class, 'store'])->name('currencies.store');
+    Route::put('/currencies/{currency}', [CurrencyController::class, 'update'])->name('currencies.update');
+    Route::post('/currencies/{currency}/set-base', [CurrencyController::class, 'setBase'])->name('currencies.set-base');
+    Route::post('/currencies/{currency}/toggle-active', [CurrencyController::class, 'toggleActive'])->name('currencies.toggle-active');
+    Route::delete('/currencies/{currency}', [CurrencyController::class, 'destroy'])->name('currencies.destroy');
 });
 
 require __DIR__.'/auth.php';

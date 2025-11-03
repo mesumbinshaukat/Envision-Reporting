@@ -82,15 +82,15 @@
         <tbody>
             <tr>
                 <td>Invoice Amount</td>
-                <td>Rs.{{ number_format($invoice->amount, 2) }}</td>
+                <td>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount, 2) }}</td>
             </tr>
             <tr>
                 <td>Tax</td>
-                <td>Rs.{{ number_format($invoice->tax, 2) }}</td>
+                <td>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->tax, 2) }}</td>
             </tr>
             <tr>
                 <td><strong>Total Amount</strong></td>
-                <td><strong>Rs.{{ number_format($invoice->amount, 2) }}</strong></td>
+                <td><strong>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount, 2) }}</strong></td>
             </tr>
         </tbody>
     </table>
@@ -115,14 +115,14 @@
                     <tr>
                         <td>{{ $index + 1 }}</td>
                         <td>{{ $payment->payment_date ? \Carbon\Carbon::parse($payment->payment_date)->format('M d, Y') : 'N/A' }}</td>
-                        <td>Rs.{{ number_format($payment->amount, 2) }}</td>
+                        <td>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($payment->amount, 2) }}</td>
                         <td>{{ $payment->payment_month ? \Carbon\Carbon::parse($payment->payment_month . '-01')->format('M Y') : 'N/A' }}</td>
                         <td>{{ $payment->notes ?? ($payment->payment_method ?? 'Payment received') }}</td>
                     </tr>
                     @endforeach
                     <tr style="background-color: #f0f0f0;">
                         <td colspan="2" style="text-align: right;"><strong>Total Paid:</strong></td>
-                        <td><strong>Rs.{{ number_format($invoice->paid_amount, 2) }}</strong></td>
+                        <td><strong>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->paid_amount, 2) }}</strong></td>
                         <td colspan="2"></td>
                     </tr>
                 </tbody>
@@ -137,15 +137,15 @@
         <table style="width: 100%; margin-top: 20px; border: 2px solid #001F3F;">
             <tr>
                 <td style="padding: 10px; width: 70%; text-align: right;"><strong>Total Invoice Amount:</strong></td>
-                <td style="padding: 10px; background-color: #f8f9fa;"><strong>Rs.{{ number_format($invoice->amount, 2) }}</strong></td>
+                <td style="padding: 10px; background-color: #f8f9fa;"><strong>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount, 2) }}</strong></td>
             </tr>
             <tr>
                 <td style="padding: 10px; text-align: right;"><strong>Total Paid:</strong></td>
-                <td style="padding: 10px; background-color: #d4edda; color: #155724;"><strong>Rs.{{ number_format($invoice->paid_amount, 2) }}</strong></td>
+                <td style="padding: 10px; background-color: #d4edda; color: #155724;"><strong>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->paid_amount, 2) }}</strong></td>
             </tr>
             <tr>
                 <td style="padding: 10px; text-align: right;"><strong>Remaining Amount:</strong></td>
-                <td style="padding: 10px; background-color: {{ $invoice->remaining_amount > 0 ? '#f8d7da' : '#d4edda' }}; color: {{ $invoice->remaining_amount > 0 ? '#721c24' : '#155724' }};"><strong>Rs.{{ number_format($invoice->remaining_amount, 2) }}</strong></td>
+                <td style="padding: 10px; background-color: {{ $invoice->remaining_amount > 0 ? '#f8d7da' : '#d4edda' }}; color: {{ $invoice->remaining_amount > 0 ? '#721c24' : '#155724' }};"><strong>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->remaining_amount, 2) }}</strong></td>
             </tr>
             <tr>
                 <td style="padding: 10px; text-align: right;"><strong>Payment Status:</strong></td>

@@ -49,7 +49,7 @@
 
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Monthly Salary</h3>
-                    <p class="text-lg text-navy-900">Rs.{{ number_format($employee->salary, 2) }}</p>
+                    <p class="text-lg text-navy-900">{{ $employee->currency ? $employee->currency->symbol : 'Rs.' }}{{ number_format($employee->salary, 2) }}</p>
                 </div>
 
                 <div>
@@ -82,9 +82,9 @@
                     @foreach($employee->invoices as $invoice)
                         <div class="flex justify-between items-center p-3 border border-gray-300 rounded">
                             <div>
-                                <span class="font-semibold">Rs.{{ number_format($invoice->amount, 2) }}</span>
+                                <span class="font-semibold">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount, 2) }}</span>
                                 <span class="text-sm text-gray-600">- {{ $invoice->client->name }} - {{ $invoice->status }}</span>
-                                <span class="text-sm text-gray-600">- Commission: Rs.{{ number_format($invoice->calculateCommission(), 2) }}</span>
+                                <span class="text-sm text-gray-600">- Commission: {{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->calculateCommission(), 2) }}</span>
                             </div>
                             <a href="{{ route('invoices.show', $invoice) }}" class="text-navy-900 hover:underline">View</a>
                         </div>
@@ -103,7 +103,7 @@
                     @foreach($employee->bonuses as $bonus)
                         <div class="flex justify-between items-center p-3 border border-gray-300 rounded">
                             <div>
-                                <span class="font-semibold">Rs.{{ number_format($bonus->amount, 2) }}</span>
+                                <span class="font-semibold">{{ $bonus->currency ? $bonus->currency->symbol : 'Rs.' }}{{ number_format($bonus->amount, 2) }}</span>
                                 <span class="text-sm text-gray-600">- {{ $bonus->description ?? 'Bonus' }}</span>
                                 <span class="text-sm text-gray-600">- {{ $bonus->date->format('M d, Y') }}</span>
                             </div>
@@ -126,7 +126,7 @@
                     @foreach($employee->salaryReleases as $release)
                         <div class="flex justify-between items-center p-3 border border-gray-300 rounded">
                             <div>
-                                <span class="font-semibold">Rs.{{ number_format($release->total_amount, 2) }}</span>
+                                <span class="font-semibold">{{ $release->currency ? $release->currency->symbol : 'Rs.' }}{{ number_format($release->total_amount, 2) }}</span>
                                 <span class="text-sm text-gray-600">- {{ $release->release_date->format('M d, Y') }}</span>
                                 <span class="text-sm text-gray-600">- {{ $release->release_type }}</span>
                             </div>

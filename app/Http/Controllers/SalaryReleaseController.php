@@ -4,28 +4,43 @@ namespace App\Http\Controllers;
 
 use App\Models\SalaryRelease;
 use App\Models\Employee;
-use App\Models\Invoice;
 use App\Models\Bonus;
+use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\Currency;
+use App\Traits\HandlesCurrency;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
-
+/**
+ * Class SalaryReleaseController
+ * @package App\Http\Controllers
+ */
 class SalaryReleaseController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, HandlesCurrency;
+
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
     public function index()
     {
         $userId = auth()->id();
-        $salaryReleases = SalaryRelease::where('user_id', $userId)->with('employee')->latest()->paginate(10);
-        return view('salary-releases.index', compact('salaryReleases'));
+        $salaryReleases = SalaryRelease::where('user_id', $userId)->with(['employee', 'currency'])->latest()->paginate(10);
+        $baseCurrency = $this->getBaseCurrency();
+        return view('salary-releases.index', compact('salaryReleases', 'baseCurrency'));
     }
 
     public function create()
     {
         $userId = auth()->id();
         $employees = Employee::where('user_id', $userId)->get();
-        return view('salary-releases.create', compact('employees'));
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('salary-releases.create', compact('employees', 'currencies', 'baseCurrency'));
     }
 
     public function preview(Request $request)
@@ -98,12 +113,17 @@ class SalaryReleaseController extends Controller
         $deductions = $request->deductions ?? 0;
         $totalCalculated = $baseSalary + $commissionAmount + $bonusAmount - $deductions;
         
+        // Get employee currency or base currency
+        $currency = $employee->currency ?? $this->getBaseCurrency();
+        $currencySymbol = $currency ? $currency->symbol : 'Rs.';
+        
         return response()->json([
             'base_salary' => number_format($baseSalary, 2),
             'commission_amount' => number_format($commissionAmount, 2),
             'bonus_amount' => number_format($bonusAmount, 2),
             'deductions' => number_format($deductions, 2),
             'total_calculated' => number_format($totalCalculated, 2),
+            'currency_symbol' => $currencySymbol,
             'already_released' => $alreadyReleased,
             'paid_invoices' => $commissionDetails,
             'bonuses' => $bonuses->map(function($bonus) {
@@ -189,6 +209,7 @@ class SalaryReleaseController extends Controller
         $totalAmount = $baseSalary + $commissionAmount + $bonusAmount - $deductions;
         
         $validated['user_id'] = auth()->id();
+        $validated['currency_id'] = $employee->currency_id ?? $this->getBaseCurrency()->id;
         $validated['base_salary'] = $baseSalary;
         $validated['commission_amount'] = $commissionAmount;
         $validated['bonus_amount'] = $bonusAmount;
@@ -217,7 +238,7 @@ class SalaryReleaseController extends Controller
     public function show(SalaryRelease $salaryRelease)
     {
         $this->authorize('view', $salaryRelease);
-        $salaryRelease->load('employee');
+        $salaryRelease->load(['employee', 'currency']);
         return view('salary-releases.show', compact('salaryRelease'));
     }
 
@@ -226,7 +247,9 @@ class SalaryReleaseController extends Controller
         $this->authorize('update', $salaryRelease);
         $userId = auth()->id();
         $employees = Employee::where('user_id', $userId)->get();
-        return view('salary-releases.edit', compact('salaryRelease', 'employees'));
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('salary-releases.edit', compact('salaryRelease', 'employees', 'currencies', 'baseCurrency'));
     }
 
     public function update(Request $request, SalaryRelease $salaryRelease)
@@ -258,7 +281,7 @@ class SalaryReleaseController extends Controller
     public function pdf(SalaryRelease $salaryRelease)
     {
         $this->authorize('view', $salaryRelease);
-        $salaryRelease->load(['employee', 'user']);
+        $salaryRelease->load(['employee', 'user', 'currency']);
         
         $pdf = Pdf::loadView('salary-releases.pdf', compact('salaryRelease'));
         return $pdf->download('salary-slip-' . $salaryRelease->id . '.pdf');

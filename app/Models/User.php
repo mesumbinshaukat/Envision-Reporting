@@ -86,6 +86,16 @@ class User extends Authenticatable
         return $this->hasMany(AttendanceFixRequest::class, 'processed_by');
     }
 
+    public function currencies()
+    {
+        return $this->hasMany(Currency::class);
+    }
+
+    public function baseCurrency()
+    {
+        return $this->hasOne(Currency::class)->where('is_base', true)->where('is_active', true);
+    }
+
     // Helper method to check if this is an admin user
     public function isAdmin()
     {

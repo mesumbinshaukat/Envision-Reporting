@@ -3,17 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
+use App\Models\Currency;
+use App\Traits\HandlesCurrency;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 
 class EmployeeController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, HandlesCurrency;
     public function index(Request $request)
     {
         $userId = auth()->id();
-        $query = Employee::where('user_id', $userId);
+        $query = Employee::where('user_id', $userId)->with('currency');
         
         if ($request->has('search')) {
             $search = $request->search;
@@ -38,13 +40,16 @@ class EmployeeController extends Controller
 
     public function create()
     {
-        return view('employees.create');
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('employees.create', compact('currencies', 'baseCurrency'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'currency_id' => 'required|exists:currencies,id',
             'marital_status' => 'nullable|string',
             'primary_contact' => 'required|string|max:255',
             'email' => 'required|email|unique:employees,email,NULL,id,user_id,' . auth()->id(),
@@ -81,14 +86,16 @@ class EmployeeController extends Controller
     public function show(Employee $employee)
     {
         $this->authorize('view', $employee);
-        $employee->load(['invoices', 'bonuses', 'salaryReleases']);
+        $employee->load(['invoices', 'bonuses', 'salaryReleases', 'currency']);
         return view('employees.show', compact('employee'));
     }
 
     public function edit(Employee $employee)
     {
         $this->authorize('update', $employee);
-        return view('employees.edit', compact('employee'));
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('employees.edit', compact('employee', 'currencies', 'baseCurrency'));
     }
 
     public function update(Request $request, Employee $employee)
@@ -97,6 +104,7 @@ class EmployeeController extends Controller
         
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'currency_id' => 'required|exists:currencies,id',
             'marital_status' => 'nullable|string',
             'primary_contact' => 'required|string|max:255',
             'email' => 'required|email|unique:employees,email,' . $employee->id . ',id,user_id,' . auth()->id(),

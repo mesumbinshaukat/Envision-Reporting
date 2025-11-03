@@ -14,13 +14,13 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="bg-white border border-navy-900 rounded-lg p-6">
                 <div class="text-sm text-gray-600 mb-1">Total Commission Paid</div>
-                <div class="text-3xl font-bold text-green-600">Rs.{{ number_format($total_commission_paid, 2) }}</div>
+                <div class="text-3xl font-bold text-green-600">{{ $employee->currency ? $employee->currency->symbol : 'Rs.' }}{{ number_format($total_commission_paid, 2) }}</div>
                 <p class="text-xs text-gray-500 mt-2">Commissions released to you</p>
             </div>
 
             <div class="bg-white border border-navy-900 rounded-lg p-6">
                 <div class="text-sm text-gray-600 mb-1">Pending Commission</div>
-                <div class="text-3xl font-bold text-yellow-600">Rs.{{ number_format($pending_commission, 2) }}</div>
+                <div class="text-3xl font-bold text-yellow-600">{{ $employee->currency ? $employee->currency->symbol : 'Rs.' }}{{ number_format($pending_commission, 2) }}</div>
                 <p class="text-xs text-gray-500 mt-2">Awaiting salary release</p>
             </div>
 
@@ -73,7 +73,7 @@
                         @foreach($recent_invoices as $invoice)
                             <tr class="border-b">
                                 <td class="py-3 px-4">{{ $invoice->is_one_time ? $invoice->one_time_client_name : ($invoice->client ? $invoice->client->name : 'N/A') }}</td>
-                                <td class="py-3 px-4">Rs.{{ number_format($invoice->amount, 2) }}</td>
+                                <td class="py-3 px-4">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount, 2) }}</td>
                                 <td class="py-3 px-4">
                                     <span class="px-2 py-1 rounded text-xs {{ $invoice->status == 'Payment Done' ? 'bg-green-100 text-green-800' : ($invoice->status == 'Partial Paid' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
                                         {{ $invoice->status }}

@@ -13,6 +13,7 @@ class Invoice extends Model
         'user_id',
         'client_id',
         'employee_id',
+        'currency_id',
         'status',
         'approval_status',
         'created_by_employee_id',
@@ -65,6 +66,11 @@ class Invoice extends Model
     public function approvedBy()
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function currency()
+    {
+        return $this->belongsTo(Currency::class);
     }
 
     public function calculateCommission()
