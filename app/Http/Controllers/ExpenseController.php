@@ -15,7 +15,7 @@ class ExpenseController extends Controller
     public function index(Request $request)
     {
         $userId = auth()->id();
-        $query = Expense::where('user_id', $userId);
+        $query = Expense::where('user_id', $userId)->with('currency');
         
         if ($request->has('date_from')) {
             $query->whereDate('date', '>=', $request->date_from);
@@ -26,9 +26,20 @@ class ExpenseController extends Controller
         }
         
         $expenses = $query->latest('date')->paginate(10);
-        $totalAmount = $query->sum('amount');
         
-        return view('expenses.index', compact('expenses', 'totalAmount'));
+        // Convert all to base currency for total
+        $baseCurrency = $this->getBaseCurrency();
+        $allExpenses = Expense::where('user_id', $userId)->with('currency')->get();
+        $totalAmount = 0;
+        foreach ($allExpenses as $expense) {
+            if ($expense->currency_id && $expense->currency) {
+                $totalAmount += $expense->currency->toBase($expense->amount);
+            } else {
+                $totalAmount += $expense->amount;
+            }
+        }
+        
+        return view('expenses.index', compact('expenses', 'totalAmount', 'baseCurrency'));
     }
 
     public function create()

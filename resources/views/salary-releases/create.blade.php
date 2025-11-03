@@ -141,11 +141,12 @@
                 }
                 
                 document.getElementById('preview_section').style.display = 'block';
-                document.getElementById('preview_base').textContent = 'Rs.' + data.base_salary;
-                document.getElementById('preview_commission').textContent = 'Rs.' + data.commission_amount;
-                document.getElementById('preview_bonus').textContent = 'Rs.' + data.bonus_amount;
-                document.getElementById('preview_deductions').textContent = 'Rs.' + data.deductions;
-                document.getElementById('preview_total').textContent = 'Rs.' + data.total_calculated;
+                const currSymbol = data.currency_symbol || 'Rs.';
+                document.getElementById('preview_base').textContent = currSymbol + data.base_salary;
+                document.getElementById('preview_commission').textContent = currSymbol + data.commission_amount;
+                document.getElementById('preview_bonus').textContent = currSymbol + data.bonus_amount;
+                document.getElementById('preview_deductions').textContent = currSymbol + data.deductions;
+                document.getElementById('preview_total').textContent = currSymbol + data.total_calculated;
                 
                 // Update invoice list with detailed payment breakdown
                 let invoiceHtml = '';
@@ -156,9 +157,9 @@
                             <div class="border-l-4 border-green-500 pl-3 py-1">
                                 <div class="font-semibold">${invoice.client}</div>
                                 <div class="text-sm text-gray-600">
-                                    Payments: Rs.${invoice.paid_amount} | 
+                                    Payments: ${currSymbol}${invoice.paid_amount} | 
                                     Rate: ${invoice.commission_rate}% | 
-                                    Commission: <span class="text-green-600 font-semibold">Rs.${invoice.commission}</span>
+                                    Commission: <span class="text-green-600 font-semibold">${currSymbol}${invoice.commission}</span>
                                 </div>
                             </div>
                         `;
@@ -174,7 +175,7 @@
                 if (data.bonuses.length > 0) {
                     bonusHtml = '<ul class="list-disc list-inside">';
                     data.bonuses.forEach(bonus => {
-                        bonusHtml += `<li>${bonus.description}: Rs.${bonus.amount}</li>`;
+                        bonusHtml += `<li>${bonus.description}: ${currSymbol}${bonus.amount}</li>`;
                     });
                     bonusHtml += '</ul>';
                 } else {

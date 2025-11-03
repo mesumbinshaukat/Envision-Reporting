@@ -107,7 +107,7 @@
             <div id="remaining_amount_section" style="display: none;">
                 <label class="block text-sm font-semibold text-navy-900 mb-1">Remaining Amount</label>
                 <div class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-50">
-                    <span class="text-lg font-bold text-red-600">Rs.<span id="remaining_amount_display">0.00</span></span>
+                    <span class="text-lg font-bold text-red-600"><span id="currency_symbol">{{ $baseCurrency->symbol ?? 'Rs.' }}</span><span id="remaining_amount_display">0.00</span></span>
                 </div>
             </div>
 
@@ -129,6 +129,16 @@
     </div>
 
     <script>
+        // Update currency symbol when currency changes
+        document.getElementById('currency_id').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const currencyText = selectedOption.text;
+            const symbolMatch = currencyText.match(/\(([^)]+)\)/);
+            if (symbolMatch) {
+                document.getElementById('currency_symbol').textContent = symbolMatch[1];
+            }
+        });
+
         function validateForm() {
             const isOneTime = document.getElementById('is_one_time').checked;
             const clientSelect = document.getElementById('client_id');

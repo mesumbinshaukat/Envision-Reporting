@@ -28,11 +28,11 @@
                             <tr class="border-b">
                                 <td class="py-3 px-4 font-semibold">{{ $release->employee->name }}</td>
                                 <td class="py-3 px-4">{{ $release->month ? date('M Y', strtotime($release->month . '-01')) : 'N/A' }}</td>
-                                <td class="py-3 px-4">Rs.{{ number_format($release->base_salary, 2) }}</td>
-                                <td class="py-3 px-4">Rs.{{ number_format($release->commission_amount, 2) }}</td>
-                                <td class="py-3 px-4">Rs.{{ number_format($release->bonus_amount, 2) }}</td>
-                                <td class="py-3 px-4">Rs.{{ number_format($release->deductions, 2) }}</td>
-                                <td class="py-3 px-4 font-bold">Rs.{{ number_format($release->total_amount, 2) }}</td>
+                                <td class="py-3 px-4">{{ $release->currency ? $release->currency->symbol : ($baseCurrency->symbol ?? 'Rs.') }}{{ number_format($release->base_salary, 2) }}</td>
+                                <td class="py-3 px-4">{{ $release->currency ? $release->currency->symbol : ($baseCurrency->symbol ?? 'Rs.') }}{{ number_format($release->commission_amount, 2) }}</td>
+                                <td class="py-3 px-4">{{ $release->currency ? $release->currency->symbol : ($baseCurrency->symbol ?? 'Rs.') }}{{ number_format($release->bonus_amount, 2) }}</td>
+                                <td class="py-3 px-4">{{ $release->currency ? $release->currency->symbol : ($baseCurrency->symbol ?? 'Rs.') }}{{ number_format($release->deductions, 2) }}</td>
+                                <td class="py-3 px-4 font-bold">{{ $release->currency ? $release->currency->symbol : ($baseCurrency->symbol ?? 'Rs.') }}{{ number_format($release->total_amount, 2) }}</td>
                                 <td class="py-3 px-4">{{ $release->release_date->format('M d, Y') }}</td>
                                 <td class="py-3 px-4">
                                     <div class="flex gap-2">

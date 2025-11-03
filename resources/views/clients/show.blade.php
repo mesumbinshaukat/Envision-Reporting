@@ -61,7 +61,7 @@
                         @foreach($client->invoices as $invoice)
                             <div class="flex justify-between items-center p-3 border border-gray-300 rounded">
                                 <div>
-                                    <span class="font-semibold">Rs.{{ number_format($invoice->amount, 2) }}</span>
+                                    <span class="font-semibold">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount, 2) }}</span>
                                     <span class="text-sm text-gray-600">- {{ $invoice->status }}</span>
                                 </div>
                                 <a href="{{ route('invoices.show', $invoice) }}" class="text-navy-900 hover:underline">View</a>

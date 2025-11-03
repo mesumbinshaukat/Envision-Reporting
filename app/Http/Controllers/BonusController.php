@@ -16,8 +16,9 @@ class BonusController extends Controller
     public function index()
     {
         $userId = auth()->id();
-        $bonuses = Bonus::where('user_id', $userId)->with('employee')->latest()->paginate(10);
-        return view('bonuses.index', compact('bonuses'));
+        $bonuses = Bonus::where('user_id', $userId)->with(['employee', 'currency'])->latest()->paginate(10);
+        $baseCurrency = $this->getBaseCurrency();
+        return view('bonuses.index', compact('bonuses', 'baseCurrency'));
     }
 
     public function create()

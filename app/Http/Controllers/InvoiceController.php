@@ -238,7 +238,7 @@ class InvoiceController extends Controller
             $this->authorize('view', $invoice);
         }
         
-        $invoice->load(['client', 'employee']);
+        $invoice->load(['client', 'employee', 'currency']);
         return view('invoices.show', compact('invoice'));
     }
 
@@ -344,7 +344,7 @@ class InvoiceController extends Controller
             $this->authorize('view', $invoice);
         }
         
-        $invoice->load(['client', 'employee', 'user', 'payments']);
+        $invoice->load(['client', 'employee', 'user', 'payments', 'currency']);
         
         $pdf = Pdf::loadView('invoices.pdf', compact('invoice'));
         return $pdf->download('invoice-' . $invoice->id . '.pdf');

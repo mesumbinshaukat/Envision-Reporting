@@ -8,12 +8,14 @@ use App\Models\Employee;
 use App\Models\Invoice;
 use App\Models\Expense;
 use App\Models\SalaryRelease;
+use App\Models\Currency;
+use App\Traits\HandlesCurrency;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 
 class DashboardController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, HandlesCurrency;
     public function index()
     {
         $isEmployee = auth()->guard('employee')->check();
@@ -28,15 +30,28 @@ class DashboardController extends Controller
     private function adminDashboard()
     {
         $user = auth()->user();
+        $baseCurrency = $this->getBaseCurrency();
+        
+        // Convert all expenses to base currency
+        $expenses = $user->expenses()->with('currency')->get();
+        $total_expenses = 0;
+        foreach ($expenses as $expense) {
+            if ($expense->currency_id && $expense->currency) {
+                $total_expenses += $expense->currency->toBase($expense->amount);
+            } else {
+                $total_expenses += $expense->amount;
+            }
+        }
         
         $stats = [
             'total_clients' => $user->clients()->count(),
             'total_employees' => $user->employees()->count(),
             'pending_invoices' => $user->invoices()->where('status', 'Pending')->count(),
             'pending_approvals' => $user->invoices()->where('approval_status', 'pending')->count(),
-            'total_expenses' => $user->expenses()->sum('amount'),
-            'recent_invoices' => $user->invoices()->with(['client', 'employee'])->latest()->take(5)->get(),
-            'recent_expenses' => $user->expenses()->latest()->take(5)->get(),
+            'total_expenses' => $total_expenses,
+            'recent_invoices' => $user->invoices()->with(['client', 'employee', 'currency'])->latest()->take(5)->get(),
+            'recent_expenses' => $user->expenses()->with('currency')->latest()->take(5)->get(),
+            'baseCurrency' => $baseCurrency,
         ];
         
         return view('dashboard', $stats);
@@ -46,6 +61,7 @@ class DashboardController extends Controller
     {
         $employeeUser = auth()->guard('employee')->user();
         $employee = $employeeUser->employee;
+        $employee->load('currency');
         
         // Get invoices where this employee is the salesperson
         $employeeInvoices = Invoice::where('employee_id', $employee->id)
@@ -83,7 +99,7 @@ class DashboardController extends Controller
             'pending_invoices' => $createdInvoices->where('approval_status', 'pending')->count(),
             'approved_invoices' => $createdInvoices->where('approval_status', 'approved')->count(),
             'rejected_invoices' => $createdInvoices->where('approval_status', 'rejected')->count(),
-            'recent_invoices' => $createdInvoices->take(5),
+            'recent_invoices' => $createdInvoices->load('currency')->take(5),
         ];
         
         return view('employee-dashboard', $stats);

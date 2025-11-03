@@ -17,7 +17,8 @@
         </form>
 
         <div class="bg-navy-900 text-white p-4 rounded-lg">
-            <h3 class="text-lg font-semibold">Total Expenses: Rs.{{ number_format($totalAmount, 2) }}</h3>
+            <h3 class="text-lg font-semibold">Total Expenses: {{ $baseCurrency->symbol ?? 'Rs.' }}{{ number_format($totalAmount, 2) }}</h3>
+            <p class="text-xs mt-1">Converted to base currency</p>
         </div>
 
         <div class="bg-white border border-navy-900 rounded-lg overflow-hidden">
@@ -35,7 +36,7 @@
                         @foreach($expenses as $expense)
                             <tr class="border-b">
                                 <td class="py-3 px-4">{{ $expense->description }}</td>
-                                <td class="py-3 px-4 font-semibold">Rs.{{ number_format($expense->amount, 2) }}</td>
+                                <td class="py-3 px-4 font-semibold">{{ $expense->currency ? $expense->currency->symbol : 'Rs.' }}{{ number_format($expense->amount, 2) }}</td>
                                 <td class="py-3 px-4">{{ $expense->date->format('M d, Y') }}</td>
                                 <td class="py-3 px-4">
                                     <div class="flex gap-2">

@@ -29,8 +29,9 @@ class SalaryReleaseController extends Controller
     public function index()
     {
         $userId = auth()->id();
-        $salaryReleases = SalaryRelease::where('user_id', $userId)->with('employee')->latest()->paginate(10);
-        return view('salary-releases.index', compact('salaryReleases'));
+        $salaryReleases = SalaryRelease::where('user_id', $userId)->with(['employee', 'currency'])->latest()->paginate(10);
+        $baseCurrency = $this->getBaseCurrency();
+        return view('salary-releases.index', compact('salaryReleases', 'baseCurrency'));
     }
 
     public function create()
@@ -112,12 +113,17 @@ class SalaryReleaseController extends Controller
         $deductions = $request->deductions ?? 0;
         $totalCalculated = $baseSalary + $commissionAmount + $bonusAmount - $deductions;
         
+        // Get employee currency or base currency
+        $currency = $employee->currency ?? $this->getBaseCurrency();
+        $currencySymbol = $currency ? $currency->symbol : 'Rs.';
+        
         return response()->json([
             'base_salary' => number_format($baseSalary, 2),
             'commission_amount' => number_format($commissionAmount, 2),
             'bonus_amount' => number_format($bonusAmount, 2),
             'deductions' => number_format($deductions, 2),
             'total_calculated' => number_format($totalCalculated, 2),
+            'currency_symbol' => $currencySymbol,
             'already_released' => $alreadyReleased,
             'paid_invoices' => $commissionDetails,
             'bonuses' => $bonuses->map(function($bonus) {
@@ -232,7 +238,7 @@ class SalaryReleaseController extends Controller
     public function show(SalaryRelease $salaryRelease)
     {
         $this->authorize('view', $salaryRelease);
-        $salaryRelease->load('employee');
+        $salaryRelease->load(['employee', 'currency']);
         return view('salary-releases.show', compact('salaryRelease'));
     }
 
@@ -275,7 +281,7 @@ class SalaryReleaseController extends Controller
     public function pdf(SalaryRelease $salaryRelease)
     {
         $this->authorize('view', $salaryRelease);
-        $salaryRelease->load(['employee', 'user']);
+        $salaryRelease->load(['employee', 'user', 'currency']);
         
         $pdf = Pdf::loadView('salary-releases.pdf', compact('salaryRelease'));
         return $pdf->download('salary-slip-' . $salaryRelease->id . '.pdf');

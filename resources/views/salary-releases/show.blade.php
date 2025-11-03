@@ -29,27 +29,27 @@
 
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Base Salary</h3>
-                    <p class="text-lg text-navy-900">Rs.{{ number_format($salaryRelease->base_salary, 2) }}</p>
+                    <p class="text-lg text-navy-900">{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->base_salary, 2) }}</p>
                 </div>
 
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Commission (from paid invoices)</h3>
-                    <p class="text-lg text-navy-900">Rs.{{ number_format($salaryRelease->commission_amount, 2) }}</p>
+                    <p class="text-lg text-navy-900">{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->commission_amount, 2) }}</p>
                 </div>
 
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Bonus Amount</h3>
-                    <p class="text-lg text-navy-900">Rs.{{ number_format($salaryRelease->bonus_amount, 2) }}</p>
+                    <p class="text-lg text-navy-900">{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->bonus_amount, 2) }}</p>
                 </div>
 
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Deductions</h3>
-                    <p class="text-lg text-navy-900">Rs.{{ number_format($salaryRelease->deductions, 2) }}</p>
+                    <p class="text-lg text-navy-900">{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->deductions, 2) }}</p>
                 </div>
 
                 <div class="col-span-2 border-t border-navy-900 pt-4">
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Total Amount</h3>
-                    <p class="text-2xl font-bold text-navy-900">Rs.{{ number_format($salaryRelease->total_amount, 2) }}</p>
+                    <p class="text-2xl font-bold text-navy-900">{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->total_amount, 2) }}</p>
                 </div>
 
                 <div>
@@ -60,7 +60,7 @@
                 @if($salaryRelease->partial_amount)
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Partial Amount Released</h3>
-                    <p class="text-lg text-yellow-600 font-semibold">Rs.{{ number_format($salaryRelease->partial_amount, 2) }}</p>
+                    <p class="text-lg text-yellow-600 font-semibold">{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->partial_amount, 2) }}</p>
                 </div>
                 @endif
 

@@ -108,6 +108,7 @@ class ClientController extends Controller
             $this->authorize('view', $client);
         }
         
+        $client->load(['invoices', 'invoices.currency']);
         return view('clients.show', compact('client'));
     }
 

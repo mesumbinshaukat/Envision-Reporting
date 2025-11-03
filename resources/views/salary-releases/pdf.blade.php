@@ -59,23 +59,23 @@
         <tbody>
             <tr>
                 <td>Base Salary</td>
-                <td>Rs.{{ number_format($salaryRelease->base_salary, 2) }}</td>
+                <td>{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->base_salary, 2) }}</td>
             </tr>
             <tr>
                 <td>Commission (from paid invoices)</td>
-                <td>Rs.{{ number_format($salaryRelease->commission_amount, 2) }}</td>
+                <td>{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->commission_amount, 2) }}</td>
             </tr>
             <tr>
                 <td>Bonus</td>
-                <td>Rs.{{ number_format($salaryRelease->bonus_amount, 2) }}</td>
+                <td>{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->bonus_amount, 2) }}</td>
             </tr>
             <tr>
                 <td>Deductions</td>
-                <td>-Rs.{{ number_format($salaryRelease->deductions, 2) }}</td>
+                <td class="text-red">-{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->deductions, 2) }}</td>
             </tr>
             <tr class="total-row">
-                <td><strong>Net Salary</strong></td>
-                <td><strong>Rs.{{ number_format($salaryRelease->total_amount, 2) }}</strong></td>
+                <td><strong>Total Amount</strong></td>
+                <td><strong>{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->total_amount, 2) }}</strong></td>
             </tr>
         </tbody>
     </table>
