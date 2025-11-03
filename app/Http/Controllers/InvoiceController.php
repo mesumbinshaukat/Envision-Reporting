@@ -6,6 +6,8 @@ use App\Models\Invoice;
 use App\Models\Client;
 use App\Models\Employee;
 use App\Models\Payment;
+use App\Models\Currency;
+use App\Traits\HandlesCurrency;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -13,13 +15,13 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class InvoiceController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, HandlesCurrency;
     public function index(Request $request)
     {
         $isEmployee = auth()->guard('employee')->check();
         $user = $isEmployee ? auth()->guard('employee')->user() : auth()->user();
         
-        $query = Invoice::with(['client', 'employee', 'payments', 'createdByEmployee']);
+        $query = Invoice::with(['client', 'employee', 'payments', 'createdByEmployee', 'currency']);
         
         // Filter based on user type
         if ($isEmployee) {
@@ -85,8 +87,10 @@ class InvoiceController extends Controller
         }
         
         $employees = Employee::where('user_id', $userId)->get();
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
         
-        return view('invoices.create', compact('clients', 'employees', 'isEmployee'));
+        return view('invoices.create', compact('clients', 'employees', 'isEmployee', 'currencies', 'baseCurrency'));
     }
 
     public function store(Request $request)
@@ -97,6 +101,7 @@ class InvoiceController extends Controller
         
         $rules = [
             'employee_id' => 'nullable|exists:employees,id',
+            'currency_id' => 'required|exists:currencies,id',
             'status' => 'required|in:Pending,Partial Paid,Payment Done',
             'due_date' => 'nullable|date',
             'amount' => 'required|numeric|min:0',
@@ -262,8 +267,10 @@ class InvoiceController extends Controller
         }
         
         $employees = Employee::where('user_id', $userId)->get();
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
         
-        return view('invoices.edit', compact('invoice', 'clients', 'employees', 'isEmployee'));
+        return view('invoices.edit', compact('invoice', 'clients', 'employees', 'isEmployee', 'currencies', 'baseCurrency'));
     }
 
     public function update(Request $request, Invoice $invoice)

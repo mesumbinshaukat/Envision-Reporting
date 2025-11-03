@@ -11,6 +11,7 @@ class Bonus extends Model
 
     protected $fillable = [
         'user_id',
+        'currency_id',
         'employee_id',
         'amount',
         'description',
@@ -32,5 +33,10 @@ class Bonus extends Model
     public function employee()
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function currency()
+    {
+        return $this->belongsTo(Currency::class);
     }
 }

@@ -4,16 +4,28 @@ namespace App\Http\Controllers;
 
 use App\Models\SalaryRelease;
 use App\Models\Employee;
-use App\Models\Invoice;
 use App\Models\Bonus;
+use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\Currency;
+use App\Traits\HandlesCurrency;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
-
+/**
+ * Class SalaryReleaseController
+ * @package App\Http\Controllers
+ */
 class SalaryReleaseController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, HandlesCurrency;
+
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
     public function index()
     {
         $userId = auth()->id();
@@ -25,7 +37,9 @@ class SalaryReleaseController extends Controller
     {
         $userId = auth()->id();
         $employees = Employee::where('user_id', $userId)->get();
-        return view('salary-releases.create', compact('employees'));
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('salary-releases.create', compact('employees', 'currencies', 'baseCurrency'));
     }
 
     public function preview(Request $request)
@@ -189,6 +203,7 @@ class SalaryReleaseController extends Controller
         $totalAmount = $baseSalary + $commissionAmount + $bonusAmount - $deductions;
         
         $validated['user_id'] = auth()->id();
+        $validated['currency_id'] = $employee->currency_id ?? $this->getBaseCurrency()->id;
         $validated['base_salary'] = $baseSalary;
         $validated['commission_amount'] = $commissionAmount;
         $validated['bonus_amount'] = $bonusAmount;
@@ -226,7 +241,9 @@ class SalaryReleaseController extends Controller
         $this->authorize('update', $salaryRelease);
         $userId = auth()->id();
         $employees = Employee::where('user_id', $userId)->get();
-        return view('salary-releases.edit', compact('salaryRelease', 'employees'));
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('salary-releases.edit', compact('salaryRelease', 'employees', 'currencies', 'baseCurrency'));
     }
 
     public function update(Request $request, SalaryRelease $salaryRelease)

@@ -77,9 +77,9 @@
                                         </div>
                                     </td>
                                     <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm whitespace-nowrap">{{ $invoice->employee ? Str::limit($invoice->employee->name, 15) : 'Self' }}</td>
-                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm whitespace-nowrap">Rs.{{ number_format($invoice->amount, 2) }}</td>
-                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm text-green-600 font-semibold whitespace-nowrap">Rs.{{ number_format($invoice->paid_amount, 2) }}</td>
-                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm text-red-600 font-semibold whitespace-nowrap">Rs.{{ number_format($invoice->remaining_amount, 2) }}</td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm whitespace-nowrap">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount, 2) }}</td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm text-green-600 font-semibold whitespace-nowrap">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->paid_amount, 2) }}</td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm text-red-600 font-semibold whitespace-nowrap">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->remaining_amount, 2) }}</td>
                                     <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">
                                         <span class="px-2 py-1 rounded text-xs whitespace-nowrap {{ $invoice->status == 'Payment Done' ? 'bg-green-100 text-green-800' : ($invoice->status == 'Partial Paid' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
                                             {{ $invoice->status }}

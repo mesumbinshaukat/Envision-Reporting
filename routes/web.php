@@ -10,6 +10,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\SalaryReleaseController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\CurrencyController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -57,6 +58,14 @@ Route::middleware(['auth.both', 'admin'])->group(function () {
     
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::post('/reports/audit', [ReportController::class, 'audit'])->name('reports.audit');
+    
+    // Currency management (admin only)
+    Route::get('/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
+    Route::post('/currencies', [CurrencyController::class, 'store'])->name('currencies.store');
+    Route::put('/currencies/{currency}', [CurrencyController::class, 'update'])->name('currencies.update');
+    Route::post('/currencies/{currency}/set-base', [CurrencyController::class, 'setBase'])->name('currencies.set-base');
+    Route::post('/currencies/{currency}/toggle-active', [CurrencyController::class, 'toggleActive'])->name('currencies.toggle-active');
+    Route::delete('/currencies/{currency}', [CurrencyController::class, 'destroy'])->name('currencies.destroy');
 });
 
 require __DIR__.'/auth.php';

@@ -3,13 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Expense;
+use App\Models\Currency;
+use App\Traits\HandlesCurrency;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 
 class ExpenseController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, HandlesCurrency;
     public function index(Request $request)
     {
         $userId = auth()->id();
@@ -31,13 +33,16 @@ class ExpenseController extends Controller
 
     public function create()
     {
-        return view('expenses.create');
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('expenses.create', compact('currencies', 'baseCurrency'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'description' => 'required|string',
+            'description' => 'required|string|max:255',
+            'currency_id' => 'required|exists:currencies,id',
             'amount' => 'required|numeric|min:0',
             'date' => 'required|date',
         ]);
@@ -58,7 +63,9 @@ class ExpenseController extends Controller
     public function edit(Expense $expense)
     {
         $this->authorize('update', $expense);
-        return view('expenses.edit', compact('expense'));
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('expenses.edit', compact('expense', 'currencies', 'baseCurrency'));
     }
 
     public function update(Request $request, Expense $expense)
@@ -66,7 +73,8 @@ class ExpenseController extends Controller
         $this->authorize('update', $expense);
         
         $validated = $request->validate([
-            'description' => 'required|string',
+            'description' => 'required|string|max:255',
+            'currency_id' => 'required|exists:currencies,id',
             'amount' => 'required|numeric|min:0',
             'date' => 'required|date',
         ]);

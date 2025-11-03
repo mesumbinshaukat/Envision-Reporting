@@ -4,13 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Bonus;
 use App\Models\Employee;
+use App\Models\Currency;
+use App\Traits\HandlesCurrency;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 
 class BonusController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, HandlesCurrency;
     public function index()
     {
         $userId = auth()->id();
@@ -22,13 +24,16 @@ class BonusController extends Controller
     {
         $userId = auth()->id();
         $employees = Employee::where('user_id', $userId)->get();
-        return view('bonuses.create', compact('employees'));
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('bonuses.create', compact('employees', 'currencies', 'baseCurrency'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'employee_id' => 'required|exists:employees,id',
+            'currency_id' => 'required|exists:currencies,id',
             'amount' => 'required|numeric|min:0',
             'description' => 'nullable|string',
             'date' => 'required|date',
@@ -55,7 +60,9 @@ class BonusController extends Controller
         $this->authorize('update', $bonus);
         $userId = auth()->id();
         $employees = Employee::where('user_id', $userId)->get();
-        return view('bonuses.edit', compact('bonus', 'employees'));
+        $currencies = $this->getUserCurrencies();
+        $baseCurrency = $this->getBaseCurrency();
+        return view('bonuses.edit', compact('bonus', 'employees', 'currencies', 'baseCurrency'));
     }
 
     public function update(Request $request, Bonus $bonus)
@@ -64,6 +71,7 @@ class BonusController extends Controller
         
         $validated = $request->validate([
             'employee_id' => 'required|exists:employees,id',
+            'currency_id' => 'required|exists:currencies,id',
             'amount' => 'required|numeric|min:0',
             'description' => 'nullable|string',
             'date' => 'required|date',

@@ -11,6 +11,7 @@ class Employee extends Model
 
     protected $fillable = [
         'user_id',
+        'currency_id',
         'name',
         'marital_status',
         'primary_contact',
@@ -52,6 +53,11 @@ class Employee extends Model
     public function employeeUser()
     {
         return $this->hasOne(EmployeeUser::class);
+    }
+
+    public function currency()
+    {
+        return $this->belongsTo(Currency::class);
     }
 
     public function hasUserAccount()

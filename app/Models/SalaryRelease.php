@@ -11,6 +11,7 @@ class SalaryRelease extends Model
 
     protected $fillable = [
         'user_id',
+        'currency_id',
         'employee_id',
         'month',
         'base_salary',
@@ -36,6 +37,11 @@ class SalaryRelease extends Model
     public function employee()
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function currency()
+    {
+        return $this->belongsTo(Currency::class);
     }
 
     public function payments()

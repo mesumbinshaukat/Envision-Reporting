@@ -66,6 +66,18 @@
             @endif
 
             <div>
+                <label for="currency_id" class="block text-sm font-semibold text-navy-900 mb-1">Currency *</label>
+                <select name="currency_id" id="currency_id" required class="w-full px-4 py-2 border border-navy-900 rounded">
+                    @foreach($currencies as $currency)
+                        <option value="{{ $currency->id }}" {{ (old('currency_id', $baseCurrency->id ?? null) == $currency->id) ? 'selected' : '' }}>
+                            {{ $currency->code }} - {{ $currency->name }} ({{ $currency->symbol }})
+                            @if($currency->is_base) - BASE @endif
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
                 <label for="status" class="block text-sm font-semibold text-navy-900 mb-1">Status *</label>
                 <select name="status" id="status" required class="w-full px-4 py-2 border border-navy-900 rounded" onchange="togglePartialPaymentField()">
                     <option value="Pending" {{ old('status') == 'Pending' ? 'selected' : '' }}>Pending</option>
