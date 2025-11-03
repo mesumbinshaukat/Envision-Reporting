@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Models\Invoice;
+use App\Models\Expense;
+use App\Models\SalaryRelease;
+use App\Models\Bonus;
 
 class ReportController extends Controller
 {
