@@ -81,6 +81,11 @@ class User extends Authenticatable
         return $this->hasMany(EmployeeUser::class, 'admin_id');
     }
 
+    public function processedAttendanceFixRequests()
+    {
+        return $this->hasMany(AttendanceFixRequest::class, 'processed_by');
+    }
+
     // Helper method to check if this is an admin user
     public function isAdmin()
     {

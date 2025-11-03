@@ -62,6 +62,15 @@
                         <span class="ml-3 sidebar-text">Invoices</span>
                     </a>
                     
+                    @if(auth()->guard('employee')->check())
+                        <a href="{{ route('attendance.index') }}" class="flex items-center px-4 py-2 rounded {{ request()->routeIs('attendance.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-900 hover:text-white' }}" title="Attendance">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="ml-3 sidebar-text">Attendance</span>
+                        </a>
+                    @endif
+                    
                     @if(auth()->guard('web')->check())
                         <a href="{{ route('expenses.index') }}" class="flex items-center px-4 py-2 rounded {{ request()->routeIs('expenses.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-900 hover:text-white' }}" title="Expenses">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,6 +95,12 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
                             <span class="ml-3 sidebar-text">Reports</span>
+                        </a>
+                        <a href="{{ route('admin.attendance.index') }}" class="flex items-center px-4 py-2 rounded {{ request()->routeIs('admin.attendance.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-900 hover:text-white' }}" title="Attendance Management">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="ml-3 sidebar-text">Attendance</span>
                         </a>
                     @endif
                 </nav>

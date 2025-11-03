@@ -47,6 +47,16 @@ class EmployeeUser extends Authenticatable
         return $this->hasMany(Client::class, 'created_by_employee_id');
     }
 
+    public function attendances()
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    public function attendanceFixRequests()
+    {
+        return $this->hasMany(AttendanceFixRequest::class);
+    }
+
     // Helper method to check if this is an employee user
     public function isEmployee()
     {

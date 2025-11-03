@@ -10,11 +10,18 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\SalaryReleaseController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\AdminAttendanceController;
+use App\Http\Controllers\AttendanceFixRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/main', function () {
+    return redirect()->route('dashboard');
+})->middleware('auth.both')->name('main');
 
 // Routes accessible by both admin and employee
 Route::middleware(['auth.both'])->group(function () {
@@ -41,6 +48,23 @@ Route::middleware(['auth.both'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+// Employee-only routes (attendance)
+Route::middleware(['auth.both', 'employee'])->group(function () {
+    // Employee attendance
+    Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+    Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])->name('attendance.check-in');
+    Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut'])->name('attendance.check-out');
+    
+    // Employee fix requests (must come before wildcard routes)
+    Route::get('/attendance/fix-requests', [AttendanceFixRequestController::class, 'index'])->name('attendance.fix-requests.index');
+    Route::post('/attendance/fix-requests', [AttendanceFixRequestController::class, 'store'])->name('attendance.fix-requests.store');
+    Route::get('/attendance/fix-requests/{fixRequest}', [AttendanceFixRequestController::class, 'show'])->name('attendance.fix-requests.show');
+    
+    // Wildcard routes (must come last)
+    Route::get('/attendance/{attendance}', [AttendanceController::class, 'show'])->name('attendance.show');
+    Route::get('/attendance/{attendance}/fix-request/create', [AttendanceFixRequestController::class, 'create'])->name('attendance.fix-requests.create');
+});
+
 // Admin-only routes
 Route::middleware(['auth.both', 'admin'])->group(function () {
     Route::resource('employees', EmployeeController::class);
@@ -57,6 +81,28 @@ Route::middleware(['auth.both', 'admin'])->group(function () {
     
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::post('/reports/audit', [ReportController::class, 'audit'])->name('reports.audit');
+    
+    // Admin attendance management
+    Route::prefix('admin/attendance')->name('admin.attendance.')->group(function () {
+        Route::get('/', [AdminAttendanceController::class, 'index'])->name('index');
+        Route::get('/create', [AdminAttendanceController::class, 'create'])->name('create');
+        Route::post('/', [AdminAttendanceController::class, 'store'])->name('store');
+        Route::get('/statistics/view', [AdminAttendanceController::class, 'statistics'])->name('statistics');
+        
+        // Fix request routes (must come before wildcard routes)
+        Route::prefix('fix-requests')->name('fix-requests.')->group(function () {
+            Route::get('/', [AttendanceFixRequestController::class, 'adminIndex'])->name('index');
+            Route::get('/{fixRequest}', [AttendanceFixRequestController::class, 'adminShow'])->name('show');
+            Route::post('/{fixRequest}/process', [AttendanceFixRequestController::class, 'process'])->name('process');
+            Route::get('/{fixRequest}/edit-attendance', [AttendanceFixRequestController::class, 'editAttendance'])->name('edit-attendance');
+        });
+        
+        // Wildcard routes (must come last)
+        Route::get('/{attendance}', [AdminAttendanceController::class, 'show'])->name('show');
+        Route::get('/{attendance}/edit', [AdminAttendanceController::class, 'edit'])->name('edit');
+        Route::put('/{attendance}', [AdminAttendanceController::class, 'update'])->name('update');
+        Route::delete('/{attendance}', [AdminAttendanceController::class, 'destroy'])->name('destroy');
+    });
 });
 
 require __DIR__.'/auth.php';
