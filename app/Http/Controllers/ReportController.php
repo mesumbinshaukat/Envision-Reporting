@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\Expense;
 use App\Models\SalaryRelease;
 use App\Models\Bonus;
+use Carbon\Carbon;
 
 class ReportController extends Controller
 {
@@ -51,11 +52,21 @@ class ReportController extends Controller
                 ->where('date', '<=', $dateTo)
                 ->get();
             
-            $salaryReleases = SalaryRelease::where('user_id', $userId)
+            $fromMonth = Carbon::parse($dateFrom)->format('Y-m');
+            $toMonth = Carbon::parse($dateTo)->format('Y-m');
+            if($fromMonth == $toMonth){
+                $salaryReleases = SalaryRelease::where('user_id', $userId)
+                ->with('employee')
+                ->where('month', $fromMonth)
+                ->get();
+            }else{
+                $salaryReleases = SalaryRelease::where('user_id', $userId)
                 ->with('employee')
                 ->where('release_date', '>=', $dateFrom)
                 ->where('release_date', '<=', $dateTo)
                 ->get();
+            }
+          
             
             $bonuses = Bonus::where('user_id', $userId)
                 ->with('employee')
