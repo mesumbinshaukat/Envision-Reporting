@@ -21,6 +21,8 @@
                         <input type="date" name="date_to" id="date_to" value="{{ request('date_to', now()->format('Y-m-d')) }}" required class="w-full px-4 py-2 border border-navy-900 rounded">
                     </div>
                 </div>
+                <p class="text-gray-600 mb-6">Select both dates from same month to include all salaries for that month.</p>
+
 
                 <button type="submit" class="w-full px-6 py-3 bg-navy-900 text-white rounded hover:bg-opacity-90 font-semibold">
                     View Report
