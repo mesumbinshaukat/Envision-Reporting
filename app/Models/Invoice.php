@@ -73,6 +73,16 @@ class Invoice extends Model
         return $this->belongsTo(Currency::class);
     }
 
+    public function milestones()
+    {
+        return $this->hasMany(InvoiceMilestone::class)->orderBy('order');
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(InvoiceAttachment::class);
+    }
+
     public function calculateCommission()
     {
         if ($this->employee_id && $this->employee) {

@@ -4,7 +4,7 @@
     </x-slot>
 
     <div class="max-w-2xl">
-        <form method="POST" action="{{ route('invoices.update', $invoice) }}" class="bg-white border border-navy-900 rounded-lg p-6 space-y-4">
+        <form method="POST" action="{{ route('invoices.update', $invoice) }}" enctype="multipart/form-data" class="bg-white border border-navy-900 rounded-lg p-6 space-y-4">
             @csrf
             @method('PUT')
 
@@ -63,9 +63,12 @@
                 </select>
             </div>
 
+            <!-- Milestones Section -->
+            @include('components.invoice-milestones', ['milestones' => $invoice->milestones])
+
             <div>
-                <label for="amount" class="block text-sm font-semibold text-navy-900 mb-1">Amount *</label>
-                <input type="number" name="amount" id="amount" value="{{ old('amount', $invoice->amount) }}" required step="0.01" min="0" class="w-full px-4 py-2 border border-navy-900 rounded">
+                <label for="amount" class="block text-sm font-semibold text-navy-900 mb-1">Amount * <span class="text-xs text-gray-600">(Auto-calculated from milestones)</span></label>
+                <input type="number" name="amount" id="amount" value="{{ old('amount', $invoice->amount) }}" required step="0.01" min="0" class="w-full px-4 py-2 border border-navy-900 rounded bg-gray-100" readonly>
             </div>
 
             <div>
@@ -82,6 +85,9 @@
                 <label for="special_note" class="block text-sm font-semibold text-navy-900 mb-1">Special Note</label>
                 <textarea name="special_note" id="special_note" rows="3" class="w-full px-4 py-2 border border-navy-900 rounded">{{ old('special_note', $invoice->special_note) }}</textarea>
             </div>
+
+            <!-- Attachments Section -->
+            @include('components.invoice-attachments', ['attachments' => $invoice->attachments])
 
             <div class="flex gap-4">
                 <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Update Invoice</button>

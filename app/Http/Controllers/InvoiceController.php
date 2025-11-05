@@ -112,6 +112,10 @@ class InvoiceController extends Controller
             'amount' => 'required|numeric|min:0',
             'tax' => 'nullable|numeric|min:0',
             'special_note' => 'nullable|string',
+            'milestones' => 'nullable|array',
+            'milestones.*.amount' => 'required|numeric|min:0',
+            'milestones.*.description' => 'nullable|string|max:500',
+            'attachments.*' => 'nullable|file|max:10240|mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,gif',
         ];
         
         // Add paid_amount validation for Partial Paid status
@@ -193,6 +197,36 @@ class InvoiceController extends Controller
         
         $invoice = Invoice::create($validated);
         
+        // Handle milestones if provided
+        if ($request->has('milestones') && is_array($request->milestones)) {
+            foreach ($request->milestones as $index => $milestone) {
+                if (!empty($milestone['amount'])) {
+                    \App\Models\InvoiceMilestone::create([
+                        'invoice_id' => $invoice->id,
+                        'amount' => $milestone['amount'],
+                        'description' => $milestone['description'] ?? null,
+                        'order' => $index,
+                    ]);
+                }
+            }
+        }
+        
+        // Handle file attachments if provided
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $fileName = time() . '_' . $file->getClientOriginalName();
+                $filePath = $file->storeAs('invoices/' . $invoice->id, $fileName, 'public');
+                
+                \App\Models\InvoiceAttachment::create([
+                    'invoice_id' => $invoice->id,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_path' => $filePath,
+                    'file_type' => $file->getClientMimeType(),
+                    'file_size' => $file->getSize(),
+                ]);
+            }
+        }
+        
         // If status is "Partial Paid", create a payment record for the partial amount
         if ($validated['status'] === 'Partial Paid' && $validated['paid_amount'] > 0) {
             \App\Models\Payment::create([
@@ -243,7 +277,7 @@ class InvoiceController extends Controller
             $this->authorize('view', $invoice);
         }
         
-        $invoice->load(['client', 'employee', 'currency']);
+        $invoice->load(['client', 'employee', 'currency', 'milestones', 'attachments', 'payments']);
         return view('invoices.show', compact('invoice'));
     }
 
@@ -275,6 +309,8 @@ class InvoiceController extends Controller
         $currencies = $this->getUserCurrencies();
         $baseCurrency = $this->getBaseCurrency();
         
+        $invoice->load(['milestones', 'attachments']);
+        
         return view('invoices.edit', compact('invoice', 'clients', 'employees', 'isEmployee', 'currencies', 'baseCurrency'));
     }
 
@@ -290,6 +326,12 @@ class InvoiceController extends Controller
             'amount' => 'required|numeric|min:0',
             'tax' => 'nullable|numeric|min:0',
             'special_note' => 'nullable|string',
+            'milestones' => 'nullable|array',
+            'milestones.*.amount' => 'required|numeric|min:0',
+            'milestones.*.description' => 'nullable|string|max:500',
+            'attachments.*' => 'nullable|file|max:10240|mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,gif',
+            'delete_attachments' => 'nullable|array',
+            'delete_attachments.*' => 'exists:invoice_attachments,id',
         ]);
         
         $validated['tax'] = $validated['tax'] ?? 0;
@@ -299,6 +341,51 @@ class InvoiceController extends Controller
         $newStatus = $validated['status'];
         
         $invoice->update($validated);
+        
+        // Handle milestone updates
+        if ($request->has('milestones')) {
+            // Delete existing milestones
+            $invoice->milestones()->delete();
+            
+            // Create new milestones
+            foreach ($request->milestones as $index => $milestone) {
+                if (!empty($milestone['amount'])) {
+                    \App\Models\InvoiceMilestone::create([
+                        'invoice_id' => $invoice->id,
+                        'amount' => $milestone['amount'],
+                        'description' => $milestone['description'] ?? null,
+                        'order' => $index,
+                    ]);
+                }
+            }
+        }
+        
+        // Handle attachment deletions
+        if ($request->has('delete_attachments')) {
+            foreach ($request->delete_attachments as $attachmentId) {
+                $attachment = \App\Models\InvoiceAttachment::find($attachmentId);
+                if ($attachment && $attachment->invoice_id === $invoice->id) {
+                    \Storage::disk('public')->delete($attachment->file_path);
+                    $attachment->delete();
+                }
+            }
+        }
+        
+        // Handle new file attachments
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $fileName = time() . '_' . $file->getClientOriginalName();
+                $filePath = $file->storeAs('invoices/' . $invoice->id, $fileName, 'public');
+                
+                \App\Models\InvoiceAttachment::create([
+                    'invoice_id' => $invoice->id,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_path' => $filePath,
+                    'file_type' => $file->getClientMimeType(),
+                    'file_size' => $file->getSize(),
+                ]);
+            }
+        }
         
         // If status changed to "Payment Done" and total not yet paid
         if ($newStatus === 'Payment Done' && $oldStatus !== 'Payment Done') {
@@ -349,7 +436,7 @@ class InvoiceController extends Controller
             $this->authorize('view', $invoice);
         }
         
-        $invoice->load(['client', 'employee', 'user', 'payments', 'currency']);
+        $invoice->load(['client', 'employee', 'user', 'payments', 'currency', 'milestones', 'attachments']);
         
         $pdf = Pdf::loadView('invoices.pdf', compact('invoice'));
         return $pdf->download('invoice-' . $invoice->id . '.pdf');

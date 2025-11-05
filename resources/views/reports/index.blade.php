@@ -94,7 +94,9 @@
                             <th class="text-left py-3 px-4 text-navy-900 font-semibold">Description</th>
                             <th class="text-left py-3 px-4 text-navy-900 font-semibold">Related</th>
                             <th class="text-left py-3 px-4 text-navy-900 font-semibold">Status</th>
-                            <th class="text-right py-3 px-4 text-navy-900 font-semibold">Amount</th>
+                            <th class="text-left py-3 px-4 text-navy-900 font-semibold">Currency</th>
+                            <th class="text-right py-3 px-4 text-navy-900 font-semibold">Original Amount</th>
+                            <th class="text-right py-3 px-4 text-navy-900 font-semibold">Base Currency</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -105,50 +107,70 @@
                             foreach($reportData['invoices'] as $invoice) {
                                 foreach($invoice->payments as $payment) {
                                     $clientName = $invoice->is_one_time ? $invoice->one_time_client_name : $invoice->client->name;
+                                    $currency = $invoice->currency;
+                                    $amountInBase = $currency ? $currency->toBase($payment->amount) : $payment->amount;
+                                    
                                     $allTransactions->push([
                                         'date' => $payment->payment_date,
                                         'type' => 'Payment',
                                         'description' => 'Payment for Invoice #' . $invoice->id,
                                         'related' => $clientName . ($invoice->employee ? ' (via ' . $invoice->employee->name . ')' : ''),
                                         'status' => 'Received',
+                                        'currency' => $currency ? $currency->symbol : 'Rs.',
                                         'amount' => $payment->amount,
+                                        'amount_base' => $amountInBase,
                                         'is_income' => true,
                                     ]);
                                 }
                             }
                             
                             foreach($reportData['expenses'] as $expense) {
+                                $currency = $expense->currency;
+                                $amountInBase = $expense->getAmountInBaseCurrency();
+                                
                                 $allTransactions->push([
                                     'date' => $expense->date,
                                     'type' => 'Expense',
                                     'description' => $expense->description,
                                     'related' => '-',
                                     'status' => '-',
+                                    'currency' => $currency ? $currency->symbol : 'Rs.',
                                     'amount' => $expense->amount,
+                                    'amount_base' => $amountInBase,
                                     'is_income' => false,
                                 ]);
                             }
                             
                             foreach($reportData['salaryReleases'] as $salary) {
+                                $currency = $salary->currency;
+                                $amountInBase = $salary->getTotalAmountInBaseCurrency();
+                                
                                 $allTransactions->push([
                                     'date' => $salary->release_date,
                                     'type' => 'Salary',
                                     'description' => 'Salary for ' . ($salary->month ? date('M Y', strtotime($salary->month . '-01')) : 'N/A'),
                                     'related' => $salary->employee->name,
                                     'status' => ucfirst($salary->release_type),
+                                    'currency' => $currency ? $currency->symbol : 'Rs.',
                                     'amount' => $salary->total_amount,
+                                    'amount_base' => $amountInBase,
                                     'is_income' => false,
                                 ]);
                             }
                             
                             foreach($reportData['bonuses'] as $bonus) {
+                                $currency = $bonus->currency;
+                                $amountInBase = $bonus->getAmountInBaseCurrency();
+                                
                                 $allTransactions->push([
                                     'date' => $bonus->date,
                                     'type' => 'Bonus',
                                     'description' => $bonus->description ?? 'Bonus',
                                     'related' => $bonus->employee->name,
                                     'status' => $bonus->released ? 'Released' : 'Pending',
+                                    'currency' => $currency ? $currency->symbol : 'Rs.',
                                     'amount' => $bonus->amount,
+                                    'amount_base' => $amountInBase,
                                     'is_income' => false,
                                 ]);
                             }
@@ -177,8 +199,14 @@
                                         -
                                     @endif
                                 </td>
+                                <td class="py-3 px-4 text-center">
+                                    <span class="px-2 py-1 bg-gray-100 rounded text-sm font-medium">{{ $transaction['currency'] }}</span>
+                                </td>
                                 <td class="py-3 px-4 text-right font-semibold {{ $transaction['is_income'] ? 'text-green-600' : 'text-red-600' }}">
-                                    {{ $transaction['is_income'] ? '+' : '-' }}Rs.{{ number_format($transaction['amount'], 2) }}
+                                    {{ $transaction['is_income'] ? '+' : '-' }}{{ $transaction['currency'] }}{{ number_format($transaction['amount'], 2) }}
+                                </td>
+                                <td class="py-3 px-4 text-right font-bold {{ $transaction['is_income'] ? 'text-green-700' : 'text-red-700' }}">
+                                    {{ $transaction['is_income'] ? '+' : '-' }}Rs.{{ number_format($transaction['amount_base'], 2) }}
                                 </td>
                             </tr>
                         @endforeach
