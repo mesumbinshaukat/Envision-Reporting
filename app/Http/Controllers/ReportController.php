@@ -90,6 +90,15 @@ class ReportController extends Controller
             $partialPaidInvoices = $invoices->where('status', 'Partial Paid');
             $pendingInvoices = $invoices->where('status', 'Pending');
             
+            // Calculate total processing fees for invoices in this date range (converted to base currency)
+            $totalProcessingFees = $invoices->sum(function($invoice) {
+                $fee = $invoice->payment_processing_fee ?? 0;
+                if ($invoice->currency) {
+                    return $invoice->currency->toBase($fee);
+                }
+                return $fee;
+            });
+            
             $reportData = [
                 'date_from' => $validated['date_from'],
                 'date_to' => $validated['date_to'],
@@ -100,13 +109,14 @@ class ReportController extends Controller
                 'expenses' => $expenses,
                 'salaryReleases' => $salaryReleases,
                 'bonuses' => $bonuses,
-                'total_payments_in_range' => $totalPaymentsInRange,
+                'total_payments_in_range' => $totalPaymentsInRange - $totalProcessingFees,
                 'total_invoices' => $invoices->sum(function($inv) { return $inv->getAmountInBaseCurrency(); }),
+                'total_processing_fees' => $totalProcessingFees,
                 'total_expenses' => $expenses->sum(function($exp) { return $exp->getAmountInBaseCurrency(); }),
                 'total_salaries' => $salaryReleases->sum(function($sal) { return $sal->getTotalAmountInBaseCurrency(); }),
                 'total_bonuses' => $bonuses->sum(function($bon) { return $bon->getAmountInBaseCurrency(); }),
                 // Net Income = Payments received in date range - Expenses - Salaries (all in base currency)
-                'net_income' => $totalPaymentsInRange - $expenses->sum(function($exp) { return $exp->getAmountInBaseCurrency(); }) - $salaryReleases->sum(function($sal) { return $sal->getTotalAmountInBaseCurrency(); }),
+                'net_income' => $totalPaymentsInRange - $expenses->sum(function($exp) { return $exp->getAmountInBaseCurrency(); }) - $salaryReleases->sum(function($sal) { return $sal->getTotalAmountInBaseCurrency(); }) - $totalProcessingFees,
             ];
         }
         
@@ -186,6 +196,15 @@ class ReportController extends Controller
         $partialPaidInvoices = $invoices->where('status', 'Partial Paid');
         $pendingInvoices = $invoices->where('status', 'Pending');
         
+        // Calculate total processing fees for invoices in this date range (converted to base currency)
+        $totalProcessingFees = $invoices->sum(function($invoice) {
+            $fee = $invoice->payment_processing_fee ?? 0;
+            if ($invoice->currency) {
+                return $invoice->currency->toBase($fee);
+            }
+            return $fee;
+        });
+        
         $data = [
             'user' => auth()->user(),
             'date_from' => $validated['date_from'],
@@ -197,13 +216,14 @@ class ReportController extends Controller
             'expenses' => $expenses,
             'salaryReleases' => $salaryReleases,
             'bonuses' => $bonuses,
-            'total_payments_in_range' => $totalPaymentsInRange,
+            'total_payments_in_range' => $totalPaymentsInRange - $totalProcessingFees,
             'total_invoices' => $invoices->sum(function($inv) { return $inv->getAmountInBaseCurrency(); }),
+            'total_processing_fees' => $totalProcessingFees,
             'total_expenses' => $expenses->sum(function($exp) { return $exp->getAmountInBaseCurrency(); }),
             'total_salaries' => $salaryReleases->sum(function($sal) { return $sal->getTotalAmountInBaseCurrency(); }),
             'total_bonuses' => $bonuses->sum(function($bon) { return $bon->getAmountInBaseCurrency(); }),
             // Net Income = Payments received in date range - Expenses - Salaries (all in base currency)
-            'net_income' => $totalPaymentsInRange - $expenses->sum(function($exp) { return $exp->getAmountInBaseCurrency(); }) - $salaryReleases->sum(function($sal) { return $sal->getTotalAmountInBaseCurrency(); }),
+            'net_income' => $totalPaymentsInRange - $expenses->sum(function($exp) { return $exp->getAmountInBaseCurrency(); }) - $salaryReleases->sum(function($sal) { return $sal->getTotalAmountInBaseCurrency(); }) - $totalProcessingFees,
         ];
         
         $pdf = Pdf::loadView('reports.audit-pdf', $data);

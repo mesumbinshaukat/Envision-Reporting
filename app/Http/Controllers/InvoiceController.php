@@ -9,6 +9,9 @@ use App\Models\Payment;
 use App\Models\Currency;
 use App\Traits\HandlesCurrency;
 use Illuminate\Http\Request;
+use App\Http\Requests\StoreInvoiceRequest;
+use App\Http\Requests\UpdateInvoiceRequest;
+use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
@@ -98,36 +101,13 @@ class InvoiceController extends Controller
         return view('invoices.create', compact('clients', 'employees', 'isEmployee', 'currencies', 'baseCurrency'));
     }
 
-    public function store(Request $request)
+    public function store(StoreInvoiceRequest $request)
     {
         // Check if it's a one-time invoice or new client creation
         $isOneTime = $request->has('is_one_time') && $request->is_one_time;
         $isNewClient = $request->client_id === 'new_client';
         
-        $rules = [
-            'employee_id' => 'nullable|exists:employees,id',
-            'currency_id' => 'required|exists:currencies,id',
-            'status' => 'required|in:Pending,Partial Paid,Payment Done',
-            'due_date' => 'nullable|date',
-            'amount' => 'required|numeric|min:0',
-            'tax' => 'nullable|numeric|min:0',
-            'special_note' => 'nullable|string',
-        ];
-        
-        // Add paid_amount validation for Partial Paid status
-        if ($request->status === 'Partial Paid') {
-            $rules['paid_amount'] = 'required|numeric|min:0.01|lt:amount';
-        }
-        
-        if ($isOneTime) {
-            $rules['one_time_client_name'] = 'required|string|max:255';
-        } elseif ($isNewClient) {
-            $rules['new_client_name'] = 'required|string|max:255';
-        } else {
-            $rules['client_id'] = 'required|exists:clients,id';
-        }
-        
-        $validated = $request->validate($rules);
+        $validated = $request->validated();
         
         $isEmployee = auth()->guard('employee')->check();
         
@@ -190,6 +170,19 @@ class InvoiceController extends Controller
         if ($isOneTime) {
             $validated['client_id'] = null;
         }
+        
+        // Handle file uploads
+        if ($request->hasFile('attachments')) {
+            $attachmentPaths = [];
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('invoices', 'public');
+                $attachmentPaths[] = $path;
+            }
+            $validated['attachments'] = $attachmentPaths;
+        }
+        
+        // Set payment processing fee default
+        $validated['payment_processing_fee'] = $validated['payment_processing_fee'] ?? 0;
         
         $invoice = Invoice::create($validated);
         
@@ -278,21 +271,27 @@ class InvoiceController extends Controller
         return view('invoices.edit', compact('invoice', 'clients', 'employees', 'isEmployee', 'currencies', 'baseCurrency'));
     }
 
-    public function update(Request $request, Invoice $invoice)
+    public function update(UpdateInvoiceRequest $request, Invoice $invoice)
     {
         $this->authorize('update', $invoice);
         
-        $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'employee_id' => 'nullable|exists:employees,id',
-            'status' => 'required|in:Pending,Partial Paid,Payment Done',
-            'due_date' => 'nullable|date',
-            'amount' => 'required|numeric|min:0',
-            'tax' => 'nullable|numeric|min:0',
-            'special_note' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
         
         $validated['tax'] = $validated['tax'] ?? 0;
+        
+        // Handle file uploads
+        if ($request->hasFile('attachments')) {
+            $attachmentPaths = $invoice->attachments ?? [];
+            
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('invoices', 'public');
+                $attachmentPaths[] = $path;
+            }
+            $validated['attachments'] = $attachmentPaths;
+        }
+        
+        // Set payment processing fee default
+        $validated['payment_processing_fee'] = $validated['payment_processing_fee'] ?? $invoice->payment_processing_fee ?? 0;
         
         // Check if status changed to "Payment Done" and no payment exists yet
         $oldStatus = $invoice->status;

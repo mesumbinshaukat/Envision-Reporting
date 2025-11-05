@@ -75,6 +75,48 @@
                     <p class="text-lg text-navy-900">{{ $invoice->special_note }}</p>
                 </div>
                 @endif
+
+                @if($invoice->payment_method)
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-600 mb-1">Payment Method</h3>
+                    <p class="text-lg text-navy-900">
+                        @if($invoice->payment_method === 'Other' && $invoice->custom_payment_method)
+                            {{ $invoice->custom_payment_method }}
+                        @else
+                            {{ $invoice->payment_method }}
+                        @endif
+                    </p>
+                </div>
+                @endif
+
+                @if($invoice->payment_processing_fee > 0)
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-600 mb-1">Payment Processing Fee</h3>
+                    <p class="text-lg text-navy-900">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->payment_processing_fee, 2) }}</p>
+                </div>
+                @endif
+
+                @if($invoice->attachments && count($invoice->attachments) > 0)
+                <div class="col-span-2">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-2">Attachments</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        @foreach($invoice->attachments as $attachment)
+                            <a href="{{ Storage::url($attachment) }}" target="_blank" class="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded hover:bg-gray-50 transition">
+                                @if(str_ends_with($attachment, '.pdf'))
+                                    <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
+                                    </svg>
+                                @else
+                                    <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+                                    </svg>
+                                @endif
+                                <span class="text-sm text-navy-900 truncate">{{ basename($attachment) }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
     </div>

@@ -35,11 +35,12 @@
         <div class="summary-item"><strong>Total Invoice Amount:</strong> Rs.{{ number_format($total_invoices, 2) }} <em>({{ $invoices->count() }} invoices)</em></div>
         <div class="summary-item" style="margin-left: 15px;"><span class="paid">• Fully Paid:</span> {{ $paid_invoices->count() }} invoices</div>
         <div class="summary-item" style="margin-left: 15px;"><span class="unpaid">• Partial/Pending:</span> {{ $partial_paid_invoices->count() + $pending_invoices->count() }} invoices</div>
+        <div class="summary-item"><strong>Payment Processing Fees:</strong> <span style="color: #FF8C00;">Rs.{{ number_format($total_processing_fees, 2) }}</span> <em>(Deducted from total invoices)</em></div>
         <div class="summary-item"><strong>Total Expenses:</strong> Rs.{{ number_format($total_expenses, 2) }}</div>
         <div class="summary-item"><strong>Total Salaries Released:</strong> Rs.{{ number_format($total_salaries, 2) }}</div>
         <div class="summary-item"><strong>Total Bonuses:</strong> Rs.{{ number_format($total_bonuses, 2) }} <em>(Separate from net income)</em></div>
         <div class="summary-item" style="margin-top: 10px; padding-top: 10px; border-top: 2px solid #001F3F;"><strong>Net Income (Payments - Expenses - Salaries):</strong> Rs.{{ number_format($net_income, 2) }}</div>
-        <div class="summary-item" style="font-size: 9px; font-style: italic; color: #666;">Note: All amounts converted to base currency. Net income based on actual payments received in this period. Bonuses are excluded as they are separate rewards.</div>
+        <div class="summary-item" style="font-size: 9px; font-style: italic; color: #666;">Note: All amounts converted to base currency. Net income based on actual payments received in this period. Total invoice amount has processing fees deducted. Bonuses are excluded as they are separate rewards.</div>
     </div>
 
     <div class="section-title">Invoices ({{ $invoices->count() }})</div>

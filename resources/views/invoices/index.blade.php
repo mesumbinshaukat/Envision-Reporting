@@ -55,6 +55,7 @@
                                 <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Paid</th>
                                 <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Remaining</th>
                                 <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Status</th>
+                                <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Payment Method</th>
                                 @if(!isset($isEmployee) || !$isEmployee)
                                     <th class="text-left py-3 px-3 md:px-4 text-xs md:text-sm font-semibold whitespace-nowrap">Approval</th>
                                 @endif
@@ -84,6 +85,17 @@
                                         <span class="px-2 py-1 rounded text-xs whitespace-nowrap {{ $invoice->status == 'Payment Done' ? 'bg-green-100 text-green-800' : ($invoice->status == 'Partial Paid' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
                                             {{ $invoice->status }}
                                         </span>
+                                    </td>
+                                    <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm whitespace-nowrap">
+                                        @if($invoice->payment_method)
+                                            @if($invoice->payment_method === 'Other' && $invoice->custom_payment_method)
+                                                <span class="text-gray-700">{{ Str::limit($invoice->custom_payment_method, 15) }}</span>
+                                            @else
+                                                <span class="text-gray-700">{{ $invoice->payment_method }}</span>
+                                            @endif
+                                        @else
+                                            <span class="text-gray-400 text-xs">N/A</span>
+                                        @endif
                                     </td>
                                     @if(!isset($isEmployee) || !$isEmployee)
                                         <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">
