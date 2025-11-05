@@ -64,18 +64,16 @@ class SalaryReleaseController extends Controller
             ->where('month', $releaseMonth)
             ->exists();
         
-        // Calculate the previous month's date range
-        // If releasing salary in November, only count October's payments
+        // If releasing salary in November, only count November payments
         $salaryMonthDate = date('Y-m-01', strtotime($releaseMonth . '-01'));
-        $previousMonthStart = date('Y-m-01', strtotime($salaryMonthDate . ' -1 month'));
-        $previousMonthEnd = date('Y-m-t', strtotime($previousMonthStart));
+        $salaryMonthEnd = date('Y-m-t', strtotime($salaryMonthDate));
         
         // Get all invoices where this employee is the salesperson
         // Include payments from previous month only that haven't had commission paid
         $invoices = $employee->invoices()
-            ->with(['client', 'currency', 'payments' => function($query) use ($previousMonthStart, $previousMonthEnd) {
-                $query->where('payment_date', '>=', $previousMonthStart)
-                      ->where('payment_date', '<=', $previousMonthEnd)
+            ->with(['client', 'currency', 'payments' => function($query) use ($salaryMonthDate, $salaryMonthEnd) {
+                $query->where('payment_date', '>=', $salaryMonthDate)
+                      ->where('payment_date', '<=', $salaryMonthEnd)
                       ->where('commission_paid', false);
             }])
             ->get();
