@@ -152,11 +152,18 @@ class SalaryReleaseController extends Controller
             'currency_symbol' => $currencySymbol,
             'already_released' => $alreadyReleased,
             'paid_invoices' => $commissionDetails,
-            'bonuses' => $bonuses->map(function($bonus) {
+            'bonuses' => $bonuses->map(function($bonus) use ($baseCurrency) {
+                $bonusAmountInBase = $bonus->getAmountInBaseCurrency();
+                $bonusCurrency = $bonus->currency ?? $baseCurrency;
+                
                 return [
                     'id' => $bonus->id,
                     'description' => $bonus->description ?? 'Bonus',
+                    'currency' => $bonusCurrency->symbol,
                     'amount' => number_format($bonus->amount, 2),
+                    'amount_formatted' => $bonusCurrency->symbol . number_format($bonus->amount, 2),
+                    'amount_base' => number_format($bonusAmountInBase, 2),
+                    'amount_base_formatted' => $baseCurrency->symbol . number_format($bonusAmountInBase, 2),
                 ];
             }),
         ]);
@@ -193,22 +200,20 @@ class SalaryReleaseController extends Controller
             ])->withInput();
         }
         
-        // Calculate the previous month's date range
-        // If releasing salary in November, only count October's payments
+        // If releasing salary in November, only count November payments
         $salaryMonthDate = date('Y-m-01', strtotime($validated['month'] . '-01'));
-        $previousMonthStart = date('Y-m-01', strtotime($salaryMonthDate . ' -1 month'));
-        $previousMonthEnd = date('Y-m-t', strtotime($previousMonthStart));
+        $salaryMonthEnd = date('Y-m-t', strtotime($salaryMonthDate));
         
-        // Get all invoices with payments from previous month only
+        // Get all invoices with payments from salary month only
         $invoices = $employee->invoices()
-            ->with(['currency', 'payments' => function($query) use ($previousMonthStart, $previousMonthEnd) {
-                $query->where('payment_date', '>=', $previousMonthStart)
-                      ->where('payment_date', '<=', $previousMonthEnd)
+            ->with(['currency', 'payments' => function($query) use ($salaryMonthDate, $salaryMonthEnd) {
+                $query->where('payment_date', '>=', $salaryMonthDate)
+                      ->where('payment_date', '<=', $salaryMonthEnd)
                       ->where('commission_paid', false);
             }])
             ->get();
         
-        // Calculate commission based on unpaid payments from previous month (converted to base currency)
+        // Calculate commission based on unpaid payments from salary month (converted to base currency)
         $commissionAmount = 0;
         $paymentIds = [];
         

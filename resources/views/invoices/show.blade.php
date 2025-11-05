@@ -76,43 +76,47 @@
                 </div>
                 @endif
 
-                @if($invoice->payment_method)
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-600 mb-1">Payment Method</h3>
-                    <p class="text-lg text-navy-900">
-                        @if($invoice->payment_method === 'Other' && $invoice->custom_payment_method)
-                            {{ $invoice->custom_payment_method }}
-                        @else
-                            {{ $invoice->payment_method }}
-                        @endif
-                    </p>
+                <!-- Milestones Section -->
+                @if($invoice->milestones && $invoice->milestones->count() > 0)
+                <div class="col-span-2">
+                    <h3 class="text-sm font-semibold text-gray-600 mb-2">Invoice Milestones</h3>
+                    <div class="bg-gray-50 rounded-lg p-4 space-y-2">
+                        @foreach($invoice->milestones as $milestone)
+                        <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                            <div>
+                                <p class="text-sm font-medium text-navy-900">{{ $milestone->description ?: 'Milestone ' . ($loop->iteration) }}</p>
+                            </div>
+                            <p class="text-sm font-bold text-navy-900">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($milestone->amount, 2) }}</p>
+                        </div>
+                        @endforeach
+                        <div class="flex justify-between items-center pt-2">
+                            <p class="text-sm font-bold text-gray-700">Total:</p>
+                            <p class="text-lg font-bold text-navy-900">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->milestones->sum('amount'), 2) }}</p>
+                        </div>
+                    </div>
                 </div>
                 @endif
 
-                @if($invoice->payment_processing_fee > 0)
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-600 mb-1">Payment Processing Fee</h3>
-                    <p class="text-lg text-navy-900">{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->payment_processing_fee, 2) }}</p>
-                </div>
-                @endif
-
-                @if($invoice->attachments && count($invoice->attachments) > 0)
+                <!-- Attachments Section -->
+                @if($invoice->attachments && $invoice->attachments->count() > 0)
                 <div class="col-span-2">
                     <h3 class="text-sm font-semibold text-gray-600 mb-2">Attachments</h3>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-2">
                         @foreach($invoice->attachments as $attachment)
-                            <a href="{{ Storage::url($attachment) }}" target="_blank" class="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded hover:bg-gray-50 transition">
-                                @if(str_ends_with($attachment, '.pdf'))
-                                    <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
-                                    </svg>
-                                @else
-                                    <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
-                                    </svg>
-                                @endif
-                                <span class="text-sm text-navy-900 truncate">{{ basename($attachment) }}</span>
+                        <div class="flex items-center justify-between p-3 border border-gray-300 rounded bg-white hover:bg-gray-50">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                                </svg>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-900">{{ $attachment->file_name }}</p>
+                                    <p class="text-xs text-gray-500">{{ $attachment->formatted_size }}</p>
+                                </div>
+                            </div>
+                            <a href="{{ Storage::url($attachment->file_path) }}" target="_blank" download class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                                Download
                             </a>
+                        </div>
                         @endforeach
                     </div>
                 </div>

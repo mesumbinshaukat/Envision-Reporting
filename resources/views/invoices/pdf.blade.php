@@ -72,7 +72,34 @@
         </tr>
     </table>
 
-    <table class="details-table">
+    @if($invoice->milestones && $invoice->milestones->count() > 0)
+    <!-- Milestones Breakdown -->
+    <div style="margin-top: 20px;">
+        <div class="label" style="font-size: 16px; margin-bottom: 10px;">Invoice Milestones</div>
+        <table class="details-table">
+            <thead>
+                <tr>
+                    <th>Milestone Description</th>
+                    <th width="20%">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($invoice->milestones as $milestone)
+                <tr>
+                    <td>{{ $milestone->description ?: 'Milestone ' . ($loop->iteration) }}</td>
+                    <td>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($milestone->amount, 2) }}</td>
+                </tr>
+                @endforeach
+                <tr style="background-color: #f0f0f0;">
+                    <td><strong>Subtotal</strong></td>
+                    <td><strong>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->milestones->sum('amount'), 2) }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    @endif
+
+    <table class="details-table" style="margin-top: 20px;">
         <thead>
             <tr>
                 <th>Description</th>
@@ -88,12 +115,38 @@
                 <td>Tax</td>
                 <td>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->tax, 2) }}</td>
             </tr>
-            <tr>
+            <tr style="background-color: #f0f0f0;">
                 <td><strong>Total Amount</strong></td>
                 <td><strong>{{ $invoice->currency ? $invoice->currency->symbol : 'Rs.' }}{{ number_format($invoice->amount, 2) }}</strong></td>
             </tr>
         </tbody>
     </table>
+
+    @if($invoice->attachments && $invoice->attachments->count() > 0)
+    <!-- Attachments List -->
+    <div style="margin-top: 20px;">
+        <div class="label" style="font-size: 16px; margin-bottom: 10px;">Attachments</div>
+        <table class="details-table">
+            <thead>
+                <tr>
+                    <th>File Name</th>
+                    <th width="20%">Size</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($invoice->attachments as $attachment)
+                <tr>
+                    <td>{{ $attachment->file_name }}</td>
+                    <td>{{ $attachment->formatted_size }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+        <div style="font-size: 10px; color: #666; margin-top: 5px; font-style: italic;">
+            Note: Attachments are available for download in the digital version of this invoice.
+        </div>
+    </div>
+    @endif
 
     <!-- Payment Transaction Records -->
     <div style="margin-top: 30px;">

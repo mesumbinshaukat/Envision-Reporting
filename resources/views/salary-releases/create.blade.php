@@ -170,14 +170,26 @@
                 }
                 document.getElementById('invoice_list').innerHTML = invoiceHtml;
                 
-                // Update bonus list
+                // Update bonus list with currency details
                 let bonusHtml = '';
                 if (data.bonuses.length > 0) {
-                    bonusHtml = '<ul class="list-disc list-inside">';
+                    bonusHtml = '<div class="space-y-2">';
                     data.bonuses.forEach(bonus => {
-                        bonusHtml += `<li>${bonus.description}: ${currSymbol}${bonus.amount}</li>`;
+                        bonusHtml += `
+                            <div class="border-l-4 border-blue-500 pl-3 py-1">
+                                <div class="font-semibold">${bonus.description}</div>
+                                <div class="text-sm text-gray-600">
+                                    Amount: ${bonus.amount_formatted}`;
+                        // Show conversion if not in base currency
+                        if (bonus.currency !== currSymbol) {
+                            bonusHtml += ` → <span class="text-blue-600">${bonus.amount_base_formatted}</span>`;
+                        }
+                        bonusHtml += `
+                                </div>
+                            </div>
+                        `;
                     });
-                    bonusHtml += '</ul>';
+                    bonusHtml += '</div>';
                 } else {
                     bonusHtml = '<p class="text-gray-500">No unreleased bonuses</p>';
                 }

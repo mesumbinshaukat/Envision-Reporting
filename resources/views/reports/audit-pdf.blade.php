@@ -186,6 +186,7 @@
                     <th>Date</th>
                     <th>Employee</th>
                     <th>Month</th>
+                    <th>Currency</th>
                     <th>Base</th>
                     <th>Commission</th>
                     <th>Bonus</th>
@@ -199,20 +200,19 @@
                         <td>{{ $release->release_date->format('M d, Y') }}</td>
                         <td>{{ $release->employee->name }}</td>
                         <td>{{ $release->month ? date('M Y', strtotime($release->month . '-01')) : 'N/A' }}</td>
-                        <td>Rs.{{ number_format($release->base_salary, 2) }}</td>
-                        <td>Rs.{{ number_format($release->commission_amount, 2) }}</td>
-                        <td>Rs.{{ number_format($release->bonus_amount ?? 0, 2) }}</td>
-                        <td>Rs.{{ number_format($release->deductions, 2) }}</td>
-                        <td>Rs.{{ number_format($release->total_amount, 2) }}</td>
+                        <td>{{ $release->currency ? $release->currency->symbol : 'Rs.' }}</td>
+                        <td>{{ $release->currency ? $release->currency->symbol : 'Rs.' }}{{ number_format($release->base_salary, 2) }}</td>
+                        <td>{{ $release->currency ? $release->currency->symbol : 'Rs.' }}{{ number_format($release->commission_amount, 2) }}</td>
+                        <td>{{ $release->currency ? $release->currency->symbol : 'Rs.' }}{{ number_format($release->bonus_amount ?? 0, 2) }}</td>
+                        <td>{{ $release->currency ? $release->currency->symbol : 'Rs.' }}{{ number_format($release->deductions, 2) }}</td>
+                        <td>{{ $release->currency ? $release->currency->symbol : 'Rs.' }}{{ number_format($release->total_amount, 2) }}</td>
                     </tr>
                 @endforeach
                 <tr class="total-row">
-                    <td colspan="3"><strong>Total</strong></td>
-                    <td><strong>Rs.{{ number_format($salaryReleases->sum('base_salary'), 2) }}</strong></td>
-                    <td><strong>Rs.{{ number_format($salaryReleases->sum('commission_amount'), 2) }}</strong></td>
-                    <td><strong>Rs.{{ number_format($salaryReleases->sum('bonus_amount'), 2) }}</strong></td>
-                    <td><strong>Rs.{{ number_format($salaryReleases->sum('deductions'), 2) }}</strong></td>
-                    <td><strong>Rs.{{ number_format($salaryReleases->sum('total_amount'), 2) }}</strong></td>
+                    <td colspan="4"><strong>Total (Base Currency)</strong></td>
+                    <td><strong>Rs.{{ number_format($total_salaries, 2) }}</strong></td>
+                    <td colspan="3"></td>
+                    <td><strong>Rs.{{ number_format($total_salaries, 2) }}</strong></td>
                 </tr>
             </tbody>
         </table>

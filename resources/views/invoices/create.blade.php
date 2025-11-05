@@ -5,6 +5,7 @@
 
     <div class="max-w-2xl">
         <form method="POST" action="{{ route('invoices.store') }}" enctype="multipart/form-data" class="bg-white border border-navy-900 rounded-lg p-6 space-y-4">
+        <form method="POST" action="{{ route('invoices.store') }}" enctype="multipart/form-data" class="bg-white border border-navy-900 rounded-lg p-6 space-y-4">
             @csrf
 
             <!-- One-Time Invoice Checkbox -->
@@ -86,9 +87,12 @@
                 </select>
             </div>
 
+            <!-- Milestones Section -->
+            @include('components.invoice-milestones')
+
             <div>
-                <label for="amount" class="block text-sm font-semibold text-navy-900 mb-1">Total Amount *</label>
-                <input type="number" name="amount" id="amount" value="{{ old('amount') }}" required step="0.01" min="0" class="w-full px-4 py-2 border border-navy-900 rounded" onchange="calculateRemainingAmount()">
+                <label for="amount" class="block text-sm font-semibold text-navy-900 mb-1">Total Amount * <span class="text-xs text-gray-600">(Auto-calculated from milestones)</span></label>
+                <input type="number" name="amount" id="amount" value="{{ old('amount') }}" required step="0.01" min="0" class="w-full px-4 py-2 border border-navy-900 rounded bg-gray-100" readonly>
             </div>
 
             <div>
