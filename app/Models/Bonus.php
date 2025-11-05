@@ -39,4 +39,15 @@ class Bonus extends Model
     {
         return $this->belongsTo(Currency::class);
     }
+
+    /**
+     * Get bonus amount converted to base currency
+     */
+    public function getAmountInBaseCurrency()
+    {
+        if (!$this->currency) {
+            return $this->amount;
+        }
+        return $this->currency->toBase($this->amount);
+    }
 }

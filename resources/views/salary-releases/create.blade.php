@@ -157,7 +157,7 @@
                             <div class="border-l-4 border-green-500 pl-3 py-1">
                                 <div class="font-semibold">${invoice.client}</div>
                                 <div class="text-sm text-gray-600">
-                                    Payments: ${currSymbol}${invoice.paid_amount} | 
+                                    Payments: ${invoice.paid_amount_formatted} | 
                                     Rate: ${invoice.commission_rate}% | 
                                     Commission: <span class="text-green-600 font-semibold">${currSymbol}${invoice.commission}</span>
                                 </div>

@@ -34,24 +34,28 @@ class Currency extends Model
 
     /**
      * Convert amount from this currency to base currency
+     * Example: If this currency is USD with rate 282 (meaning 1 USD = 282 PKR base)
+     * Then $100 USD should convert to 100 * 282 = 28,200 PKR
      */
     public function toBase($amount)
     {
         if ($this->is_base) {
             return $amount;
         }
-        return $amount / $this->conversion_rate;
+        return $amount * $this->conversion_rate;
     }
 
     /**
      * Convert amount from base currency to this currency
+     * Example: If this currency is USD with rate 282 (meaning 1 USD = 282 PKR base)
+     * Then 28,200 PKR should convert to 28,200 / 282 = $100 USD
      */
     public function fromBase($amount)
     {
         if ($this->is_base) {
             return $amount;
         }
-        return $amount * $this->conversion_rate;
+        return $amount / $this->conversion_rate;
     }
 
     /**

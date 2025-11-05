@@ -66,30 +66,42 @@ class DashboardController extends Controller
         // Get invoices where this employee is the salesperson
         $employeeInvoices = Invoice::where('employee_id', $employee->id)
             ->where('approval_status', 'approved')
+            ->with('currency')
             ->get();
         
         // Get invoices created by this employee user
         $createdInvoices = Invoice::where('created_by_employee_id', $employeeUser->id)
+            ->with('currency')
             ->get();
         
-        // Calculate total commission earned
+        // Calculate total commission earned (converted to base currency)
         $totalCommissionPaid = \App\Models\Payment::whereHas('invoice', function($q) use ($employee) {
             $q->where('employee_id', $employee->id);
-        })->where('commission_paid', true)->get()->sum(function($payment) use ($employee) {
+        })->where('commission_paid', true)->with('invoice.currency')->get()->sum(function($payment) use ($employee) {
             $invoice = $payment->invoice;
             $taxPerPayment = ($invoice->tax / $invoice->amount) * $payment->amount;
             $netAmount = $payment->amount - $taxPerPayment;
-            return $netAmount * ($employee->commission_rate / 100);
+            $commission = $netAmount * ($employee->commission_rate / 100);
+            // Convert commission to base currency
+            if ($invoice->currency) {
+                return $invoice->currency->toBase($commission);
+            }
+            return $commission;
         });
         
-        // Calculate pending commission
+        // Calculate pending commission (converted to base currency)
         $pendingCommission = \App\Models\Payment::whereHas('invoice', function($q) use ($employee) {
             $q->where('employee_id', $employee->id);
-        })->where('commission_paid', false)->get()->sum(function($payment) use ($employee) {
+        })->where('commission_paid', false)->with('invoice.currency')->get()->sum(function($payment) use ($employee) {
             $invoice = $payment->invoice;
             $taxPerPayment = ($invoice->tax / $invoice->amount) * $payment->amount;
             $netAmount = $payment->amount - $taxPerPayment;
-            return $netAmount * ($employee->commission_rate / 100);
+            $commission = $netAmount * ($employee->commission_rate / 100);
+            // Convert commission to base currency
+            if ($invoice->currency) {
+                return $invoice->currency->toBase($commission);
+            }
+            return $commission;
         });
         
         $stats = [

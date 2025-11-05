@@ -61,7 +61,12 @@ class InvoiceController extends Controller
         }
         
         $invoices = $query->latest()->paginate(10);
-        $totalAmount = $query->sum('amount');
+        
+        // Calculate total amount in base currency by converting each invoice's amount
+        $allInvoices = $query->with('currency')->get();
+        $totalAmount = $allInvoices->sum(function($invoice) {
+            return $invoice->getAmountInBaseCurrency();
+        });
         
         return view('invoices.index', compact('invoices', 'totalAmount', 'isEmployee'));
     }

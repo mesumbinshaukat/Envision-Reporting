@@ -30,4 +30,15 @@ class Expense extends Model
     {
         return $this->belongsTo(Currency::class);
     }
+
+    /**
+     * Get expense amount converted to base currency
+     */
+    public function getAmountInBaseCurrency()
+    {
+        if (!$this->currency) {
+            return $this->amount;
+        }
+        return $this->currency->toBase($this->amount);
+    }
 }

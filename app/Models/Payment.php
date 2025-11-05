@@ -35,4 +35,16 @@ class Payment extends Model
     {
         return $this->belongsTo(SalaryRelease::class);
     }
+
+    /**
+     * Get payment amount converted to base currency
+     * Payment inherits currency from its invoice
+     */
+    public function getAmountInBaseCurrency()
+    {
+        if (!$this->invoice || !$this->invoice->currency) {
+            return $this->amount;
+        }
+        return $this->invoice->currency->toBase($this->amount);
+    }
 }

@@ -89,4 +89,37 @@ class Invoice extends Model
         }
         return $this->client ? $this->client->name : 'N/A';
     }
+
+    /**
+     * Get invoice amount converted to base currency
+     */
+    public function getAmountInBaseCurrency()
+    {
+        if (!$this->currency) {
+            return $this->amount;
+        }
+        return $this->currency->toBase($this->amount);
+    }
+
+    /**
+     * Get paid amount converted to base currency
+     */
+    public function getPaidAmountInBaseCurrency()
+    {
+        if (!$this->currency) {
+            return $this->paid_amount;
+        }
+        return $this->currency->toBase($this->paid_amount);
+    }
+
+    /**
+     * Get remaining amount converted to base currency
+     */
+    public function getRemainingAmountInBaseCurrency()
+    {
+        if (!$this->currency) {
+            return $this->remaining_amount;
+        }
+        return $this->currency->toBase($this->remaining_amount);
+    }
 }

@@ -64,16 +64,26 @@ class SalaryReleaseController extends Controller
             ->where('month', $releaseMonth)
             ->exists();
         
+        // Calculate the previous month's date range
+        // If releasing salary in November, only count October's payments
+        $salaryMonthDate = date('Y-m-01', strtotime($releaseMonth . '-01'));
+        $previousMonthStart = date('Y-m-01', strtotime($salaryMonthDate . ' -1 month'));
+        $previousMonthEnd = date('Y-m-t', strtotime($previousMonthStart));
+        
         // Get all invoices where this employee is the salesperson
-        // Include payments up to the release date (not just the salary month)
+        // Include payments from previous month only that haven't had commission paid
         $invoices = $employee->invoices()
-            ->with(['client', 'payments' => function($query) use ($releaseDate) {
-                $query->where('payment_date', '<=', $releaseDate)
+            ->with(['client', 'currency', 'payments' => function($query) use ($previousMonthStart, $previousMonthEnd) {
+                $query->where('payment_date', '>=', $previousMonthStart)
+                      ->where('payment_date', '<=', $previousMonthEnd)
                       ->where('commission_paid', false);
             }])
             ->get();
         
-        // Calculate commission based on unpaid payments received up to release month
+        // Get base currency for conversion
+        $baseCurrency = $this->getBaseCurrency();
+        
+        // Calculate commission based on unpaid payments from previous month (converted to base currency)
         $commissionAmount = 0;
         $commissionDetails = [];
         
@@ -83,9 +93,21 @@ class SalaryReleaseController extends Controller
                 $unpaidPayments = $invoice->payments->where('commission_paid', false);
                 if($unpaidPayments->count() > 0) {
                     $paidAmount = $unpaidPayments->sum('amount');
-                    // Calculate commission after tax deduction
-                    $taxPerPayment = ($invoice->tax / $invoice->amount) * $paidAmount;
-                    $netAmount = $paidAmount - $taxPerPayment;
+                    
+                    // Convert paid amount to base currency
+                    if ($invoice->currency && !$invoice->currency->is_base) {
+                        $paidAmountInBase = $invoice->currency->toBase($paidAmount);
+                        $taxInBase = $invoice->currency->toBase($invoice->tax);
+                        $invoiceAmountInBase = $invoice->currency->toBase($invoice->amount);
+                    } else {
+                        $paidAmountInBase = $paidAmount;
+                        $taxInBase = $invoice->tax;
+                        $invoiceAmountInBase = $invoice->amount;
+                    }
+                    
+                    // Calculate commission after tax deduction (in base currency)
+                    $taxPerPayment = ($taxInBase / $invoiceAmountInBase) * $paidAmountInBase;
+                    $netAmount = $paidAmountInBase - $taxPerPayment;
                     $commissionRate = $employee->commission_rate / 100;
                     $invoiceCommission = $netAmount * $commissionRate;
                     $commissionAmount += $invoiceCommission;
@@ -93,7 +115,10 @@ class SalaryReleaseController extends Controller
                     $commissionDetails[] = [
                         'id' => $invoice->id,
                         'client' => $invoice->client ? $invoice->client->name : 'N/A',
+                        'currency' => $invoice->currency ? $invoice->currency->symbol : 'Rs.',
                         'paid_amount' => number_format($paidAmount, 2),
+                        'paid_amount_formatted' => ($invoice->currency ? $invoice->currency->symbol : 'Rs.') . number_format($paidAmount, 2),
+                        'paid_amount_base' => number_format($paidAmountInBase, 2),
                         'commission_rate' => $employee->commission_rate,
                         'commission' => number_format($invoiceCommission, 2),
                     ];
@@ -101,13 +126,16 @@ class SalaryReleaseController extends Controller
             }
         }
         
-        // Get unpaid bonuses
+        // Get unpaid bonuses (convert to base currency)
         $bonuses = $employee->bonuses()
             ->where('released', false)
             ->where('release_type', 'with_salary')
+            ->with('currency')
             ->get();
         
-        $bonusAmount = $bonuses->sum('amount');
+        $bonusAmount = $bonuses->sum(function($bonus) {
+            return $bonus->getAmountInBaseCurrency();
+        });
         
         $baseSalary = $employee->salary;
         $deductions = $request->deductions ?? 0;
@@ -167,15 +195,22 @@ class SalaryReleaseController extends Controller
             ])->withInput();
         }
         
-        // Get all invoices with payments up to the release date
+        // Calculate the previous month's date range
+        // If releasing salary in November, only count October's payments
+        $salaryMonthDate = date('Y-m-01', strtotime($validated['month'] . '-01'));
+        $previousMonthStart = date('Y-m-01', strtotime($salaryMonthDate . ' -1 month'));
+        $previousMonthEnd = date('Y-m-t', strtotime($previousMonthStart));
+        
+        // Get all invoices with payments from previous month only
         $invoices = $employee->invoices()
-            ->with(['payments' => function($query) use ($validated) {
-                $query->where('payment_date', '<=', $validated['release_date'])
+            ->with(['currency', 'payments' => function($query) use ($previousMonthStart, $previousMonthEnd) {
+                $query->where('payment_date', '>=', $previousMonthStart)
+                      ->where('payment_date', '<=', $previousMonthEnd)
                       ->where('commission_paid', false);
             }])
             ->get();
         
-        // Calculate commission based on unpaid payments received up to release month
+        // Calculate commission based on unpaid payments from previous month (converted to base currency)
         $commissionAmount = 0;
         $paymentIds = [];
         
@@ -185,9 +220,21 @@ class SalaryReleaseController extends Controller
                 $unpaidPayments = $invoice->payments->where('commission_paid', false);
                 if($unpaidPayments->count() > 0) {
                     $paidAmount = $unpaidPayments->sum('amount');
-                    // Calculate commission after tax deduction
-                    $taxPerPayment = ($invoice->tax / $invoice->amount) * $paidAmount;
-                    $netAmount = $paidAmount - $taxPerPayment;
+                    
+                    // Convert paid amount to base currency
+                    if ($invoice->currency && !$invoice->currency->is_base) {
+                        $paidAmountInBase = $invoice->currency->toBase($paidAmount);
+                        $taxInBase = $invoice->currency->toBase($invoice->tax);
+                        $invoiceAmountInBase = $invoice->currency->toBase($invoice->amount);
+                    } else {
+                        $paidAmountInBase = $paidAmount;
+                        $taxInBase = $invoice->tax;
+                        $invoiceAmountInBase = $invoice->amount;
+                    }
+                    
+                    // Calculate commission after tax deduction (in base currency)
+                    $taxPerPayment = ($taxInBase / $invoiceAmountInBase) * $paidAmountInBase;
+                    $netAmount = $paidAmountInBase - $taxPerPayment;
                     $commissionRate = $employee->commission_rate / 100;
                     $invoiceCommission = $netAmount * $commissionRate;
                     $commissionAmount += $invoiceCommission;
@@ -198,11 +245,16 @@ class SalaryReleaseController extends Controller
             }
         }
         
-        // Get unpaid bonuses
-        $bonusAmount = $employee->bonuses()
+        // Get unpaid bonuses (convert to base currency)
+        $bonuses = $employee->bonuses()
             ->where('released', false)
             ->where('release_type', 'with_salary')
-            ->sum('amount');
+            ->with('currency')
+            ->get();
+        
+        $bonusAmount = $bonuses->sum(function($bonus) {
+            return $bonus->getAmountInBaseCurrency();
+        });
         
         $baseSalary = $employee->salary;
         $deductions = $validated['deductions'] ?? 0;

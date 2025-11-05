@@ -30,7 +30,7 @@ class ReportController extends Controller
             $dateTo = date('Y-m-d 23:59:59', strtotime($validated['date_to']));
             
             $invoices = Invoice::where('user_id', $userId)
-                ->with(['client', 'employee', 'payments'])
+                ->with(['client', 'employee', 'payments', 'currency'])
                 ->whereHas('payments', function($query) use ($dateFrom, $dateTo) {
                     $query->where('payment_date', '>=', $dateFrom)
                           ->where('payment_date', '<=', $dateTo);
@@ -48,6 +48,7 @@ class ReportController extends Controller
             });
             
             $expenses = Expense::where('user_id', $userId)
+                ->with('currency')
                 ->where('date', '>=', $dateFrom)
                 ->where('date', '<=', $dateTo)
                 ->get();
@@ -56,12 +57,12 @@ class ReportController extends Controller
             $toMonth = Carbon::parse($dateTo)->format('Y-m');
             if($fromMonth == $toMonth){
                 $salaryReleases = SalaryRelease::where('user_id', $userId)
-                ->with('employee')
+                ->with(['employee', 'currency'])
                 ->where('month', $fromMonth)
                 ->get();
             }else{
                 $salaryReleases = SalaryRelease::where('user_id', $userId)
-                ->with('employee')
+                ->with(['employee', 'currency'])
                 ->where('release_date', '>=', $dateFrom)
                 ->where('release_date', '<=', $dateTo)
                 ->get();
@@ -69,14 +70,19 @@ class ReportController extends Controller
           
             
             $bonuses = Bonus::where('user_id', $userId)
-                ->with('employee')
+                ->with(['employee', 'currency'])
                 ->where('date', '>=', $dateFrom)
                 ->where('date', '<=', $dateTo)
                 ->get();
             
-            // Calculate total payments made in this date range
+            // Calculate total payments made in this date range (converted to base currency)
             $totalPaymentsInRange = $invoices->sum(function($invoice) {
-                return $invoice->payments->sum('amount');
+                return $invoice->payments->sum(function($payment) use ($invoice) {
+                    if ($invoice->currency) {
+                        return $invoice->currency->toBase($payment->amount);
+                    }
+                    return $payment->amount;
+                });
             });
             
             // Separate invoices by status
@@ -95,12 +101,12 @@ class ReportController extends Controller
                 'salaryReleases' => $salaryReleases,
                 'bonuses' => $bonuses,
                 'total_payments_in_range' => $totalPaymentsInRange,
-                'total_invoices' => $invoices->sum('amount'),
-                'total_expenses' => $expenses->sum('amount'),
-                'total_salaries' => $salaryReleases->sum('total_amount'),
-                'total_bonuses' => $bonuses->sum('amount'),
-                // Net Income = Payments received in date range - Expenses - Salaries
-                'net_income' => $totalPaymentsInRange - $expenses->sum('amount') - $salaryReleases->sum('total_amount'),
+                'total_invoices' => $invoices->sum(function($inv) { return $inv->getAmountInBaseCurrency(); }),
+                'total_expenses' => $expenses->sum(function($exp) { return $exp->getAmountInBaseCurrency(); }),
+                'total_salaries' => $salaryReleases->sum(function($sal) { return $sal->getTotalAmountInBaseCurrency(); }),
+                'total_bonuses' => $bonuses->sum(function($bon) { return $bon->getAmountInBaseCurrency(); }),
+                // Net Income = Payments received in date range - Expenses - Salaries (all in base currency)
+                'net_income' => $totalPaymentsInRange - $expenses->sum(function($exp) { return $exp->getAmountInBaseCurrency(); }) - $salaryReleases->sum(function($sal) { return $sal->getTotalAmountInBaseCurrency(); }),
             ];
         }
         
@@ -121,7 +127,7 @@ class ReportController extends Controller
         $dateTo = date('Y-m-d 23:59:59', strtotime($validated['date_to']));
         
         $invoices = Invoice::where('user_id', $userId)
-            ->with(['client', 'employee', 'payments'])
+            ->with(['client', 'employee', 'payments', 'currency'])
             ->whereHas('payments', function($query) use ($dateFrom, $dateTo) {
                 $query->where('payment_date', '>=', $dateFrom)
                       ->where('payment_date', '<=', $dateTo);
@@ -138,26 +144,41 @@ class ReportController extends Controller
             );
         });
         
-        $expenses = $user->expenses()
+        $expenses = Expense::where('user_id', $userId)
+            ->with('currency')
             ->where('date', '>=', $dateFrom)
             ->where('date', '<=', $dateTo)
             ->get();
         
-        $salaryReleases = $user->salaryReleases()
-            ->with('employee')
+        $fromMonth = Carbon::parse($dateFrom)->format('Y-m');
+        $toMonth = Carbon::parse($dateTo)->format('Y-m');
+        if($fromMonth == $toMonth){
+            $salaryReleases = SalaryRelease::where('user_id', $userId)
+            ->with(['employee', 'currency'])
+            ->where('month', $fromMonth)
+            ->get();
+        }else{
+            $salaryReleases = SalaryRelease::where('user_id', $userId)
+            ->with(['employee', 'currency'])
             ->where('release_date', '>=', $dateFrom)
             ->where('release_date', '<=', $dateTo)
             ->get();
+        }
         
-        $bonuses = $user->bonuses()
-            ->with('employee')
+        $bonuses = Bonus::where('user_id', $userId)
+            ->with(['employee', 'currency'])
             ->where('date', '>=', $dateFrom)
             ->where('date', '<=', $dateTo)
             ->get();
         
-        // Calculate total payments made in this date range
+        // Calculate total payments made in this date range (converted to base currency)
         $totalPaymentsInRange = $invoices->sum(function($invoice) {
-            return $invoice->payments->sum('amount');
+            return $invoice->payments->sum(function($payment) use ($invoice) {
+                if ($invoice->currency) {
+                    return $invoice->currency->toBase($payment->amount);
+                }
+                return $payment->amount;
+            });
         });
         
         // Separate invoices by status
@@ -166,7 +187,7 @@ class ReportController extends Controller
         $pendingInvoices = $invoices->where('status', 'Pending');
         
         $data = [
-            'user' => $user,
+            'user' => auth()->user(),
             'date_from' => $validated['date_from'],
             'date_to' => $validated['date_to'],
             'invoices' => $invoices,
@@ -177,12 +198,12 @@ class ReportController extends Controller
             'salaryReleases' => $salaryReleases,
             'bonuses' => $bonuses,
             'total_payments_in_range' => $totalPaymentsInRange,
-            'total_invoices' => $invoices->sum('amount'),
-            'total_expenses' => $expenses->sum('amount'),
-            'total_salaries' => $salaryReleases->sum('total_amount'),
-            'total_bonuses' => $bonuses->sum('amount'),
-            // Net Income = Payments received in date range - Expenses - Salaries
-            'net_income' => $totalPaymentsInRange - $expenses->sum('amount') - $salaryReleases->sum('total_amount'),
+            'total_invoices' => $invoices->sum(function($inv) { return $inv->getAmountInBaseCurrency(); }),
+            'total_expenses' => $expenses->sum(function($exp) { return $exp->getAmountInBaseCurrency(); }),
+            'total_salaries' => $salaryReleases->sum(function($sal) { return $sal->getTotalAmountInBaseCurrency(); }),
+            'total_bonuses' => $bonuses->sum(function($bon) { return $bon->getAmountInBaseCurrency(); }),
+            // Net Income = Payments received in date range - Expenses - Salaries (all in base currency)
+            'net_income' => $totalPaymentsInRange - $expenses->sum(function($exp) { return $exp->getAmountInBaseCurrency(); }) - $salaryReleases->sum(function($sal) { return $sal->getTotalAmountInBaseCurrency(); }),
         ];
         
         $pdf = Pdf::loadView('reports.audit-pdf', $data);

@@ -62,7 +62,7 @@
                 <td>{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->base_salary, 2) }}</td>
             </tr>
             <tr>
-                <td>Commission (from paid invoices)</td>
+                <td>Commission (from previous month's paid invoices)</td>
                 <td>{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->commission_amount, 2) }}</td>
             </tr>
             <tr>

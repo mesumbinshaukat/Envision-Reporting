@@ -48,4 +48,15 @@ class SalaryRelease extends Model
     {
         return $this->hasMany(Payment::class);
     }
+
+    /**
+     * Get total amount converted to base currency
+     */
+    public function getTotalAmountInBaseCurrency()
+    {
+        if (!$this->currency) {
+            return $this->total_amount;
+        }
+        return $this->currency->toBase($this->total_amount);
+    }
 }
