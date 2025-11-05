@@ -186,6 +186,20 @@ class InvoiceController extends Controller
         
         $invoice = Invoice::create($validated);
         
+        // Handle milestones if provided
+        if ($request->has('milestones') && is_array($request->milestones)) {
+            foreach ($request->milestones as $index => $milestone) {
+                if (!empty($milestone['amount'])) {
+                    \App\Models\InvoiceMilestone::create([
+                        'invoice_id' => $invoice->id,
+                        'amount' => $milestone['amount'],
+                        'description' => $milestone['description'] ?? null,
+                        'order' => $index,
+                    ]);
+                }
+            }
+        }
+        
         // If status is "Partial Paid", create a payment record for the partial amount
         if ($validated['status'] === 'Partial Paid' && $validated['paid_amount'] > 0) {
             \App\Models\Payment::create([
@@ -236,7 +250,7 @@ class InvoiceController extends Controller
             $this->authorize('view', $invoice);
         }
         
-        $invoice->load(['client', 'employee', 'currency']);
+        $invoice->load(['client', 'employee', 'currency', 'milestones', 'payments']);
         return view('invoices.show', compact('invoice'));
     }
 
@@ -268,6 +282,8 @@ class InvoiceController extends Controller
         $currencies = $this->getUserCurrencies();
         $baseCurrency = $this->getBaseCurrency();
         
+        $invoice->load(['milestones', 'payments']);
+        
         return view('invoices.edit', compact('invoice', 'clients', 'employees', 'isEmployee', 'currencies', 'baseCurrency'));
     }
 
@@ -298,6 +314,24 @@ class InvoiceController extends Controller
         $newStatus = $validated['status'];
         
         $invoice->update($validated);
+        
+        // Handle milestone updates
+        if ($request->has('milestones')) {
+            // Delete existing milestones
+            $invoice->milestones()->delete();
+            
+            // Create new milestones
+            foreach ($request->milestones as $index => $milestone) {
+                if (!empty($milestone['amount'])) {
+                    \App\Models\InvoiceMilestone::create([
+                        'invoice_id' => $invoice->id,
+                        'amount' => $milestone['amount'],
+                        'description' => $milestone['description'] ?? null,
+                        'order' => $index,
+                    ]);
+                }
+            }
+        }
         
         // If status changed to "Payment Done" and total not yet paid
         if ($newStatus === 'Payment Done' && $oldStatus !== 'Payment Done') {
@@ -348,7 +382,7 @@ class InvoiceController extends Controller
             $this->authorize('view', $invoice);
         }
         
-        $invoice->load(['client', 'employee', 'user', 'payments', 'currency']);
+        $invoice->load(['client', 'employee', 'user', 'payments', 'currency', 'milestones']);
         
         $pdf = Pdf::loadView('invoices.pdf', compact('invoice'));
         return $pdf->download('invoice-' . $invoice->id . '.pdf');

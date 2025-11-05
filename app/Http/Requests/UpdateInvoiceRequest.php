@@ -33,6 +33,9 @@ class UpdateInvoiceRequest extends FormRequest
             'payment_method' => 'nullable|string|in:PayPal,Stripe,Bank,Venmo,CashApp,Other',
             'custom_payment_method' => 'required_if:payment_method,Other|nullable|string|max:255',
             'payment_processing_fee' => 'nullable|numeric|min:0',
+            'milestones' => 'nullable|array',
+            'milestones.*.amount' => 'required|numeric|min:0',
+            'milestones.*.description' => 'nullable|string|max:500',
         ];
     }
 
