@@ -30,12 +30,17 @@ class Invoice extends Model
         'commission_paid',
         'is_one_time',
         'one_time_client_name',
+        'attachments',
+        'payment_method',
+        'custom_payment_method',
+        'payment_processing_fee',
     ];
 
     protected $casts = [
         'due_date' => 'date',
         'payment_date' => 'date',
         'approved_at' => 'datetime',
+        'attachments' => 'array',
     ];
 
     public function user()

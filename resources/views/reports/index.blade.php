@@ -46,7 +46,7 @@
             <!-- Summary Section -->
             <div class="bg-white border border-navy-900 rounded-lg p-6">
                 <h3 class="text-xl font-bold text-navy-900 mb-4">Summary ({{ date('M d, Y', strtotime($reportData['date_from'])) }} to {{ date('M d, Y', strtotime($reportData['date_to'])) }})</h3>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                     <div class="border border-gray-300 rounded p-4">
                         <div class="text-sm text-gray-600">Payments Received</div>
                         <div class="text-2xl font-bold text-green-600">Rs.{{ number_format($reportData['total_payments_in_range'], 2) }}</div>
@@ -56,6 +56,11 @@
                         <div class="text-sm text-gray-600">Total Invoices</div>
                         <div class="text-2xl font-bold text-navy-900">Rs.{{ number_format($reportData['total_invoices'], 2) }}</div>
                         <div class="text-xs text-gray-500 mt-1">{{ $reportData['invoices']->count() }} invoices</div>
+                    </div>
+                    <div class="border border-gray-300 rounded p-4">
+                        <div class="text-sm text-gray-600">Processing Fees</div>
+                        <div class="text-2xl font-bold text-orange-600">Rs.{{ number_format($reportData['total_processing_fees'], 2) }}</div>
+                        <div class="text-xs text-gray-500 mt-1">Deducted from total</div>
                     </div>
                     <div class="border border-gray-300 rounded p-4">
                         <div class="text-sm text-gray-600">Total Expenses</div>
