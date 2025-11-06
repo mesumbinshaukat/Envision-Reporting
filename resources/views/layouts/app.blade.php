@@ -96,12 +96,61 @@
                             </svg>
                             <span class="ml-3 sidebar-text">Reports</span>
                         </a>
-                        <a href="{{ route('admin.attendance.index') }}" class="flex items-center px-4 py-2 rounded {{ request()->routeIs('admin.attendance.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-900 hover:text-white' }}" title="Attendance Management">
-                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span class="ml-3 sidebar-text">Attendance</span>
-                        </a>
+                        <!-- Attendance Dropdown -->
+                        <div class="relative">
+                            <button onclick="toggleAttendanceMenu()" class="w-full flex items-center justify-between px-4 py-2 rounded text-navy-900 hover:bg-navy-900 hover:text-white transition-colors" title="Attendance Management">
+                                <div class="flex items-center">
+                                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span class="ml-3 sidebar-text">Attendance</span>
+                                </div>
+                                <svg id="attendanceChevron" class="w-4 h-4 transition-transform duration-200 sidebar-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            
+                            <!-- Dropdown Menu -->
+                            <div id="attendanceMenu" class="hidden overflow-hidden transition-all duration-300 ease-in-out">
+                                <div class="ml-4 mt-1 space-y-1 border-l-2 border-navy-200 pl-4">
+                                    <a href="{{ route('admin.attendance.index') }}" class="flex items-center px-3 py-2 rounded text-sm transition-colors {{ request()->routeIs('admin.attendance.index') || request()->routeIs('admin.attendance.show') || request()->routeIs('admin.attendance.edit') || request()->routeIs('admin.attendance.create') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-100' }}" title="Manage Attendance">
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                        </svg>
+                                        <span class="ml-2 sidebar-text">Manage Attendance</span>
+                                    </a>
+                                    
+                                    <a href="{{ route('admin.attendance.statistics') }}" class="flex items-center px-3 py-2 rounded text-sm transition-colors {{ request()->routeIs('admin.attendance.statistics') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-100' }}" title="Statistics">
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                        </svg>
+                                        <span class="ml-2 sidebar-text">Statistics</span>
+                                    </a>
+                                    
+                                    <a href="{{ route('admin.attendance.fix-requests.index') }}" class="flex items-center px-3 py-2 rounded text-sm transition-colors {{ request()->routeIs('admin.attendance.fix-requests.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-100' }}" title="Fix Requests">
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                        </svg>
+                                        <span class="ml-2 sidebar-text">Fix Requests</span>
+                                    </a>
+                                    
+                                    <a href="{{ route('admin.office-location.index') }}" class="flex items-center px-3 py-2 rounded text-sm transition-colors {{ request()->routeIs('admin.office-location.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-100' }}" title="Office Location">
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        </svg>
+                                        <span class="ml-2 sidebar-text">Office Location</span>
+                                    </a>
+                                    
+                                    <a href="{{ route('admin.attendance-logs.index') }}" class="flex items-center px-3 py-2 rounded text-sm transition-colors {{ request()->routeIs('admin.attendance-logs.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-100' }}" title="Attendance Logs">
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        <span class="ml-2 sidebar-text">Attendance Logs</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                         <a href="{{ route('currencies.index') }}" class="flex items-center px-4 py-2 rounded {{ request()->routeIs('currencies.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-900 hover:text-white' }}" title="Currency">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -154,6 +203,41 @@
                         toggleIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>';
                     }
                 }
+
+                function toggleAttendanceMenu() {
+                    const menu = document.getElementById('attendanceMenu');
+                    const chevron = document.getElementById('attendanceChevron');
+                    
+                    if (menu.classList.contains('hidden')) {
+                        // Show menu
+                        menu.classList.remove('hidden');
+                        setTimeout(() => {
+                            menu.style.maxHeight = menu.scrollHeight + 'px';
+                        }, 10);
+                        chevron.style.transform = 'rotate(180deg)';
+                    } else {
+                        // Hide menu
+                        menu.style.maxHeight = '0px';
+                        setTimeout(() => {
+                            menu.classList.add('hidden');
+                        }, 300);
+                        chevron.style.transform = 'rotate(0deg)';
+                    }
+                }
+
+                // Auto-open attendance menu if on attendance-related page
+                document.addEventListener('DOMContentLoaded', function() {
+                    const currentPath = window.location.pathname;
+                    if (currentPath.includes('/admin/attendance') || currentPath.includes('/admin/office-location')) {
+                        const menu = document.getElementById('attendanceMenu');
+                        const chevron = document.getElementById('attendanceChevron');
+                        if (menu && chevron) {
+                            menu.classList.remove('hidden');
+                            menu.style.maxHeight = menu.scrollHeight + 'px';
+                            chevron.style.transform = 'rotate(180deg)';
+                        }
+                    }
+                });
             </script>
 
             <!-- Main Content -->
@@ -196,5 +280,11 @@
                 </main>
             </div>
         </div>
+        
+        <!-- Hybrid Geolocation Scripts -->
+        <script src="{{ asset('js/hybrid-geolocation.js') }}"></script>
+        <script src="{{ asset('js/wifi-positioning.js') }}"></script>
+        
+        @stack('scripts')
     </body>
 </html>

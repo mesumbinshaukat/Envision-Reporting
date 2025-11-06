@@ -13,7 +13,17 @@ class Attendance extends Model
     protected $fillable = [
         'employee_user_id',
         'check_in',
+        'check_in_latitude',
+        'check_in_longitude',
+        'check_in_ip',
+        'check_in_user_agent',
+        'check_in_distance_meters',
         'check_out',
+        'check_out_latitude',
+        'check_out_longitude',
+        'check_out_ip',
+        'check_out_user_agent',
+        'check_out_distance_meters',
         'attendance_date',
     ];
 
@@ -21,6 +31,12 @@ class Attendance extends Model
         'check_in' => 'datetime',
         'check_out' => 'datetime',
         'attendance_date' => 'date',
+        'check_in_latitude' => 'decimal:8',
+        'check_in_longitude' => 'decimal:8',
+        'check_in_distance_meters' => 'decimal:2',
+        'check_out_latitude' => 'decimal:8',
+        'check_out_longitude' => 'decimal:8',
+        'check_out_distance_meters' => 'decimal:2',
     ];
 
     /**
@@ -45,6 +61,14 @@ class Attendance extends Model
     public function pendingFixRequests()
     {
         return $this->hasMany(AttendanceFixRequest::class)->where('status', 'pending');
+    }
+
+    /**
+     * Get the logs for this attendance.
+     */
+    public function logs()
+    {
+        return $this->hasMany(AttendanceLog::class);
     }
 
     /**

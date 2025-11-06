@@ -13,6 +13,8 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AdminAttendanceController;
 use App\Http\Controllers\AttendanceFixRequestController;
+use App\Http\Controllers\AttendanceLogController;
+use App\Http\Controllers\OfficeLocationController;
 use App\Http\Controllers\CurrencyController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +29,9 @@ Route::get('/main', function () {
 // Routes accessible by both admin and employee
 Route::middleware(['auth.both'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Calibration data - accessible by employees for check-in
+    Route::get('/office-location/calibration', [OfficeLocationController::class, 'getCalibration'])->name('office-location.calibration');
     
     // Invoices - accessible by both but with different permissions
     Route::resource('invoices', InvoiceController::class);
@@ -112,6 +117,20 @@ Route::middleware(['auth.both', 'admin'])->group(function () {
     Route::post('/currencies/{currency}/set-base', [CurrencyController::class, 'setBase'])->name('currencies.set-base');
     Route::post('/currencies/{currency}/toggle-active', [CurrencyController::class, 'toggleActive'])->name('currencies.toggle-active');
     Route::delete('/currencies/{currency}', [CurrencyController::class, 'destroy'])->name('currencies.destroy');
+    
+    // Office Location Settings (admin only)
+    Route::prefix('admin/office-location')->name('admin.office-location.')->group(function () {
+        Route::get('/', [OfficeLocationController::class, 'index'])->name('index');
+        Route::post('/', [OfficeLocationController::class, 'update'])->name('update');
+        Route::get('/calibration', [OfficeLocationController::class, 'getCalibration'])->name('calibration');
+        Route::post('/current-location', [OfficeLocationController::class, 'getCurrentLocation'])->name('current-location');
+    });
+    
+    // Attendance Logs (admin only)
+    Route::prefix('admin/attendance-logs')->name('admin.attendance-logs.')->group(function () {
+        Route::get('/', [AttendanceLogController::class, 'index'])->name('index');
+        Route::get('/{log}', [AttendanceLogController::class, 'show'])->name('show');
+    });
 });
 
 require __DIR__.'/auth.php';

@@ -21,6 +21,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'office_latitude',
+        'office_longitude',
+        'office_radius_meters',
     ];
 
     /**
