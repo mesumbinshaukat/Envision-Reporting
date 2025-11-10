@@ -52,8 +52,10 @@ class AttendanceController extends Controller
             'longitude' => 'required|numeric|between:-180,180',
         ]);
 
-        $latitude = $validated['latitude'];
-        $longitude = $validated['longitude'];
+        // Normalize coordinates to 8 decimal places for consistency
+        $normalized = $geoService->normalizeCoordinates($validated['latitude'], $validated['longitude']);
+        $latitude = $normalized['latitude'];
+        $longitude = $normalized['longitude'];
 
         // Log for debugging
         \Log::info('Check-in attempt', [
@@ -197,8 +199,10 @@ class AttendanceController extends Controller
             'longitude' => 'required|numeric|between:-180,180',
         ]);
 
-        $latitude = $validated['latitude'];
-        $longitude = $validated['longitude'];
+        // Normalize coordinates to 8 decimal places for consistency
+        $normalized = $geoService->normalizeCoordinates($validated['latitude'], $validated['longitude']);
+        $latitude = $normalized['latitude'];
+        $longitude = $normalized['longitude'];
 
         // Find today's attendance
         $attendance = Attendance::forEmployee($employeeUser->id)

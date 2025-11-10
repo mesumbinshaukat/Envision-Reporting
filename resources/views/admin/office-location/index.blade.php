@@ -29,11 +29,18 @@
 
                 <div class="bg-blue-50 border border-blue-300 rounded p-4 mb-6">
                     <h4 class="font-semibold text-blue-900 mb-2">📍 How to Set Accurate Office Location:</h4>
-                    <ol class="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                        <li><strong>Option 1 (Recommended):</strong> Use your mobile phone to get accurate GPS, then manually enter coordinates below</li>
-                        <li><strong>Option 2:</strong> Find your office on Google Maps, right-click, copy coordinates, and paste below</li>
-                        <li><strong>Option 3:</strong> Click "Calibrate with Desktop GPS" if you're physically at the office</li>
-                    </ol>
+                    <div class="text-sm text-blue-800 space-y-2">
+                        <p><strong>⭐ RECOMMENDED METHOD (Most Accurate):</strong></p>
+                        <ol class="list-decimal list-inside ml-4 space-y-1">
+                            <li>Open <a href="https://www.google.com/maps" target="_blank" class="underline font-semibold">Google Maps</a> on your phone or computer</li>
+                            <li>Find your exact office location on the map</li>
+                            <li>Long-press (mobile) or right-click (desktop) on the location</li>
+                            <li>Copy the coordinates (e.g., "24.959242, 67.057241")</li>
+                            <li>Paste them in the fields below</li>
+                            <li>Click "Save Settings"</li>
+                        </ol>
+                        <p class="mt-2"><strong>Alternative:</strong> Click "Use Mobile GPS" button below (requires good GPS signal - works best on mobile phones near windows)</p>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -183,12 +190,12 @@
 
     @push('scripts')
     <script>
-        // Initialize positioning systems
+        // Initialize positioning systems with more samples for admin setup
         const hybridGeo = new HybridGeolocation({
-            maxAttempts: 5,
+            maxAttempts: 7, // Take 7 samples for better accuracy
             timeout: 20000,
-            minAccuracy: 50,
-            samplingInterval: 3000
+            minAccuracy: 100, // Accept readings up to 100m
+            samplingInterval: 2000 // 2 seconds between samples
         });
         
         const wifiPositioning = new WiFiPositioning();
@@ -307,22 +314,37 @@
             locationBtnLoader.classList.remove('hidden');
 
             try {
-                showMessage('Getting high-accuracy location (this may take 10-20 seconds)...', 'success');
+                showMessage('📡 Taking multiple GPS samples (this will take 15-20 seconds)... Please stay still.', 'success');
                 
-                // Get single raw GPS reading first (for calibration baseline)
+                // Get multiple samples for best accuracy
+                const location = await hybridGeo.getAccurateLocation();
+                console.log('Final location:', location);
+                
+                // Warn if accuracy is poor
+                if (location.accuracy > 100) {
+                    showMessage(
+                        `⚠️ GPS accuracy is poor (±${Math.round(location.accuracy)}m). ` +
+                        `For best results:\n` +
+                        `1. Use a mobile phone instead of desktop\n` +
+                        `2. Move near a window or go outside\n` +
+                        `3. Or manually enter coordinates from Google Maps`,
+                        'error'
+                    );
+                    getCurrentLocationBtn.disabled = false;
+                    locationBtnText.classList.remove('hidden');
+                    locationBtnLoader.classList.add('hidden');
+                    return;
+                }
+                
+                // Get single raw GPS reading for calibration baseline
                 const rawGPS = await hybridGeo.getGPSLocation();
-                console.log('Raw GPS reading:', rawGPS);
                 
                 // Store raw GPS for calibration
                 document.getElementById('gps_latitude').value = rawGPS.latitude.toFixed(8);
                 document.getElementById('gps_longitude').value = rawGPS.longitude.toFixed(8);
                 document.getElementById('gps_accuracy').value = rawGPS.accuracy.toFixed(2);
                 
-                // Now get averaged/improved location for the actual office coordinates
-                const location = await hybridGeo.getAccurateLocation();
-                console.log('Averaged location:', location);
-                
-                // Set the corrected/averaged coordinates as the known office location
+                // Set the improved coordinates as the known office location
                 latitudeInput.value = location.latitude.toFixed(8);
                 longitudeInput.value = location.longitude.toFixed(8);
                 

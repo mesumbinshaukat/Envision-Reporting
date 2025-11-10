@@ -9,8 +9,29 @@ use Jenssegers\Agent\Agent;
 class GeolocationService
 {
     /**
+     * Normalize coordinates to 8 decimal places for consistency.
+     * This ensures all coordinates are stored and compared with the same precision.
+     */
+    public function normalizeCoordinate(float $coordinate): float
+    {
+        return round($coordinate, 8);
+    }
+
+    /**
+     * Normalize a pair of coordinates.
+     */
+    public function normalizeCoordinates(float $latitude, float $longitude): array
+    {
+        return [
+            'latitude' => $this->normalizeCoordinate($latitude),
+            'longitude' => $this->normalizeCoordinate($longitude),
+        ];
+    }
+
+    /**
      * Calculate distance between two coordinates using Haversine formula.
      * Returns distance in meters.
+     * Coordinates are normalized to 8 decimal places before calculation.
      */
     public function calculateDistance(
         float $lat1,
@@ -18,6 +39,12 @@ class GeolocationService
         float $lat2,
         float $lon2
     ): float {
+        // Normalize coordinates to 8 decimal places for consistency
+        $lat1 = $this->normalizeCoordinate($lat1);
+        $lon1 = $this->normalizeCoordinate($lon1);
+        $lat2 = $this->normalizeCoordinate($lat2);
+        $lon2 = $this->normalizeCoordinate($lon2);
+
         $earthRadius = 6371000; // Earth's radius in meters
 
         $latFrom = deg2rad($lat1);

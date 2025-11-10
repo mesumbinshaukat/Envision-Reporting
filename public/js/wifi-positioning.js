@@ -10,6 +10,24 @@ class WiFiPositioning {
     }
 
     /**
+     * Normalize coordinate to 8 decimal places for consistency
+     */
+    normalizeCoordinate(coord) {
+        return parseFloat(coord.toFixed(8));
+    }
+
+    /**
+     * Normalize a location object's coordinates
+     */
+    normalizeLocation(location) {
+        return {
+            ...location,
+            latitude: this.normalizeCoordinate(location.latitude),
+            longitude: this.normalizeCoordinate(location.longitude)
+        };
+    }
+
+    /**
      * Load saved calibration points from localStorage
      */
     loadCalibrationPoints() {
@@ -110,7 +128,7 @@ class WiFiPositioning {
             const correctedLat = currentGPS.latitude + latOffset;
             const correctedLon = currentGPS.longitude + lonOffset;
 
-            return {
+            return this.normalizeLocation({
                 latitude: correctedLat,
                 longitude: correctedLon,
                 accuracy: Math.min(currentGPS.accuracy, 15), // Improved accuracy
@@ -125,7 +143,7 @@ class WiFiPositioning {
                     latitude: currentGPS.latitude,
                     longitude: currentGPS.longitude
                 }
-            };
+            });
         } catch (error) {
             console.error('Failed to get corrected location:', error);
             throw error;
@@ -173,12 +191,12 @@ class WiFiPositioning {
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    resolve({
+                    resolve(this.normalizeLocation({
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
                         accuracy: position.coords.accuracy,
                         timestamp: position.timestamp
-                    });
+                    }));
                 },
                 (error) => reject(error),
                 {

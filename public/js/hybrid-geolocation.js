@@ -27,6 +27,25 @@ class HybridGeolocation {
     }
 
     /**
+     * Normalize coordinate to 8 decimal places for consistency
+     * This ensures all coordinates match the backend precision
+     */
+    normalizeCoordinate(coord) {
+        return parseFloat(coord.toFixed(8));
+    }
+
+    /**
+     * Normalize a location object's coordinates
+     */
+    normalizeLocation(location) {
+        return {
+            ...location,
+            latitude: this.normalizeCoordinate(location.latitude),
+            longitude: this.normalizeCoordinate(location.longitude)
+        };
+    }
+
+    /**
      * Get location using multiple methods and return the most accurate
      */
     async getAccurateLocation() {
@@ -61,7 +80,7 @@ class HybridGeolocation {
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    resolve({
+                    resolve(this.normalizeLocation({
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
                         accuracy: position.coords.accuracy,
@@ -70,7 +89,7 @@ class HybridGeolocation {
                         altitude: position.coords.altitude,
                         heading: position.coords.heading,
                         speed: position.coords.speed
-                    });
+                    }));
                 },
                 (error) => {
                     reject(error);
@@ -86,14 +105,18 @@ class HybridGeolocation {
 
     /**
      * Take multiple GPS samples and average them for better accuracy
+     * Filters outliers and uses median for more stable results
      */
     async getMultipleSamples() {
         const samples = [];
+        
+        console.log(`📡 Taking ${this.options.maxAttempts} GPS samples...`);
         
         for (let i = 0; i < this.options.maxAttempts; i++) {
             try {
                 const location = await this.getGPSLocation();
                 samples.push(location);
+                console.log(`  Sample ${i + 1}/${this.options.maxAttempts}: ${location.latitude.toFixed(8)}, ${location.longitude.toFixed(8)} (±${Math.round(location.accuracy)}m)`);
                 
                 // Wait between samples
                 if (i < this.options.maxAttempts - 1) {
@@ -108,12 +131,89 @@ class HybridGeolocation {
             throw new Error('No samples obtained');
         }
 
-        // Filter out poor accuracy readings
-        const goodSamples = samples.filter(s => s.accuracy <= this.options.minAccuracy);
-        const samplesToUse = goodSamples.length > 0 ? goodSamples : samples;
+        if (samples.length === 1) {
+            return samples[0];
+        }
 
-        // Calculate weighted average (weight by accuracy)
-        return this.calculateWeightedAverage(samplesToUse);
+        // Filter outliers using median absolute deviation
+        const filteredSamples = this.filterOutliers(samples);
+        console.log(`📊 Using ${filteredSamples.length}/${samples.length} samples after outlier removal`);
+
+        // Use median for more stable results (less affected by outliers)
+        return this.calculateMedianLocation(filteredSamples);
+    }
+
+    /**
+     * Filter outliers from GPS samples using median absolute deviation
+     */
+    filterOutliers(samples) {
+        if (samples.length <= 3) {
+            return samples; // Not enough samples to filter
+        }
+
+        // Calculate median latitude and longitude
+        const lats = samples.map(s => s.latitude).sort((a, b) => a - b);
+        const lons = samples.map(s => s.longitude).sort((a, b) => a - b);
+        const medianLat = lats[Math.floor(lats.length / 2)];
+        const medianLon = lons[Math.floor(lons.length / 2)];
+
+        // Calculate distances from median
+        const distances = samples.map(s => {
+            return this.calculateDistanceSimple(s.latitude, s.longitude, medianLat, medianLon);
+        });
+
+        // Calculate median absolute deviation
+        const sortedDistances = [...distances].sort((a, b) => a - b);
+        const mad = sortedDistances[Math.floor(sortedDistances.length / 2)];
+
+        // Filter out samples that are too far from median (> 3 * MAD)
+        const threshold = Math.max(mad * 3, 50); // At least 50m threshold
+        return samples.filter((s, i) => distances[i] <= threshold);
+    }
+
+    /**
+     * Calculate median location from samples
+     */
+    calculateMedianLocation(samples) {
+        if (samples.length === 1) {
+            return samples[0];
+        }
+
+        // Sort by latitude and longitude
+        const lats = samples.map(s => s.latitude).sort((a, b) => a - b);
+        const lons = samples.map(s => s.longitude).sort((a, b) => a - b);
+        
+        // Get median
+        const midIndex = Math.floor(samples.length / 2);
+        const medianLat = samples.length % 2 === 0 
+            ? (lats[midIndex - 1] + lats[midIndex]) / 2 
+            : lats[midIndex];
+        const medianLon = samples.length % 2 === 0 
+            ? (lons[midIndex - 1] + lons[midIndex]) / 2 
+            : lons[midIndex];
+
+        // Find best accuracy
+        const bestAccuracy = Math.min(...samples.map(s => s.accuracy));
+
+        return this.normalizeLocation({
+            latitude: medianLat,
+            longitude: medianLon,
+            accuracy: bestAccuracy,
+            method: 'Median',
+            timestamp: Date.now(),
+            sampleCount: samples.length
+        });
+    }
+
+    /**
+     * Simple distance calculation for filtering (faster than full Haversine)
+     */
+    calculateDistanceSimple(lat1, lon1, lat2, lon2) {
+        const R = 6371000; // Earth's radius in meters
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = dLat * dLat + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * dLon * dLon;
+        return R * Math.sqrt(a);
     }
 
     /**
@@ -183,14 +283,14 @@ class HybridGeolocation {
             bestAccuracy = Math.min(bestAccuracy, sample.accuracy);
         });
 
-        return {
+        return this.normalizeLocation({
             latitude: weightedLat / totalWeight,
             longitude: weightedLon / totalWeight,
             accuracy: bestAccuracy,
             method: 'Averaged',
             timestamp: Date.now(),
             sampleCount: samples.length
-        };
+        });
     }
 
     /**

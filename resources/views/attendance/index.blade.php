@@ -34,11 +34,15 @@
                 <div class="flex-1">
                     <h4 class="font-semibold text-blue-900 mb-1">📍 Location-Based Attendance</h4>
                     <p class="text-sm text-blue-800">
-                        To check in/out, you must be within <strong>15 meters</strong> of the office location. 
-                        Your browser will request permission to access your location when you click the check-in button.
+                        To check in/out, you must be within <strong>{{ auth()->guard('employee')->user()->employee->user->office_radius_meters ?? 15 }} meters</strong> of the office location. 
+                        The system takes multiple GPS samples for accuracy (this takes ~15 seconds).
                     </p>
                     <p class="text-xs text-blue-700 mt-2">
-                        💡 <strong>Tip:</strong> Make sure GPS/Location services are enabled on your device for accurate positioning.
+                        💡 <strong>Tips for best accuracy:</strong><br>
+                        • Use a mobile phone instead of desktop/laptop<br>
+                        • Enable high-accuracy GPS in your device settings<br>
+                        • Move near a window if indoors<br>
+                        • Stay still while the system takes GPS samples
                     </p>
                     <div id="locationDebug" class="mt-3 p-2 bg-white rounded text-xs font-mono hidden">
                         <div class="font-semibold text-gray-700 mb-1">Debug Info:</div>
@@ -177,10 +181,10 @@
 
     @push('scripts')
     <script>
-        // Initialize hybrid geolocation system
+        // Initialize hybrid geolocation system with more samples for accuracy
         const hybridGeo = new HybridGeolocation({
-            maxAttempts: 3,
-            timeout: 15000,
+            maxAttempts: 7, // Take 7 samples to match admin setup
+            timeout: 20000,
             minAccuracy: 100,
             samplingInterval: 2000
         });
@@ -239,7 +243,7 @@
             const debugInfo = document.getElementById('debugInfo');
             
             debugDiv.classList.remove('hidden');
-            debugInfo.innerHTML = '⏳ Getting high-accuracy location using hybrid positioning (10-20 seconds)...';
+            debugInfo.innerHTML = '⏳ Taking 7 GPS samples for accuracy (15-20 seconds)... Please stay still and check console for progress.';
             
             if (!navigator.geolocation) {
                 debugInfo.innerHTML = '❌ Geolocation not supported';
@@ -263,8 +267,8 @@
                     console.log('  Corrected:', correctedLat, correctedLon);
                     
                     location = {
-                        latitude: correctedLat,
-                        longitude: correctedLon,
+                        latitude: parseFloat(correctedLat.toFixed(8)),
+                        longitude: parseFloat(correctedLon.toFixed(8)),
                         accuracy: Math.min(location.accuracy, 20),
                         method: '🎯 DB-Calibrated',
                         originalGPS: {
@@ -275,8 +279,9 @@
                     methodUsed = '🎯 DB-Calibrated';
                 }
                 
-                const lat = location.latitude;
-                const lon = location.longitude;
+                // Normalize coordinates to 8 decimal places
+                const lat = parseFloat(location.latitude.toFixed(8));
+                const lon = parseFloat(location.longitude.toFixed(8));
                 const acc = Math.round(location.accuracy);
                 
                 // Office coordinates (from admin settings)
@@ -345,7 +350,7 @@
             }
 
             // Show getting location message
-            showMessage('📍 Getting your precise location using hybrid positioning...', 'success');
+            showMessage('📡 Getting your precise location (taking 7 GPS samples, ~15 seconds)... Please stay still.', 'success');
 
             try {
                 // Get GPS location first
@@ -358,8 +363,8 @@
                     const correctedLon = location.longitude + dbCalibration.longitude_offset;
                     
                     location = {
-                        latitude: correctedLat,
-                        longitude: correctedLon,
+                        latitude: parseFloat(correctedLat.toFixed(8)),
+                        longitude: parseFloat(correctedLon.toFixed(8)),
                         accuracy: Math.min(location.accuracy, 20), // Improved accuracy
                         method: 'DB-Calibrated',
                         originalGPS: {
@@ -371,13 +376,14 @@
                     console.log('✨ Applied database calibration:', location);
                 }
                 
+                // Normalize coordinates to 8 decimal places before sending
                 const coords = {
-                    latitude: location.latitude,
-                    longitude: location.longitude,
+                    latitude: parseFloat(location.latitude.toFixed(8)),
+                    longitude: parseFloat(location.longitude.toFixed(8)),
                     accuracy: location.accuracy
                 };
                 
-                console.log('Final coordinates:', coords);
+                console.log('Final coordinates (normalized):', coords);
                 console.log('Method:', location.method);
                 console.log('Accuracy:', coords.accuracy, 'meters');
                 
