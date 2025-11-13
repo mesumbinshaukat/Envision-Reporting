@@ -209,6 +209,25 @@
         });
 
         const wifiPositioning = new WiFiPositioning();
+        let publicIp = null;
+
+        async function fetchPublicIp() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch public IP');
+                }
+                const data = await response.json();
+                if (data && data.ip) {
+                    publicIp = data.ip;
+                    console.log('🌐 Public IPv4 detected:', publicIp);
+                }
+            } catch (error) {
+                console.warn('Unable to determine public IP:', error);
+            }
+        }
+
+        fetchPublicIp();
         
         // Fetch calibration data from database
         let dbCalibration = null;
@@ -470,6 +489,7 @@
                 body: JSON.stringify({
                     latitude: coords.latitude,
                     longitude: coords.longitude,
+                    public_ip: publicIp,
                     _token: document.querySelector('meta[name="csrf-token"]').content
                 })
             })

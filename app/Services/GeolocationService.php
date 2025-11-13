@@ -83,17 +83,50 @@ class GeolocationService
      */
     public function getClientIp(Request $request): ?string
     {
-        $ip = $request->ip();
-        
-        // Check for forwarded IP (behind proxy/load balancer)
-        if ($request->header('X-Forwarded-For')) {
-            $ips = explode(',', $request->header('X-Forwarded-For'));
-            $ip = trim($ips[0]);
-        } elseif ($request->header('X-Real-IP')) {
-            $ip = $request->header('X-Real-IP');
+        // Prefer explicitly supplied public IPv4 from the client (captured via JS)
+        $reportedIp = $request->input('public_ip');
+        if (is_string($reportedIp) && filter_var($reportedIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return $reportedIp;
         }
-        
-        return $ip;
+
+        $candidates = [];
+
+        if ($forwarded = $request->header('X-Forwarded-For')) {
+            foreach (explode(',', $forwarded) as $ip) {
+                $candidates[] = trim($ip);
+            }
+        }
+
+        if ($realIp = $request->header('X-Real-IP')) {
+            $candidates[] = trim($realIp);
+        }
+
+        $candidates[] = $request->ip();
+        $candidates[] = $request->server('REMOTE_ADDR');
+
+        foreach ($candidates as $ip) {
+            if (is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                return $ip;
+            }
+        }
+
+        // Check for IPv4-mapped IPv6 addresses (::ffff:)
+        foreach ($candidates as $ip) {
+            if (is_string($ip) && stripos($ip, '::ffff:') === 0) {
+                $mapped = substr($ip, 7);
+                if (filter_var($mapped, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    return $mapped;
+                }
+            }
+        }
+
+        foreach ($candidates as $ip) {
+            if (is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+
+        return null;
     }
 
     /**
