@@ -89,8 +89,20 @@
                 <p class="text-sm text-gray-600 mt-1">Enter commission percentage (e.g., 5 for 5%)</p>
             </div>
 
-            <!-- Create User Account Checkbox -->
+            <!-- Geolocation Required Checkbox -->
             <div class="border-t border-gray-300 pt-4">
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" name="geolocation_required" id="geolocation_required" value="1" checked class="mr-2 w-4 h-4">
+                    <span class="text-sm font-semibold text-navy-900">📍 Require geolocation for attendance</span>
+                </label>
+                <p class="text-xs text-gray-600 mt-1 ml-6">
+                    When enabled, employee must be within office radius to check in/out. 
+                    Disable for remote employees who work from anywhere.
+                </p>
+            </div>
+
+            <!-- Create User Account Checkbox -->
+            <div class="border-t border-gray-300 pt-4 mt-4">
                 <label class="flex items-center cursor-pointer">
                     <input type="checkbox" name="create_user_account" id="create_user_account" value="1" class="mr-2 w-4 h-4" onchange="toggleUserPasswordField()">
                     <span class="text-sm font-semibold text-navy-900">Create employee user account (allows employee to login)</span>

@@ -23,6 +23,9 @@ class AttendanceController extends Controller
             return redirect()->route('login')->with('error', 'Please login as an employee to access attendance.');
         }
 
+        // Always work with a fresh employee relation to reflect latest admin updates
+        $employee = $employeeUser->employee()->with('user')->firstOrFail();
+
         $attendances = Attendance::forEmployee($employeeUser->id)
             ->currentMonth()
             ->orderBy('attendance_date', 'desc')
@@ -34,7 +37,7 @@ class AttendanceController extends Controller
             ->where('attendance_date', Carbon::today())
             ->first();
 
-        return view('attendance.index', compact('attendances', 'todayAttendance'));
+        return view('attendance.index', compact('attendances', 'todayAttendance', 'employee'));
     }
 
     /**
@@ -44,24 +47,36 @@ class AttendanceController extends Controller
     {
         $employeeUser = Auth::guard('employee')->user();
         $today = Carbon::today();
-        $user = $employeeUser->employee->user;
+        $employee = $employeeUser->employee()->with('user')->firstOrFail();
+        $user = $employee->user;
 
-        // Validate request data
+        // Check if geolocation is required for this employee
+        $geolocationRequired = $employee->geolocation_required ?? true;
+
+        // Validate request data - coordinates are optional for remote employees
         $validated = $request->validate([
-            'latitude' => 'required|numeric|between:-90,90',
-            'longitude' => 'required|numeric|between:-180,180',
+            'latitude' => $geolocationRequired ? 'required|numeric|between:-90,90' : 'nullable|numeric|between:-90,90',
+            'longitude' => $geolocationRequired ? 'required|numeric|between:-180,180' : 'nullable|numeric|between:-180,180',
         ]);
 
-        // Normalize coordinates to 8 decimal places for consistency
-        $normalized = $geoService->normalizeCoordinates($validated['latitude'], $validated['longitude']);
-        $latitude = $normalized['latitude'];
-        $longitude = $normalized['longitude'];
+        // Initialize coordinates as null
+        $latitude = null;
+        $longitude = null;
+
+        // Only process coordinates if geolocation is required
+        if ($geolocationRequired && isset($validated['latitude']) && isset($validated['longitude'])) {
+            // Normalize coordinates to 8 decimal places for consistency
+            $normalized = $geoService->normalizeCoordinates($validated['latitude'], $validated['longitude']);
+            $latitude = $normalized['latitude'];
+            $longitude = $normalized['longitude'];
+        }
 
         // Log for debugging
         \Log::info('Check-in attempt', [
             'employee_id' => $employeeUser->id,
             'employee_coords' => ['lat' => $latitude, 'lon' => $longitude],
             'office_coords' => ['lat' => $user->office_latitude, 'lon' => $user->office_longitude],
+            'geolocation_required' => $geolocationRequired,
         ]);
 
         // Check if already checked in today
@@ -88,69 +103,80 @@ class AttendanceController extends Controller
             ], 400);
         }
 
-        // Check if office location is configured
-        if (!$user->office_latitude || !$user->office_longitude) {
-            // Log attempt
-            $geoService->logAttempt(
-                $employeeUser->id,
-                null,
-                'check_in_failed',
-                'other',
-                $latitude,
-                $longitude,
-                null,
-                $request,
-                ['error' => 'Office location not configured']
-            );
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Office location is not configured. Please contact your administrator.',
-            ], 400);
-        }
-
-        // Calculate distance from office
-        $distance = $geoService->calculateDistance(
-            $latitude,
-            $longitude,
-            $user->office_latitude,
-            $user->office_longitude
-        );
-
+        // Initialize distance variable
+        $distance = null;
         $radiusMeters = $user->office_radius_meters ?? 15;
 
-        // Log distance calculation for debugging
-        \Log::info('Check-in distance calculated', [
-            'employee_id' => $employeeUser->id,
-            'distance_meters' => round($distance, 2),
-            'allowed_radius' => $radiusMeters,
-            'within_range' => $distance <= $radiusMeters,
-            'employee_lat' => $latitude,
-            'employee_lon' => $longitude,
-            'office_lat' => $user->office_latitude,
-            'office_lon' => $user->office_longitude,
-        ]);
+        // Only validate location if geolocation is required for this employee
+        if ($geolocationRequired) {
+            // Check if office location is configured
+            if (!$user->office_latitude || !$user->office_longitude) {
+                // Log attempt
+                $geoService->logAttempt(
+                    $employeeUser->id,
+                    null,
+                    'check_in_failed',
+                    'other',
+                    $latitude,
+                    $longitude,
+                    null,
+                    $request,
+                    ['error' => 'Office location not configured']
+                );
 
-        // Check if within allowed radius
-        if ($distance > $radiusMeters) {
-            // Log failed attempt
-            $geoService->logAttempt(
-                $employeeUser->id,
-                null,
-                'check_in_failed',
-                'out_of_range',
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Office location is not configured. Please contact your administrator.',
+                ], 400);
+            }
+
+            // Calculate distance from office
+            $distance = $geoService->calculateDistance(
                 $latitude,
                 $longitude,
-                $distance,
-                $request
+                $user->office_latitude,
+                $user->office_longitude
             );
 
-            return response()->json([
-                'success' => false,
-                'message' => "You are too far from the office. You must be within {$radiusMeters} meters to check in. Current distance: " . number_format($distance, 2) . " meters.",
-                'distance' => round($distance, 2),
-                'required_distance' => $radiusMeters,
-            ], 403);
+            // Log distance calculation for debugging
+            \Log::info('Check-in distance calculated', [
+                'employee_id' => $employeeUser->id,
+                'distance_meters' => round($distance, 2),
+                'allowed_radius' => $radiusMeters,
+                'within_range' => $distance <= $radiusMeters,
+                'employee_lat' => $latitude,
+                'employee_lon' => $longitude,
+                'office_lat' => $user->office_latitude,
+                'office_lon' => $user->office_longitude,
+            ]);
+
+            // Check if within allowed radius
+            if ($distance > $radiusMeters) {
+                // Log failed attempt
+                $geoService->logAttempt(
+                    $employeeUser->id,
+                    null,
+                    'check_in_failed',
+                    'out_of_range',
+                    $latitude,
+                    $longitude,
+                    $distance,
+                    $request
+                );
+
+                return response()->json([
+                    'success' => false,
+                    'message' => "You are too far from the office. You must be within {$radiusMeters} meters to check in. Current distance: " . number_format($distance, 2) . " meters.",
+                    'distance' => round($distance, 2),
+                    'required_distance' => $radiusMeters,
+                ], 403);
+            }
+        } else {
+            // Remote employee - log that geolocation was skipped
+            \Log::info('Check-in for remote employee (geolocation not required)', [
+                'employee_id' => $employeeUser->id,
+                'employee_name' => $employee->name,
+            ]);
         }
 
         // Create new attendance record with check-in time and location
@@ -191,18 +217,29 @@ class AttendanceController extends Controller
     {
         $employeeUser = Auth::guard('employee')->user();
         $today = Carbon::today();
-        $user = $employeeUser->employee->user;
+        $employee = $employeeUser->employee()->with('user')->firstOrFail();
+        $user = $employee->user;
 
-        // Validate request data
+        // Check if geolocation is required for this employee
+        $geolocationRequired = $employee->geolocation_required ?? true;
+
+        // Validate request data - coordinates are optional for remote employees
         $validated = $request->validate([
-            'latitude' => 'required|numeric|between:-90,90',
-            'longitude' => 'required|numeric|between:-180,180',
+            'latitude' => $geolocationRequired ? 'required|numeric|between:-90,90' : 'nullable|numeric|between:-90,90',
+            'longitude' => $geolocationRequired ? 'required|numeric|between:-180,180' : 'nullable|numeric|between:-180,180',
         ]);
 
-        // Normalize coordinates to 8 decimal places for consistency
-        $normalized = $geoService->normalizeCoordinates($validated['latitude'], $validated['longitude']);
-        $latitude = $normalized['latitude'];
-        $longitude = $normalized['longitude'];
+        // Initialize coordinates as null
+        $latitude = null;
+        $longitude = null;
+
+        // Only process coordinates if geolocation is required
+        if ($geolocationRequired && isset($validated['latitude']) && isset($validated['longitude'])) {
+            // Normalize coordinates to 8 decimal places for consistency
+            $normalized = $geoService->normalizeCoordinates($validated['latitude'], $validated['longitude']);
+            $latitude = $normalized['latitude'];
+            $longitude = $normalized['longitude'];
+        }
 
         // Find today's attendance
         $attendance = Attendance::forEmployee($employeeUser->id)
@@ -263,55 +300,66 @@ class AttendanceController extends Controller
             ], 400);
         }
 
-        // Check if office location is configured
-        if (!$user->office_latitude || !$user->office_longitude) {
-            $geoService->logAttempt(
-                $employeeUser->id,
-                $attendance->id,
-                'check_out_failed',
-                'other',
-                $latitude,
-                $longitude,
-                null,
-                $request,
-                ['error' => 'Office location not configured']
-            );
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Office location is not configured. Please contact your administrator.',
-            ], 400);
-        }
-
-        // Calculate distance from office
-        $distance = $geoService->calculateDistance(
-            $latitude,
-            $longitude,
-            $user->office_latitude,
-            $user->office_longitude
-        );
-
+        // Initialize distance variable
+        $distance = null;
         $radiusMeters = $user->office_radius_meters ?? 15;
 
-        // Check if within allowed radius
-        if ($distance > $radiusMeters) {
-            $geoService->logAttempt(
-                $employeeUser->id,
-                $attendance->id,
-                'check_out_failed',
-                'out_of_range',
+        // Only validate location if geolocation is required for this employee
+        if ($geolocationRequired) {
+            // Check if office location is configured
+            if (!$user->office_latitude || !$user->office_longitude) {
+                $geoService->logAttempt(
+                    $employeeUser->id,
+                    $attendance->id,
+                    'check_out_failed',
+                    'other',
+                    $latitude,
+                    $longitude,
+                    null,
+                    $request,
+                    ['error' => 'Office location not configured']
+                );
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Office location is not configured. Please contact your administrator.',
+                ], 400);
+            }
+
+            // Calculate distance from office
+            $distance = $geoService->calculateDistance(
                 $latitude,
                 $longitude,
-                $distance,
-                $request
+                $user->office_latitude,
+                $user->office_longitude
             );
 
-            return response()->json([
-                'success' => false,
-                'message' => "You are too far from the office. You must be within {$radiusMeters} meters to check out. Current distance: " . number_format($distance, 2) . " meters.",
-                'distance' => round($distance, 2),
-                'required_distance' => $radiusMeters,
-            ], 403);
+            // Check if within allowed radius
+            if ($distance > $radiusMeters) {
+                $geoService->logAttempt(
+                    $employeeUser->id,
+                    $attendance->id,
+                    'check_out_failed',
+                    'out_of_range',
+                    $latitude,
+                    $longitude,
+                    $distance,
+                    $request
+                );
+
+                return response()->json([
+                    'success' => false,
+                    'message' => "You are too far from the office. You must be within {$radiusMeters} meters to check out. Current distance: " . number_format($distance, 2) . " meters.",
+                    'distance' => round($distance, 2),
+                    'required_distance' => $radiusMeters,
+                ], 403);
+            }
+        } else {
+            // Remote employee - log that geolocation was skipped
+            \Log::info('Check-out for remote employee (geolocation not required)', [
+                'employee_id' => $employeeUser->id,
+                'employee_name' => $employee->name,
+            ]);
         }
 
         // Update attendance with check-out time and location

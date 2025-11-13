@@ -12,6 +12,7 @@ class Expense extends Model
     protected $fillable = [
         'user_id',
         'currency_id',
+        'exchange_rate_at_time',
         'description',
         'amount',
         'date',
@@ -32,13 +33,19 @@ class Expense extends Model
     }
 
     /**
-     * Get expense amount converted to base currency
+     * Get expense amount converted to base currency using historical exchange rate
      */
     public function getAmountInBaseCurrency()
     {
         if (!$this->currency) {
             return $this->amount;
         }
+        
+        // Use historical exchange rate if available, otherwise use current rate
+        if ($this->exchange_rate_at_time) {
+            return $this->currency->is_base ? $this->amount : ($this->amount * $this->exchange_rate_at_time);
+        }
+        
         return $this->currency->toBase($this->amount);
     }
 }

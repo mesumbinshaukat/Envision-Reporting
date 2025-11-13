@@ -44,6 +44,14 @@ class BonusController extends Controller
         $validated['user_id'] = auth()->id();
         $validated['released'] = $request->release_type === 'separate';
         
+        // Capture exchange rate at time of creation for historical accuracy
+        if (isset($validated['currency_id'])) {
+            $currency = \App\Models\Currency::find($validated['currency_id']);
+            if ($currency) {
+                $validated['exchange_rate_at_time'] = $currency->conversion_rate;
+            }
+        }
+        
         Bonus::create($validated);
         
         return redirect()->route('bonuses.index')->with('success', 'Bonus created successfully.');

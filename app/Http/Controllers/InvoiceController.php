@@ -184,6 +184,14 @@ class InvoiceController extends Controller
         // Set payment processing fee default
         $validated['payment_processing_fee'] = $validated['payment_processing_fee'] ?? 0;
         
+        // Capture exchange rate at time of creation for historical accuracy
+        if (isset($validated['currency_id'])) {
+            $currency = \App\Models\Currency::find($validated['currency_id']);
+            if ($currency) {
+                $validated['exchange_rate_at_time'] = $currency->conversion_rate;
+            }
+        }
+        
         $invoice = Invoice::create($validated);
         
         // Handle milestones if provided

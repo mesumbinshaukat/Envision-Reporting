@@ -14,6 +14,7 @@ class Invoice extends Model
         'client_id',
         'employee_id',
         'currency_id',
+        'exchange_rate_at_time',
         'status',
         'approval_status',
         'created_by_employee_id',
@@ -106,35 +107,44 @@ class Invoice extends Model
     }
 
     /**
-     * Get invoice amount converted to base currency
+     * Convert a monetary amount to base currency honouring historical exchange rate.
      */
-    public function getAmountInBaseCurrency()
+    public function convertAmountToBase(?float $amount): float
     {
-        if (!$this->currency) {
-            return $this->amount;
+        $amount = $amount ?? 0;
+
+        if (!$this->currency || $this->currency->is_base) {
+            return $amount;
         }
-        return $this->currency->toBase($this->amount);
+
+        if ($this->exchange_rate_at_time) {
+            return $amount * $this->exchange_rate_at_time;
+        }
+
+        return $this->currency->toBase($amount);
     }
 
     /**
-     * Get paid amount converted to base currency
+     * Get invoice amount converted to base currency using historical exchange rate
      */
-    public function getPaidAmountInBaseCurrency()
+    public function getAmountInBaseCurrency(): float
     {
-        if (!$this->currency) {
-            return $this->paid_amount;
-        }
-        return $this->currency->toBase($this->paid_amount);
+        return $this->convertAmountToBase($this->amount);
     }
 
     /**
-     * Get remaining amount converted to base currency
+     * Get paid amount converted to base currency using historical exchange rate
      */
-    public function getRemainingAmountInBaseCurrency()
+    public function getPaidAmountInBaseCurrency(): float
     {
-        if (!$this->currency) {
-            return $this->remaining_amount;
-        }
-        return $this->currency->toBase($this->remaining_amount);
+        return $this->convertAmountToBase($this->paid_amount);
+    }
+
+    /**
+     * Get remaining amount converted to base currency using historical exchange rate
+     */
+    public function getRemainingAmountInBaseCurrency(): float
+    {
+        return $this->convertAmountToBase($this->remaining_amount);
     }
 }

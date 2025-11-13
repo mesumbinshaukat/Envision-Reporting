@@ -60,12 +60,14 @@ class EmployeeController extends Controller
             'last_date' => 'nullable|date',
             'salary' => 'required|numeric|min:0',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
+            'geolocation_required' => 'sometimes|boolean',
             'create_user_account' => 'nullable|boolean',
             'user_password' => 'required_if:create_user_account,1|nullable|min:8',
         ]);
         
         $validated['user_id'] = auth()->id();
         $validated['commission_rate'] = $validated['commission_rate'] ?? 0;
+        $validated['geolocation_required'] = $request->boolean('geolocation_required', true);
         
         $employee = Employee::create($validated);
         
@@ -115,9 +117,11 @@ class EmployeeController extends Controller
             'last_date' => 'nullable|date',
             'salary' => 'required|numeric|min:0',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
+            'geolocation_required' => 'sometimes|boolean',
         ]);
         
         $validated['commission_rate'] = $validated['commission_rate'] ?? 0;
+        $validated['geolocation_required'] = $request->boolean('geolocation_required');
         
         $employee->update($validated);
         
@@ -130,5 +134,25 @@ class EmployeeController extends Controller
         $employee->delete();
         
         return redirect()->route('employees.index')->with('success', 'Employee deleted successfully.');
+    }
+
+    /**
+     * Toggle geolocation requirement for an employee
+     */
+    public function toggleGeolocation(Employee $employee)
+    {
+        $this->authorize('update', $employee);
+        
+        $employee->geolocation_required = !$employee->geolocation_required;
+        $employee->save();
+        
+        $status = $employee->geolocation_required ? 'enabled' : 'disabled';
+        $message = "Geolocation tracking {$status} for {$employee->name}";
+        
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'geolocation_required' => $employee->geolocation_required
+        ]);
     }
 }

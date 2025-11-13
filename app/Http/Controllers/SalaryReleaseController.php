@@ -270,6 +270,14 @@ class SalaryReleaseController extends Controller
         $validated['bonus_amount'] = $bonusAmount;
         $validated['total_amount'] = $totalAmount;
         
+        // Capture exchange rate at time of creation for historical accuracy
+        if (isset($validated['currency_id'])) {
+            $currency = \App\Models\Currency::find($validated['currency_id']);
+            if ($currency) {
+                $validated['exchange_rate_at_time'] = $currency->conversion_rate;
+            }
+        }
+        
         $salaryRelease = SalaryRelease::create($validated);
         
         // Mark payments as commission paid and link to this salary release

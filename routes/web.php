@@ -74,6 +74,7 @@ Route::middleware(['auth.both', 'employee'])->group(function () {
 // Admin-only routes
 Route::middleware(['auth.both', 'admin'])->group(function () {
     Route::resource('employees', EmployeeController::class);
+    Route::post('/employees/{employee}/toggle-geolocation', [EmployeeController::class, 'toggleGeolocation'])->name('employees.toggle-geolocation');
     Route::post('/employees/{employee}/employee-user', [EmployeeUserController::class, 'store'])->name('employee-users.store');
     Route::delete('/employee-users/{employeeUser}', [EmployeeUserController::class, 'destroy'])->name('employee-users.destroy');
     Route::delete('/employees/{employee}/full-delete', [EmployeeUserController::class, 'destroyFull'])->name('employees.full-delete');

@@ -139,6 +139,7 @@ class ComprehensiveCurrencySeeder extends Seeder
                 'commission_rate' => 5.00,
                 'joining_date' => Carbon::now()->subMonths(12),
                 'currency_id' => $pkr->id,
+                'geolocation_required' => true,
             ]
         );
 
@@ -153,6 +154,7 @@ class ComprehensiveCurrencySeeder extends Seeder
                 'commission_rate' => 3.00,
                 'joining_date' => Carbon::now()->subMonths(8),
                 'currency_id' => $pkr->id,
+                'geolocation_required' => false,
             ]
         );
 
@@ -167,6 +169,7 @@ class ComprehensiveCurrencySeeder extends Seeder
                 'commission_rate' => 7.00,
                 'joining_date' => Carbon::now()->subMonths(6),
                 'currency_id' => $pkr->id,
+                'geolocation_required' => false,
             ]
         );
 
@@ -189,6 +192,7 @@ class ComprehensiveCurrencySeeder extends Seeder
                 'due_date' => Carbon::now()->addDays(30),
                 'approval_status' => 'approved',
                 'created_at' => Carbon::now()->subMonths(2),
+                'exchange_rate_at_time' => $usd->conversion_rate,
             ]
         );
 
@@ -223,6 +227,7 @@ class ComprehensiveCurrencySeeder extends Seeder
                 'due_date' => Carbon::now()->addDays(15),
                 'approval_status' => 'approved',
                 'created_at' => Carbon::now()->subMonths(2),
+                'exchange_rate_at_time' => $pkr->conversion_rate,
             ]
         );
 
@@ -256,6 +261,7 @@ class ComprehensiveCurrencySeeder extends Seeder
                 'due_date' => Carbon::now()->addDays(20),
                 'approval_status' => 'approved',
                 'created_at' => Carbon::now()->subMonths(1)->subDays(10),
+                'exchange_rate_at_time' => $eur->conversion_rate,
             ]
         );
 
@@ -289,6 +295,7 @@ class ComprehensiveCurrencySeeder extends Seeder
                 'due_date' => Carbon::now()->addDays(25),
                 'approval_status' => 'approved',
                 'created_at' => Carbon::now()->subDays(20),
+                'exchange_rate_at_time' => $gbp->conversion_rate,
             ]
         );
 
@@ -322,6 +329,7 @@ class ComprehensiveCurrencySeeder extends Seeder
                 'due_date' => Carbon::now()->addDays(45),
                 'approval_status' => 'approved',
                 'created_at' => Carbon::now()->subDays(5),
+                'exchange_rate_at_time' => $pkr->conversion_rate,
             ]
         );
 
@@ -339,6 +347,7 @@ class ComprehensiveCurrencySeeder extends Seeder
             [
                 'amount' => 50000, // Rs.50,000
                 'currency_id' => $pkr->id,
+                'exchange_rate_at_time' => $pkr->conversion_rate,
             ]
         );
 
@@ -351,6 +360,7 @@ class ComprehensiveCurrencySeeder extends Seeder
             [
                 'amount' => 100, // $100
                 'currency_id' => $usd->id,
+                'exchange_rate_at_time' => $usd->conversion_rate,
             ]
         );
 
@@ -363,6 +373,7 @@ class ComprehensiveCurrencySeeder extends Seeder
             [
                 'amount' => 200, // €200
                 'currency_id' => $eur->id,
+                'exchange_rate_at_time' => $eur->conversion_rate,
             ]
         );
 
@@ -375,6 +386,7 @@ class ComprehensiveCurrencySeeder extends Seeder
             [
                 'amount' => 15000, // Rs.15,000
                 'currency_id' => $pkr->id,
+                'exchange_rate_at_time' => $pkr->conversion_rate,
             ]
         );
 
@@ -395,6 +407,7 @@ class ComprehensiveCurrencySeeder extends Seeder
                 'release_type' => 'with_salary',
                 'released' => false,
                 'currency_id' => $pkr->id,
+                'exchange_rate_at_time' => $pkr->conversion_rate,
             ]
         );
 
@@ -410,6 +423,7 @@ class ComprehensiveCurrencySeeder extends Seeder
                 'release_type' => 'with_salary',
                 'released' => false,
                 'currency_id' => $usd->id,
+                'exchange_rate_at_time' => $usd->conversion_rate,
             ]
         );
 

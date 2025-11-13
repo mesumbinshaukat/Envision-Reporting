@@ -26,34 +26,48 @@
         <div class="bg-white border border-navy-900 rounded-lg overflow-hidden" id="employeesTableContainer">
             @if($employees->count() > 0)
                 <table class="min-w-full">
-                    <thead class="bg-navy-900 text-white">
+                    <thead class="bg-gray-100">
                         <tr>
                             <th class="text-left py-3 px-4">Name</th>
-                            <th class="text-left py-3 px-4">Email</th>
-                            <th class="text-left py-3 px-4">Role</th>
-                            <th class="text-left py-3 px-4">Employment Type</th>
-                            <th class="text-left py-3 px-4">Salary</th>
-                            <th class="text-left py-3 px-4">Commission %</th>
+                            <th class="text-left py-3 px-4 hidden md:table-cell">Email</th>
+                            <th class="text-left py-3 px-4 hidden lg:table-cell">Role</th>
+                            <th class="text-left py-3 px-4 hidden lg:table-cell">Employment Type</th>
+                            <th class="text-left py-3 px-4 hidden sm:table-cell">Salary</th>
+                            <th class="text-left py-3 px-4 hidden xl:table-cell">Commission %</th>
                             <th class="text-left py-3 px-4">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($employees as $employee)
                             <tr class="border-b">
-                                <td class="py-3 px-4 font-semibold">{{ $employee->name }}</td>
-                                <td class="py-3 px-4">{{ $employee->email }}</td>
-                                <td class="py-3 px-4">{{ $employee->role }}</td>
-                                <td class="py-3 px-4">{{ $employee->employment_type }}</td>
-                                <td class="py-3 px-4">{{ $employee->currency ? $employee->currency->symbol : 'Rs.' }}{{ number_format($employee->salary, 2) }}</td>
-                                <td class="py-3 px-4">{{ $employee->commission_rate }}%</td>
+                                <td class="py-3 px-4 font-semibold">
+                                    {{ $employee->name }}
+                                    @if($employee->geolocation_required)
+                                        <span class="text-xs text-green-600 ml-1" title="Geolocation required">📍</span>
+                                    @else
+                                        <span class="text-xs text-orange-600 ml-1" title="Remote employee">🌐</span>
+                                    @endif
+                                </td>
+                                <td class="py-3 px-4 hidden md:table-cell">{{ $employee->email }}</td>
+                                <td class="py-3 px-4 hidden lg:table-cell">{{ $employee->role }}</td>
+                                <td class="py-3 px-4 hidden lg:table-cell">{{ $employee->employment_type }}</td>
+                                <td class="py-3 px-4 hidden sm:table-cell">{{ $employee->currency ? $employee->currency->symbol : 'Rs.' }}{{ number_format($employee->salary, 2) }}</td>
+                                <td class="py-3 px-4 hidden xl:table-cell">{{ $employee->commission_rate }}%</td>
                                 <td class="py-3 px-4">
-                                    <div class="flex gap-2">
-                                        <a href="{{ route('employees.show', $employee) }}" class="text-navy-900 hover:underline">View</a>
-                                        <a href="{{ route('employees.edit', $employee) }}" class="text-navy-900 hover:underline">Edit</a>
+                                    <div class="flex flex-col sm:flex-row gap-2">
+                                        <a href="{{ route('employees.show', $employee) }}" class="text-navy-900 hover:underline text-sm">View</a>
+                                        <a href="{{ route('employees.edit', $employee) }}" class="text-navy-900 hover:underline text-sm">Edit</a>
+                                        <button 
+                                            onclick="toggleGeolocation({{ $employee->id }}, this)" 
+                                            class="text-sm {{ $employee->geolocation_required ? 'text-orange-600' : 'text-green-600' }} hover:underline text-left"
+                                            data-geolocation="{{ $employee->geolocation_required ? '1' : '0' }}"
+                                        >
+                                            {{ $employee->geolocation_required ? '🌐 Disable Location' : '📍 Require Location' }}
+                                        </button>
                                         <form method="POST" action="{{ route('employees.destroy', $employee) }}" class="inline" onsubmit="return confirm('Are you sure?');">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:underline">Delete</button>
+                                            <button type="submit" class="text-red-600 hover:underline text-sm">Delete</button>
                                         </form>
                                     </div>
                                 </td>
@@ -119,5 +133,58 @@
             e.preventDefault();
             performSearch();
         });
+
+        // Toggle geolocation requirement for employee
+        function toggleGeolocation(employeeId, button) {
+            if (!confirm('Are you sure you want to toggle geolocation tracking for this employee?')) {
+                return;
+            }
+
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = '⏳ Updating...';
+
+            fetch(`/employees/${employeeId}/toggle-geolocation`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update button appearance and text
+                    const isRequired = data.geolocation_required;
+                    button.dataset.geolocation = isRequired ? '1' : '0';
+                    button.className = `text-sm ${isRequired ? 'text-orange-600' : 'text-green-600'} hover:underline text-left`;
+                    button.textContent = isRequired ? '🌐 Disable Location' : '📍 Require Location';
+                    
+                    // Update icon next to employee name
+                    const nameCell = button.closest('tr').querySelector('td:first-child');
+                    const icon = nameCell.querySelector('span');
+                    if (icon) {
+                        icon.className = `text-xs ${isRequired ? 'text-green-600' : 'text-orange-600'} ml-1`;
+                        icon.textContent = isRequired ? '📍' : '🌐';
+                        icon.title = isRequired ? 'Geolocation required' : 'Remote employee';
+                    }
+                    
+                    // Show success message
+                    alert(data.message);
+                } else {
+                    alert('Failed to update geolocation setting');
+                    button.textContent = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating geolocation setting');
+                button.textContent = originalText;
+            })
+            .finally(() => {
+                button.disabled = false;
+            });
+        }
     </script>
 </x-app-layout>

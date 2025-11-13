@@ -42,9 +42,10 @@ class Payment extends Model
      */
     public function getAmountInBaseCurrency()
     {
-        if (!$this->invoice || !$this->invoice->currency) {
+        if (!$this->invoice) {
             return $this->amount;
         }
-        return $this->invoice->currency->toBase($this->amount);
+
+        return $this->invoice->convertAmountToBase($this->amount);
     }
 }

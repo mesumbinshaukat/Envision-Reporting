@@ -25,7 +25,8 @@
         <!-- Dynamic Messages -->
         <div id="dynamicMessage" class="hidden px-4 py-3 rounded"></div>
 
-        <!-- Location Info -->
+        <!-- Location Info - Only show for employees with geolocation required -->
+        @if($employee->geolocation_required)
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div class="flex items-start">
                 <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +35,7 @@
                 <div class="flex-1">
                     <h4 class="font-semibold text-blue-900 mb-1">📍 Location-Based Attendance</h4>
                     <p class="text-sm text-blue-800">
-                        To check in/out, you must be within <strong>{{ auth()->guard('employee')->user()->employee->user->office_radius_meters ?? 15 }} meters</strong> of the office location. 
+                        To check in/out, you must be within <strong>{{ $employee->user->office_radius_meters ?? 15 }} meters</strong> of the office location. 
                         The system takes multiple GPS samples for accuracy (this takes ~15 seconds).
                     </p>
                     <p class="text-xs text-blue-700 mt-2">
@@ -57,6 +58,21 @@
                 </div>
             </div>
         </div>
+        @else
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div class="flex-1">
+                    <h4 class="font-semibold text-green-900 mb-1">🌐 Geolocation Disabled Tracking</h4>
+                    <p class="text-sm text-green-800">
+                        You can check in/out from anywhere. Location tracking is not required for your account.
+                    </p>
+                </div>
+            </div>
+        </div>
+        @endif
 
         <!-- Check In/Out Card -->
         <div class="bg-white border border-navy-900 rounded-lg p-6">
@@ -181,6 +197,9 @@
 
     @push('scripts')
     <script>
+        // Check if geolocation is required for this employee
+        const geolocationRequired = @json($employee->geolocation_required);
+
         // Initialize hybrid geolocation system with more samples for accuracy
         const hybridGeo = new HybridGeolocation({
             maxAttempts: 7, // Take 7 samples to match admin setup
@@ -239,6 +258,12 @@
 
         // Test location function with hybrid positioning
         async function testLocation() {
+            // Remote employees don't need location testing
+            if (!geolocationRequired) {
+                showMessage('🌐 You are a remote employee. Location tracking is not required for your account.', 'success');
+                return;
+            }
+
             const debugDiv = document.getElementById('locationDebug');
             const debugInfo = document.getElementById('debugInfo');
             
@@ -285,9 +310,9 @@
                 const acc = Math.round(location.accuracy);
                 
                 // Office coordinates (from admin settings)
-                const officeLat = {{ auth()->guard('employee')->user()->employee->user->office_latitude ?? 0 }};
-                const officeLon = {{ auth()->guard('employee')->user()->employee->user->office_longitude ?? 0 }};
-                const officeRadius = {{ auth()->guard('employee')->user()->employee->user->office_radius_meters ?? 15 }};
+                const officeLat = {{ $employee->user->office_latitude ?? 0 }};
+                const officeLon = {{ $employee->user->office_longitude ?? 0 }};
+                const officeRadius = {{ $employee->user->office_radius_meters ?? 15 }};
                 
                 let distanceInfo = '';
                 if (officeLat && officeLon) {
@@ -344,6 +369,17 @@
         }
 
         async function getLocation(callback) {
+            // For remote employees, skip GPS sampling entirely
+            if (!geolocationRequired) {
+                console.log('🌐 Remote employee - skipping GPS sampling');
+                callback({
+                    latitude: null,
+                    longitude: null,
+                    accuracy: null
+                });
+                return;
+            }
+
             if (!navigator.geolocation) {
                 showMessage('Geolocation is not supported by your browser.', 'error');
                 return;

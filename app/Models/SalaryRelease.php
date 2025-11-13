@@ -12,6 +12,7 @@ class SalaryRelease extends Model
     protected $fillable = [
         'user_id',
         'currency_id',
+        'exchange_rate_at_time',
         'employee_id',
         'month',
         'base_salary',
@@ -50,13 +51,19 @@ class SalaryRelease extends Model
     }
 
     /**
-     * Get total amount converted to base currency
+     * Get total amount converted to base currency using historical exchange rate
      */
     public function getTotalAmountInBaseCurrency()
     {
         if (!$this->currency) {
             return $this->total_amount;
         }
+        
+        // Use historical exchange rate if available, otherwise use current rate
+        if ($this->exchange_rate_at_time) {
+            return $this->currency->is_base ? $this->total_amount : ($this->total_amount * $this->exchange_rate_at_time);
+        }
+        
         return $this->currency->toBase($this->total_amount);
     }
 }

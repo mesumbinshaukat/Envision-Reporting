@@ -89,7 +89,19 @@
                 <input type="number" name="commission_rate" id="commission_rate" value="{{ old('commission_rate', $employee->commission_rate) }}" step="0.01" min="0" max="100" class="w-full px-4 py-2 border border-navy-900 rounded">
             </div>
 
-            <div class="flex gap-4">
+            <!-- Geolocation Required Checkbox -->
+            <div class="border-t border-gray-300 pt-4">
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" name="geolocation_required" id="geolocation_required" value="1" {{ old('geolocation_required', $employee->geolocation_required) ? 'checked' : '' }} class="mr-2 w-4 h-4">
+                    <span class="text-sm font-semibold text-navy-900">📍 Require geolocation for attendance</span>
+                </label>
+                <p class="text-xs text-gray-600 mt-1 ml-6">
+                    When enabled, employee must be within office radius to check in/out. 
+                    Disable for remote employees who work from anywhere.
+                </p>
+            </div>
+
+            <div class="flex gap-4 mt-4">
                 <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Update Employee</button>
                 @if(!$employee->employeeUser)
                     <button type="button" onclick="openEmployeeUserModal()" class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700">Create User Account</button>

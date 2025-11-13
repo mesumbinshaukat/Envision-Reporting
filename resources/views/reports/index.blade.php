@@ -113,7 +113,7 @@
                                 foreach($invoice->payments as $payment) {
                                     $clientName = $invoice->is_one_time ? $invoice->one_time_client_name : $invoice->client->name;
                                     $currency = $invoice->currency;
-                                    $amountInBase = $currency ? $currency->toBase($payment->amount) : $payment->amount;
+                                    $amountInBase = $invoice->convertAmountToBase($payment->amount);
                                     
                                     $allTransactions->push([
                                         'date' => $payment->payment_date,

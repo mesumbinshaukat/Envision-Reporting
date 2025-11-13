@@ -23,11 +23,13 @@ class Employee extends Model
         'last_date',
         'salary',
         'commission_rate',
+        'geolocation_required',
     ];
 
     protected $casts = [
         'joining_date' => 'date',
         'last_date' => 'date',
+        'geolocation_required' => 'boolean',
     ];
 
     public function user()

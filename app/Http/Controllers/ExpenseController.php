@@ -60,6 +60,14 @@ class ExpenseController extends Controller
         
         $validated['user_id'] = auth()->id();
         
+        // Capture exchange rate at time of creation for historical accuracy
+        if (isset($validated['currency_id'])) {
+            $currency = \App\Models\Currency::find($validated['currency_id']);
+            if ($currency) {
+                $validated['exchange_rate_at_time'] = $currency->conversion_rate;
+            }
+        }
+        
         Expense::create($validated);
         
         return redirect()->route('expenses.index')->with('success', 'Expense created successfully.');

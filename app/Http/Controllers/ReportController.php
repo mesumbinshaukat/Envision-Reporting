@@ -78,10 +78,7 @@ class ReportController extends Controller
             // Calculate total payments made in this date range (converted to base currency)
             $totalPaymentsInRange = $invoices->sum(function($invoice) {
                 return $invoice->payments->sum(function($payment) use ($invoice) {
-                    if ($invoice->currency) {
-                        return $invoice->currency->toBase($payment->amount);
-                    }
-                    return $payment->amount;
+                    return $invoice->convertAmountToBase($payment->amount);
                 });
             });
             
@@ -93,10 +90,7 @@ class ReportController extends Controller
             // Calculate total processing fees for invoices in this date range (converted to base currency)
             $totalProcessingFees = $invoices->sum(function($invoice) {
                 $fee = $invoice->payment_processing_fee ?? 0;
-                if ($invoice->currency) {
-                    return $invoice->currency->toBase($fee);
-                }
-                return $fee;
+                return $invoice->convertAmountToBase($fee);
             });
             
             $reportData = [
