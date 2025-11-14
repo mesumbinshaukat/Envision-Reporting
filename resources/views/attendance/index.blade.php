@@ -107,12 +107,12 @@
                         @if(!$todayAttendance->hasCheckedOut())
                             <button id="checkOutBtn" type="button" class="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 font-semibold text-lg shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #dc2626; color: white;">
                                 <span id="checkOutText">Check Out</span>
-                                <span id="checkOutLoader" class="hidden">
-                                    <svg class="animate-spin inline h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <span id="checkOutLoader" class="hidden inline-flex items-center gap-2">
+                                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
-                                    Processing...
+                                    <span data-loader-text>Processing...</span>
                                 </span>
                             </button>
                         @else
@@ -125,12 +125,12 @@
                     <p class="text-gray-600 mb-4">You haven't checked in today.</p>
                     <button id="checkInBtn" type="button" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-semibold text-lg shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: #16a34a; color: white;">
                         <span id="checkInText">Check In</span>
-                        <span id="checkInLoader" class="hidden">
-                            <svg class="animate-spin inline h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <span id="checkInLoader" class="hidden inline-flex items-center gap-2">
+                            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Processing...
+                            <span data-loader-text>Processing...</span>
                         </span>
                     </button>
                 </div>
@@ -211,32 +211,49 @@
         const wifiPositioning = new WiFiPositioning();
         let publicIpv4 = null;
         let publicIpv6 = null;
+        let publicIpPromise = null;
 
         async function fetchPublicIp() {
-            try {
-                const [ipv4Resp, ipv6Resp] = await Promise.all([
-                    fetch('https://api.ipify.org?format=json').catch(() => null),
-                    fetch('https://api64.ipify.org?format=json').catch(() => null)
-                ]);
-
-                if (ipv4Resp && ipv4Resp.ok) {
-                    const data = await ipv4Resp.json();
-                    if (data && data.ip) {
-                        publicIpv4 = data.ip;
-                        console.log('🌐 Public IPv4 detected:', publicIpv4);
-                    }
-                }
-
-                if (ipv6Resp && ipv6Resp.ok) {
-                    const data = await ipv6Resp.json();
-                    if (data && data.ip) {
-                        publicIpv6 = data.ip;
-                        console.log('🛰️ Public IPv6 detected:', publicIpv6);
-                    }
-                }
-            } catch (error) {
-                console.warn('Unable to determine public IP:', error);
+            if (publicIpv4 || publicIpv6) {
+                return { publicIpv4, publicIpv6 };
             }
+
+            if (!publicIpPromise) {
+                publicIpPromise = (async () => {
+                    try {
+                        const [ipv4Resp, ipv6Resp] = await Promise.all([
+                            fetch('https://api.ipify.org?format=json').catch(() => null),
+                            fetch('https://api64.ipify.org?format=json').catch(() => null)
+                        ]);
+
+                        if (ipv4Resp && ipv4Resp.ok) {
+                            const data = await ipv4Resp.json();
+                            if (data && data.ip) {
+                                publicIpv4 = data.ip;
+                                console.log('🌐 Public IPv4 detected:', publicIpv4);
+                            }
+                        }
+
+                        if (ipv6Resp && ipv6Resp.ok) {
+                            const data = await ipv6Resp.json();
+                            if (data && data.ip) {
+                                publicIpv6 = data.ip;
+                                console.log('🛰️ Public IPv6 detected:', publicIpv6);
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('Unable to determine public IP:', error);
+                    }
+                })();
+            }
+
+            try {
+                await publicIpPromise;
+            } finally {
+                publicIpPromise = null;
+            }
+
+            return { publicIpv4, publicIpv6 };
         }
 
         fetchPublicIp();
@@ -265,6 +282,41 @@
         const checkInBtn = document.getElementById('checkInBtn');
         const checkOutBtn = document.getElementById('checkOutBtn');
         const dynamicMessage = document.getElementById('dynamicMessage');
+
+        function getButtonElements(btnId, textId, loaderId) {
+            return {
+                btn: document.getElementById(btnId),
+                text: document.getElementById(textId),
+                loader: document.getElementById(loaderId)
+            };
+        }
+
+        function setButtonLoading(btnId, textId, loaderId, loaderText = 'Processing...') {
+            const { btn, text, loader } = getButtonElements(btnId, textId, loaderId);
+            if (!btn || !text || !loader) {
+                return;
+            }
+
+            btn.disabled = true;
+            text.classList.add('hidden');
+            loader.classList.remove('hidden');
+
+            const loaderLabel = loader.querySelector('[data-loader-text]');
+            if (loaderLabel) {
+                loaderLabel.textContent = loaderText;
+            }
+        }
+
+        function resetButtonState(btnId, textId, loaderId) {
+            const { btn, text, loader } = getButtonElements(btnId, textId, loaderId);
+            if (!btn || !text || !loader) {
+                return;
+            }
+
+            btn.disabled = false;
+            text.classList.remove('hidden');
+            loader.classList.add('hidden');
+        }
 
         // Haversine formula to calculate distance
         function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -399,21 +451,19 @@
             }, 5000);
         }
 
-        async function getLocation(callback) {
+        async function getLocation() {
             // For remote employees, skip GPS sampling entirely
             if (!geolocationRequired) {
                 console.log('🌐 Remote employee - skipping GPS sampling');
-                callback({
+                return {
                     latitude: null,
                     longitude: null,
                     accuracy: null
-                });
-                return;
+                };
             }
 
             if (!navigator.geolocation) {
-                showMessage('Geolocation is not supported by your browser.', 'error');
-                return;
+                throw new Error('Geolocation is not supported by your browser.');
             }
 
             // Show getting location message
@@ -461,103 +511,110 @@
                     showMessage(`✅ Good accuracy: ${Math.round(coords.accuracy)}m (${location.method})`, 'success');
                 }
                 
-                callback(coords);
+                return coords;
             } catch (error) {
                 console.error('All location methods failed:', error);
-                showMessage('Unable to get accurate location. Please ensure location services are enabled.', 'error');
-                
-                // Re-enable button
-                const activeBtn = document.querySelector('button[disabled]');
-                if (activeBtn) {
-                    activeBtn.disabled = false;
-                    const text = activeBtn.querySelector('span:not(.hidden)');
-                    const loader = activeBtn.querySelector('span.hidden');
-                    if (text) text.classList.remove('hidden');
-                    if (loader) loader.classList.add('hidden');
-                }
+                throw error;
             }
         }
 
+        function handleLocationError(error) {
+            let message = 'Unable to get accurate location. Please ensure location services are enabled.';
 
-        function sendAttendanceRequest(url, coords, btnId, textId, loaderId) {
-            const btn = document.getElementById(btnId);
-            const text = document.getElementById(textId);
-            const loader = document.getElementById(loaderId);
+            if (error) {
+                if (typeof error === 'string') {
+                    message = error;
+                } else if (typeof error === 'object') {
+                    if (error.code === 1) {
+                        message = 'Location permission denied. Please allow access and try again.';
+                    } else if (error.code === 2) {
+                        message = 'Location unavailable. Move to an open area or enable GPS, then try again.';
+                    } else if (error.code === 3) {
+                        message = 'Location request timed out. Stay still and ensure a stable connection.';
+                    } else if (error.message) {
+                        message = error.message;
+                    }
+                }
+            }
 
-            btn.disabled = true;
-            text.classList.add('hidden');
-            loader.classList.remove('hidden');
+            showMessage(message, 'error');
+        }
 
-            // Use encrypted payload
-            const payload = btoa(JSON.stringify(coords));
+        async function sendAttendanceRequest(url, coords, btnId, textId, loaderId) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        latitude: coords.latitude,
+                        longitude: coords.longitude,
+                        public_ip: publicIpv4 ?? publicIpv6,
+                        public_ip_v4: publicIpv4,
+                        public_ip_v6: publicIpv6,
+                        _token: document.querySelector('meta[name="csrf-token"]').content
+                    })
+                });
 
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    latitude: coords.latitude,
-                    longitude: coords.longitude,
-                    public_ip: publicIpv4 ?? publicIpv6,
-                    public_ip_v4: publicIpv4,
-                    public_ip_v6: publicIpv6,
-                    _token: document.querySelector('meta[name="csrf-token"]').content
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+                const data = await response.json().catch(() => ({}));
+
+                if (response.ok && data.success) {
                     showMessage(data.message, 'success');
                     setTimeout(() => {
                         window.location.reload();
                     }, 1500);
-                } else {
-                    // Show detailed error with distance if available
-                    let errorMsg = data.message;
-                    if (data.distance && data.required_distance) {
-                        errorMsg += `\n\n📏 Your distance: ${data.distance}m\n✓ Required: Within ${data.required_distance}m`;
-                    }
-                    showMessage(errorMsg, 'error');
-                    btn.disabled = false;
-                    text.classList.remove('hidden');
-                    loader.classList.add('hidden');
+                    return;
                 }
-            })
-            .catch(error => {
-                showMessage('An error occurred. Please try again.', 'error');
-                btn.disabled = false;
-                text.classList.remove('hidden');
-                loader.classList.add('hidden');
-            });
+
+                let errorMsg = data.message || 'Unable to complete the request. Please try again.';
+                if (data.distance && data.required_distance) {
+                    errorMsg += `\n\n📏 Your distance: ${data.distance}m\n✓ Required: Within ${data.required_distance}m`;
+                }
+
+                throw new Error(errorMsg);
+            } catch (error) {
+                console.error('Attendance request failed:', error);
+                showMessage(error.message || 'An error occurred. Please try again.', 'error');
+                resetButtonState(btnId, textId, loaderId);
+            }
+        }
+
+        async function handleAttendanceAction({ url, btnId, textId, loaderId }) {
+            const locatingCopy = geolocationRequired ? 'Securing your location…' : 'Processing...';
+            setButtonLoading(btnId, textId, loaderId, locatingCopy);
+
+            try {
+                await fetchPublicIp();
+                const coords = await getLocation();
+                setButtonLoading(btnId, textId, loaderId, 'Processing...');
+                await sendAttendanceRequest(url, coords, btnId, textId, loaderId);
+            } catch (error) {
+                handleLocationError(error);
+                resetButtonState(btnId, textId, loaderId);
+            }
         }
 
         if (checkInBtn) {
             checkInBtn.addEventListener('click', function() {
-                getLocation((coords) => {
-                    sendAttendanceRequest(
-                        '{{ route('attendance.check-in') }}',
-                        coords,
-                        'checkInBtn',
-                        'checkInText',
-                        'checkInLoader'
-                    );
+                handleAttendanceAction({
+                    url: '{{ route('attendance.check-in') }}',
+                    btnId: 'checkInBtn',
+                    textId: 'checkInText',
+                    loaderId: 'checkInLoader'
                 });
             });
         }
 
         if (checkOutBtn) {
             checkOutBtn.addEventListener('click', function() {
-                getLocation((coords) => {
-                    sendAttendanceRequest(
-                        '{{ route('attendance.check-out') }}',
-                        coords,
-                        'checkOutBtn',
-                        'checkOutText',
-                        'checkOutLoader'
-                    );
+                handleAttendanceAction({
+                    url: '{{ route('attendance.check-out') }}',
+                    btnId: 'checkOutBtn',
+                    textId: 'checkOutText',
+                    loaderId: 'checkOutLoader'
                 });
             });
         }

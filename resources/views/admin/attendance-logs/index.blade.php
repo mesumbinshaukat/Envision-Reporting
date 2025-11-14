@@ -87,7 +87,7 @@
                                 <th class="text-left py-3 px-4 text-navy-900 font-semibold">Action</th>
                                 <th class="text-left py-3 px-4 text-navy-900 font-semibold">Status</th>
                                 <th class="text-left py-3 px-4 text-navy-900 font-semibold">Distance</th>
-                                <th class="text-left py-3 px-4 text-navy-900 font-semibold">IP Address</th>
+                                <th class="text-left py-3 px-4 text-navy-900 font-semibold">IP Addresses</th>
                                 <th class="text-left py-3 px-4 text-navy-900 font-semibold">Device</th>
                                 <th class="text-left py-3 px-4 text-navy-900 font-semibold">Actions</th>
                             </tr>
@@ -125,8 +125,22 @@
                                             <span class="text-gray-400">N/A</span>
                                         @endif
                                     </td>
-                                    <td class="py-3 px-4 text-sm font-mono">
-                                        {{ $log->ip_address ?? 'N/A' }}
+                                    @php
+                                        $primaryIp = $log->ip_address;
+                                        $ipv4 = $log->ip_address_v4 ?? (filter_var($primaryIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? $primaryIp : null);
+                                        $ipv6 = $log->ip_address_v6 ?? (filter_var($primaryIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? $primaryIp : null);
+                                    @endphp
+                                    <td class="py-3 px-4 text-sm">
+                                        <div class="space-y-1 font-mono text-xs sm:text-sm">
+                                            <div class="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                                                <span class="text-gray-500 uppercase tracking-wide text-[10px] sm:text-[11px]">IPv4</span>
+                                                <span class="break-all">{{ $ipv4 ?? 'N/A' }}</span>
+                                            </div>
+                                            <div class="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                                                <span class="text-gray-500 uppercase tracking-wide text-[10px] sm:text-[11px]">IPv6</span>
+                                                <span class="break-all">{{ $ipv6 ?? 'N/A' }}</span>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td class="py-3 px-4 text-sm">
                                         <div class="text-xs">

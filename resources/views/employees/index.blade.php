@@ -39,14 +39,37 @@
                     </thead>
                     <tbody>
                         @foreach($employees as $employee)
+                            @php
+                                $employeeInitials = collect(explode(' ', trim($employee->name)))
+                                    ->filter()
+                                    ->map(fn($segment) => mb_strtoupper(mb_substr($segment, 0, 1)))
+                                    ->take(2)
+                                    ->implode('');
+                            @endphp
                             <tr class="border-b">
-                                <td class="py-3 px-4 font-semibold">
-                                    {{ $employee->name }}
-                                    @if($employee->geolocation_required)
-                                        <span class="text-xs text-green-600 ml-1" title="Geolocation required">📍</span>
-                                    @else
-                                        <span class="text-xs text-orange-600 ml-1" title="Remote employee">🌐</span>
-                                    @endif
+                                <td class="py-3 px-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 sm:w-8 sm:h-8 rounded-full border border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center text-sm font-semibold text-gray-600">
+                                            @if($employee->profile_photo_url)
+                                                <img src="{{ $employee->profile_photo_url }}" alt="{{ $employee->name }} profile photo" class="h-full w-full object-cover">
+                                            @else
+                                                <span>{{ $employeeInitials }}</span>
+                                            @endif
+                                        </div>
+                                        <div>
+                                            <div class="font-semibold text-navy-900 flex items-center gap-2">
+                                                <span>{{ $employee->name }}</span>
+                                                @if($employee->geolocation_required)
+                                                    <span class="text-xs text-green-600" title="Geolocation required">📍</span>
+                                                @else
+                                                    <span class="text-xs text-orange-600" title="Remote employee">🌐</span>
+                                                @endif
+                                            </div>
+                                            <div class="text-sm text-gray-500 sm:hidden">
+                                                {{ $employee->role }}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="py-3 px-4 hidden md:table-cell">{{ $employee->email }}</td>
                                 <td class="py-3 px-4 hidden lg:table-cell">{{ $employee->role }}</td>

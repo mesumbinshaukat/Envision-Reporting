@@ -77,6 +77,15 @@ class Employee extends Model
         return $this->hasMany(EmployeeIpWhitelist::class);
     }
 
+    public function getProfilePhotoUrlAttribute(): ?string
+    {
+        if ($this->relationLoaded('employeeUser') && $this->employeeUser) {
+            return $this->employeeUser->profile_photo_url;
+        }
+
+        return optional($this->employeeUser)->profile_photo_url;
+    }
+
     public function hasIpWhitelist(): bool
     {
         if ($this->relationLoaded('ipWhitelists')) {

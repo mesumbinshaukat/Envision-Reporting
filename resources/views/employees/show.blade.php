@@ -9,9 +9,39 @@
         </div>
     </x-slot>
 
+    @php
+        $employeeInitials = collect(explode(' ', trim($employee->name)))
+            ->filter()
+            ->map(fn($segment) => mb_strtoupper(mb_substr($segment, 0, 1)))
+            ->take(2)
+            ->implode('');
+    @endphp
+
     <div class="max-w-4xl space-y-6">
-        <div class="bg-white border border-navy-900 rounded-lg p-6">
-            <div class="grid grid-cols-2 gap-6">
+        <div class="bg-white border border-navy-900 rounded-lg p-6 space-y-6">
+            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                <div class="h-28 w-28 sm:h-32 sm:w-32 rounded-full border border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center text-xl font-semibold text-gray-600">
+                    @if($employee->profile_photo_url)
+                        <img src="{{ $employee->profile_photo_url }}" alt="{{ $employee->name }} profile photo" class="h-full w-full object-cover">
+                    @else
+                        <span>{{ $employeeInitials }}</span>
+                    @endif
+                </div>
+                <div class="text-center sm:text-left">
+                    <div class="text-2xl font-bold text-navy-900 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                        <span>{{ $employee->name }}</span>
+                        @if($employee->geolocation_required)
+                            <span class="text-sm text-green-600" title="Geolocation required">📍</span>
+                        @else
+                            <span class="text-sm text-orange-600" title="Remote employee">🌐</span>
+                        @endif
+                    </div>
+                    <p class="text-gray-600 mt-1">{{ $employee->role }}</p>
+                    <p class="text-sm text-gray-500">{{ $employee->email }}</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Name</h3>
                     <p class="text-lg text-navy-900">{{ $employee->name }}</p>
@@ -67,7 +97,7 @@
                     <p class="text-lg text-navy-900">{{ $employee->last_date ? $employee->last_date->format('M d, Y') : 'N/A' }}</p>
                 </div>
 
-                <div>
+                <div class="md:col-span-1">
                     <h3 class="text-sm font-semibold text-gray-600 mb-1">Created</h3>
                     <p class="text-lg text-navy-900">{{ $employee->created_at->format('M d, Y') }}</p>
                 </div>

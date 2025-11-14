@@ -93,9 +93,19 @@
             <h3 class="text-xl font-bold text-navy-900 mb-4">Device & Network Information</h3>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                @php
+                    $primaryIp = $log->ip_address;
+                    $ipv4 = $log->ip_address_v4 ?? (filter_var($primaryIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? $primaryIp : null);
+                    $ipv6 = $log->ip_address_v6 ?? (filter_var($primaryIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? $primaryIp : null);
+                @endphp
                 <div>
-                    <h4 class="text-sm font-semibold text-gray-600 mb-1">IP Address</h4>
-                    <p class="text-lg text-navy-900 font-mono">{{ $log->ip_address ?? 'N/A' }}</p>
+                    <h4 class="text-sm font-semibold text-gray-600 mb-1">IPv4</h4>
+                    <p class="text-lg text-navy-900 font-mono break-all">{{ $ipv4 ?? 'N/A' }}</p>
+                </div>
+
+                <div>
+                    <h4 class="text-sm font-semibold text-gray-600 mb-1">IPv6</h4>
+                    <p class="text-lg text-navy-900 font-mono break-all">{{ $ipv6 ?? 'N/A' }}</p>
                 </div>
 
                 <div>

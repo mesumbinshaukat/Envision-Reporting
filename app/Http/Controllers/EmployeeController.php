@@ -15,7 +15,7 @@ class EmployeeController extends Controller
     public function index(Request $request)
     {
         $userId = auth()->id();
-        $query = Employee::where('user_id', $userId)->with('currency');
+        $query = Employee::where('user_id', $userId)->with(['currency', 'employeeUser']);
         
         if ($request->has('search')) {
             $search = $request->search;
@@ -88,7 +88,7 @@ class EmployeeController extends Controller
     public function show(Employee $employee)
     {
         $this->authorize('view', $employee);
-        $employee->load(['invoices', 'bonuses', 'salaryReleases', 'currency']);
+        $employee->load(['invoices', 'bonuses', 'salaryReleases', 'currency', 'employeeUser']);
         return view('employees.show', compact('employee'));
     }
 
