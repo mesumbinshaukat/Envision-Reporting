@@ -79,14 +79,24 @@ class GeolocationService
     }
 
     /**
-     * Get client IP address (handles proxies and load balancers).
+     * Return both IPv4 and IPv6 addresses detected for the current request.
+     *
+     * @return array{ipv4: string|null, ipv6: string|null}
      */
-    public function getClientIp(Request $request): ?string
+    public function getClientIpPair(Request $request): array
     {
-        // Prefer explicitly supplied public IPv4 from the client (captured via JS)
-        $reportedIp = $request->input('public_ip');
-        if (is_string($reportedIp) && filter_var($reportedIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            return $reportedIp;
+        $ipv4 = null;
+        $ipv6 = null;
+
+        // Prefer explicitly supplied public IPs from the client (captured via JS)
+        $reportedIpv4 = $request->input('public_ip') ?? $request->input('public_ip_v4');
+        if (is_string($reportedIpv4) && filter_var($reportedIpv4, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $ipv4 = $reportedIpv4;
+        }
+
+        $reportedIpv6 = $request->input('public_ip_v6');
+        if (is_string($reportedIpv6) && filter_var($reportedIpv6, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $ipv6 = $reportedIpv6;
         }
 
         $candidates = [];
@@ -104,29 +114,48 @@ class GeolocationService
         $candidates[] = $request->ip();
         $candidates[] = $request->server('REMOTE_ADDR');
 
-        foreach ($candidates as $ip) {
-            if (is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                return $ip;
+        foreach ($candidates as $ipCandidate) {
+            if (!is_string($ipCandidate) || $ipCandidate === '') {
+                continue;
             }
-        }
 
-        // Check for IPv4-mapped IPv6 addresses (::ffff:)
-        foreach ($candidates as $ip) {
-            if (is_string($ip) && stripos($ip, '::ffff:') === 0) {
-                $mapped = substr($ip, 7);
-                if (filter_var($mapped, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                    return $mapped;
+            // Handle IPv4-mapped IPv6 addresses (::ffff:)
+            if (stripos($ipCandidate, '::ffff:') === 0) {
+                $mapped = substr($ipCandidate, 7);
+                if (!$ipv4 && filter_var($mapped, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    $ipv4 = $mapped;
                 }
+                continue;
+            }
+
+            if (!$ipv4 && filter_var($ipCandidate, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                $ipv4 = $ipCandidate;
+                continue;
+            }
+
+            if (!$ipv6 && filter_var($ipCandidate, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                $ipv6 = $ipCandidate;
+            }
+
+            if ($ipv4 && $ipv6) {
+                break;
             }
         }
 
-        foreach ($candidates as $ip) {
-            if (is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
+        return [
+            'ipv4' => $ipv4,
+            'ipv6' => $ipv6,
+        ];
+    }
 
-        return null;
+    /**
+     * Get the preferred client IP address (IPv4 first, fallback to IPv6).
+     */
+    public function getClientIp(Request $request): ?string
+    {
+        $pair = $this->getClientIpPair($request);
+
+        return $pair['ipv4'] ?? $pair['ipv6'];
     }
 
     /**
@@ -160,7 +189,9 @@ class GeolocationService
         ?array $additionalInfo = null
     ): AttendanceLog {
         $deviceInfo = $this->parseUserAgent($request);
-        
+        $clientIps = $this->getClientIpPair($request);
+        $primaryIp = $clientIps['ipv4'] ?? $clientIps['ipv6'];
+
         return AttendanceLog::create([
             'employee_user_id' => $employeeUserId,
             'attendance_id' => $attendanceId,
@@ -169,7 +200,9 @@ class GeolocationService
             'latitude' => $latitude,
             'longitude' => $longitude,
             'distance_from_office' => $distanceFromOffice,
-            'ip_address' => $this->getClientIp($request),
+            'ip_address' => $primaryIp,
+            'ip_address_v4' => $clientIps['ipv4'],
+            'ip_address_v6' => $clientIps['ipv6'],
             'user_agent' => $deviceInfo['user_agent'],
             'device_type' => $deviceInfo['device_type'],
             'browser' => $deviceInfo['browser'],

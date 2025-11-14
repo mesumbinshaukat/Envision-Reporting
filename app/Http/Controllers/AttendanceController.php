@@ -179,6 +179,8 @@ class AttendanceController extends Controller
             ]);
         }
 
+        $ipPair = $geoService->getClientIpPair($request);
+
         // Create new attendance record with check-in time and location
         $attendance = Attendance::create([
             'employee_user_id' => $employeeUser->id,
@@ -186,7 +188,8 @@ class AttendanceController extends Controller
             'check_in' => Carbon::now(),
             'check_in_latitude' => $latitude,
             'check_in_longitude' => $longitude,
-            'check_in_ip' => $geoService->getClientIp($request),
+            'check_in_ip' => $ipPair['ipv4'] ?? $ipPair['ipv6'],
+            'check_in_ip_v6' => $ipPair['ipv6'],
             'check_in_user_agent' => $request->userAgent(),
             'check_in_distance_meters' => $distance,
         ]);
@@ -362,12 +365,15 @@ class AttendanceController extends Controller
             ]);
         }
 
+        $ipPair = $geoService->getClientIpPair($request);
+
         // Update attendance with check-out time and location
         $attendance->update([
             'check_out' => Carbon::now(),
             'check_out_latitude' => $latitude,
             'check_out_longitude' => $longitude,
-            'check_out_ip' => $geoService->getClientIp($request),
+            'check_out_ip' => $ipPair['ipv4'] ?? $ipPair['ipv6'],
+            'check_out_ip_v6' => $ipPair['ipv6'],
             'check_out_user_agent' => $request->userAgent(),
             'check_out_distance_meters' => $distance,
         ]);

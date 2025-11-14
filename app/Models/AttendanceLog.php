@@ -18,6 +18,8 @@ class AttendanceLog extends Model
         'longitude',
         'distance_from_office',
         'ip_address',
+        'ip_address_v4',
+        'ip_address_v6',
         'user_agent',
         'device_type',
         'browser',

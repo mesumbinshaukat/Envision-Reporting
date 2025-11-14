@@ -209,18 +209,30 @@
         });
 
         const wifiPositioning = new WiFiPositioning();
-        let publicIp = null;
+        let publicIpv4 = null;
+        let publicIpv6 = null;
 
         async function fetchPublicIp() {
             try {
-                const response = await fetch('https://api.ipify.org?format=json');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch public IP');
+                const [ipv4Resp, ipv6Resp] = await Promise.all([
+                    fetch('https://api.ipify.org?format=json').catch(() => null),
+                    fetch('https://api64.ipify.org?format=json').catch(() => null)
+                ]);
+
+                if (ipv4Resp && ipv4Resp.ok) {
+                    const data = await ipv4Resp.json();
+                    if (data && data.ip) {
+                        publicIpv4 = data.ip;
+                        console.log('🌐 Public IPv4 detected:', publicIpv4);
+                    }
                 }
-                const data = await response.json();
-                if (data && data.ip) {
-                    publicIp = data.ip;
-                    console.log('🌐 Public IPv4 detected:', publicIp);
+
+                if (ipv6Resp && ipv6Resp.ok) {
+                    const data = await ipv6Resp.json();
+                    if (data && data.ip) {
+                        publicIpv6 = data.ip;
+                        console.log('🛰️ Public IPv6 detected:', publicIpv6);
+                    }
                 }
             } catch (error) {
                 console.warn('Unable to determine public IP:', error);
@@ -489,7 +501,9 @@
                 body: JSON.stringify({
                     latitude: coords.latitude,
                     longitude: coords.longitude,
-                    public_ip: publicIp,
+                    public_ip: publicIpv4 ?? publicIpv6,
+                    public_ip_v4: publicIpv4,
+                    public_ip_v6: publicIpv6,
                     _token: document.querySelector('meta[name="csrf-token"]').content
                 })
             })

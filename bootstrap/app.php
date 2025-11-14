@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth.both' => \App\Http\Middleware\AuthenticateWithBothGuards::class,
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'employee' => \App\Http\Middleware\EnsureUserIsEmployee::class,
+            'session.warmup' => \App\Http\Middleware\WarmupSession::class,
+            'prevent.cache' => \App\Http\Middleware\EnsureSessionCookieHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
