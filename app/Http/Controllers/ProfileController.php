@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use App\Traits\HandlesAuthGuards;
 
@@ -43,23 +44,28 @@ class ProfileController extends Controller
             $newPath = $request->file('profile_photo')->store('profile-photos', 'public');
 
             if ($user->profile_photo_path) {
-                Storage::disk('public')->delete($user->profile_photo_path);
+                $this->removeProfilePhotoFiles($user->profile_photo_path);
             }
 
             $user->profile_photo_path = $newPath;
+            $this->mirrorProfilePhotoToPublic($newPath);
         } elseif ($removePhoto && $user->profile_photo_path) {
-            Storage::disk('public')->delete($user->profile_photo_path);
+            $this->removeProfilePhotoFiles($user->profile_photo_path);
             $user->profile_photo_path = null;
         }
 
         if ($user->profile_photo_path && Str::startsWith($user->profile_photo_path, 'media/profile-photos/')) {
-            $normalizedPath = Str::replaceFirst('media/profile-photos/', 'profile-photos/', $user->profile_photo_path);
+            $previousPath = $user->profile_photo_path;
+            $normalizedPath = Str::replaceFirst('media/profile-photos/', 'profile-photos/', $previousPath);
 
-            if (Storage::disk('public')->exists($user->profile_photo_path) && !Storage::disk('public')->exists($normalizedPath)) {
-                Storage::disk('public')->move($user->profile_photo_path, $normalizedPath);
+            if (Storage::disk('public')->exists($previousPath)) {
+                Storage::disk('public')->move($previousPath, $normalizedPath);
             }
 
+            $this->removePublicMirror($previousPath);
+
             $user->profile_photo_path = $normalizedPath;
+            $this->mirrorProfilePhotoToPublic($normalizedPath);
         }
 
         unset($validated['profile_photo']);
@@ -101,7 +107,7 @@ class ProfileController extends Controller
         $user = $this->getCurrentUser();
 
         if ($user && $user->profile_photo_path) {
-            Storage::disk('public')->delete($user->profile_photo_path);
+            $this->removeProfilePhotoFiles($user->profile_photo_path);
         }
 
         Auth::guard('web')->logout();
@@ -115,5 +121,36 @@ class ProfileController extends Controller
         $request->session()->regenerateToken();
 
         return Redirect::to('/');
+    }
+
+    private function mirrorProfilePhotoToPublic(string $relativePath): void
+    {
+        $relativePath = ltrim($relativePath, '/');
+        $sourcePath = Storage::disk('public')->path($relativePath);
+
+        if (!File::exists($sourcePath)) {
+            return;
+        }
+
+        $publicPath = public_path('storage/' . $relativePath);
+        File::ensureDirectoryExists(dirname($publicPath));
+        File::copy($sourcePath, $publicPath);
+    }
+
+    private function removeProfilePhotoFiles(string $relativePath): void
+    {
+        $relativePath = ltrim($relativePath, '/');
+        Storage::disk('public')->delete($relativePath);
+        $this->removePublicMirror($relativePath);
+    }
+
+    private function removePublicMirror(string $relativePath): void
+    {
+        $relativePath = ltrim($relativePath, '/');
+        $publicPath = public_path('storage/' . $relativePath);
+
+        if (File::exists($publicPath)) {
+            File::delete($publicPath);
+        }
     }
 }
