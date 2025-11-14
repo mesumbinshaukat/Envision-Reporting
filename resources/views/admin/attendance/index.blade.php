@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-2xl text-navy-900">Attendance Management</h2>
+            <h2 class="font-semibold text-2xl text-navy-900" style="padding-right: 15px !important;">Attendance Management</h2>
             <div class="flex gap-2">
                 <a href="{{ route('admin.attendance.statistics') }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
                     View Statistics

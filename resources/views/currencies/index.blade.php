@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-2xl text-navy-900">Currency Management</h2>
+        <h2 class="font-semibold text-2xl text-navy-900" style="padding-right: 15px !important;">Currency Management</h2>
     </x-slot>
 
     <div class="space-y-6">

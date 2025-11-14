@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-2xl text-navy-900">Invoice Details</h2>
+            <h2 class="font-semibold text-2xl text-navy-900" style="padding-right: 15px !important;">Invoice Details</h2>
             <div class="flex gap-2">
                 <a href="{{ route('invoices.pdf', $invoice) }}" class="px-4 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Download PDF</a>
                 <a href="{{ route('invoices.edit', $invoice) }}" class="px-4 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Edit</a>

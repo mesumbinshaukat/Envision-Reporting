@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-2xl text-navy-900">Attendance Log Details</h2>
+            <h2 class="font-semibold text-2xl text-navy-900" style="padding-right: 15px !important;">Attendance Log Details</h2>
             <a href="{{ route('admin.attendance-logs.index') }}" class="bg-navy-900 text-white px-4 py-2 rounded hover:bg-opacity-90">
                 Back to Logs
             </a>

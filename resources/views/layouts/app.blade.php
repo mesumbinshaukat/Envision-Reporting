@@ -13,26 +13,58 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+        <style>
+            @media (min-width: 1024px) {
+                body.sidebar-collapsed #sidebar {
+                    width: 5rem;
+                }
+
+                body.sidebar-collapsed #sidebar .sidebar-text,
+                body.sidebar-collapsed #sidebarTitle {
+                    display: none;
+                }
+
+                body.sidebar-collapsed #sidebar nav a {
+                    justify-content: center;
+                }
+
+                body.sidebar-collapsed #sidebar nav a svg {
+                    margin-right: 0;
+                }
+
+                body.sidebar-collapsed #appShell {
+                    padding-left: 5rem;
+                }
+            }
+        </style>
     </head>
-    <body class="font-sans antialiased bg-white text-black">
-        <div class="flex min-h-screen">
+    <body class="font-sans antialiased bg-gray-50 text-navy-900 overflow-x-hidden">
+        <div id="appShell" class="min-h-screen bg-gray-50 lg:pl-64 transition-[padding] duration-300">
             <!-- Sidebar -->
-            <aside id="sidebar" class="w-64 bg-white border-r border-navy-900 flex flex-col transition-all duration-300">
+            <aside id="sidebar" aria-label="Sidebar navigation" class="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-white border-r border-navy-900 transition-transform duration-300 -translate-x-full lg:translate-x-0">
                 <!-- Logo & Toggle -->
                 <div class="p-6 border-b border-navy-900 flex items-center justify-between">
                     <div class="flex items-center">
                         <img src="{{ asset('assets/logo.png') }}" alt="{{ config('app.name') }}" class="h-12">
-                        <!-- <h2 id="sidebarTitle" class="ml-3 font-bold text-navy-900 whitespace-nowrap">{{ config('app.name') }}</h2> -->
+                        
                     </div>
-                    <button onclick="toggleSidebar()" class="text-navy-900 hover:bg-navy-900 hover:text-white p-2 rounded">
-                        <svg id="toggleIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
-                        </svg>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="toggleSidebar('close')" class="text-navy-900 hover:bg-navy-900 hover:text-white p-2 rounded lg:hidden" aria-label="Close sidebar">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M6 18L18 6"></path>
+                            </svg>
+                        </button>
+                        <button type="button" onclick="toggleSidebarWidth()" class="hidden lg:inline-flex items-center justify-center text-navy-900 hover:bg-navy-900 hover:text-white p-2 rounded" aria-label="Collapse sidebar">
+                            <svg id="sidebarCollapseIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Navigation -->
-                <nav class="flex-1 p-4 space-y-2">
+                <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
                     <a href="{{ route('dashboard') }}" class="flex items-center px-4 py-2 rounded {{ request()->routeIs('dashboard') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-900 hover:text-white' }}" title="Dashboard">
                         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
@@ -187,27 +219,76 @@
                 </div>
             </aside>
 
+            <div id="sidebarOverlay" class="fixed inset-0 z-20 bg-black/40 opacity-0 pointer-events-none transition-opacity duration-300 lg:hidden" aria-hidden="true" onclick="toggleSidebar('close')"></div>
+
             <script>
-                function toggleSidebar() {
-                    const sidebar = document.getElementById('sidebar');
-                    const sidebarTexts = document.querySelectorAll('.sidebar-text');
-                    const sidebarTitle = document.getElementById('sidebarTitle');
-                    const toggleIcon = document.getElementById('toggleIcon');
-                    
-                    if (sidebar.classList.contains('w-64')) {
-                        // Collapse
-                        sidebar.classList.remove('w-64');
-                        sidebar.classList.add('w-20');
-                        sidebarTexts.forEach(text => text.classList.add('hidden'));
-                        sidebarTitle.classList.add('hidden');
-                        toggleIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>';
+                const body = document.body;
+                const sidebar = document.getElementById('sidebar');
+                const sidebarOverlay = document.getElementById('sidebarOverlay');
+                const desktopMediaQuery = window.matchMedia('(min-width: 1024px)');
+                const appShell = document.getElementById('appShell');
+                const sidebarCollapseIcon = document.getElementById('sidebarCollapseIcon');
+
+                function openSidebar() {
+                    sidebar.classList.remove('-translate-x-full');
+                    sidebarOverlay.classList.remove('opacity-0', 'pointer-events-none');
+                    body.classList.add('overflow-hidden');
+                }
+
+                function closeSidebar() {
+                    sidebar.classList.add('-translate-x-full');
+                    sidebarOverlay.classList.add('opacity-0', 'pointer-events-none');
+                    body.classList.remove('overflow-hidden');
+                }
+
+                function ensureSidebarState() {
+                    if (desktopMediaQuery.matches) {
+                        sidebar.classList.remove('-translate-x-full');
+                        sidebarOverlay.classList.add('opacity-0', 'pointer-events-none');
+                        body.classList.remove('overflow-hidden');
+                    } else if (!sidebarOverlay.classList.contains('pointer-events-none')) {
+                        return;
                     } else {
-                        // Expand
-                        sidebar.classList.remove('w-20');
-                        sidebar.classList.add('w-64');
-                        sidebarTexts.forEach(text => text.classList.remove('hidden'));
-                        sidebarTitle.classList.remove('hidden');
-                        toggleIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>';
+                        closeSidebar();
+                    }
+                }
+
+                function toggleSidebar(action = 'toggle') {
+                    if (desktopMediaQuery.matches) {
+                        sidebar.classList.remove('-translate-x-full');
+                        sidebarOverlay.classList.add('opacity-0', 'pointer-events-none');
+                        body.classList.remove('overflow-hidden');
+                        return;
+                    }
+
+                    const shouldOpen = action === 'open' || (action === 'toggle' && sidebar.classList.contains('-translate-x-full'));
+                    if (shouldOpen) {
+                        openSidebar();
+                        return;
+                    }
+
+                    closeSidebar();
+                }
+
+                if (typeof desktopMediaQuery.addEventListener === 'function') {
+                    desktopMediaQuery.addEventListener('change', ensureSidebarState);
+                } else if (typeof desktopMediaQuery.addListener === 'function') {
+                    desktopMediaQuery.addListener(ensureSidebarState);
+                }
+
+                ensureSidebarState();
+
+                function toggleSidebarWidth() {
+                    if (!desktopMediaQuery.matches || !appShell) {
+                        return;
+                    }
+
+                    const collapsed = document.body.classList.toggle('sidebar-collapsed');
+
+                    if (sidebarCollapseIcon) {
+                        sidebarCollapseIcon.innerHTML = collapsed
+                            ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>'
+                            : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>';
                     }
                 }
 
@@ -264,10 +345,10 @@
             <!-- Main Content -->
             <div class="flex-1 flex flex-col">
                 <!-- Top Navigation -->
-                <header class="bg-white border-b border-navy-900">
-                    <div class="flex items-center justify-between px-6 py-4">
+                <header class="bg-white border-b border-navy-900 sticky top-0 z-10">
+                    <div class="flex items-center justify-between px-4 py-4 sm:px-6">
                         <div class="flex items-center gap-3">
-                            <button type="button" onclick="toggleSidebar()" class="p-2 rounded text-navy-900 hover:bg-navy-900 hover:text-white lg:hidden" aria-label="Toggle sidebar">
+                            <button type="button" onclick="toggleSidebar('open')" class="p-2 rounded text-navy-900 hover:bg-navy-900 hover:text-white focus:outline-none focus:ring-2 focus:ring-navy-300 lg:hidden" aria-label="Open sidebar" aria-controls="sidebar">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                                 </svg>
@@ -277,7 +358,7 @@
                                     {{ $header }}
                                 </div>
                             @else
-                                <h1 class="text-lg font-semibold text-navy-900">{{ config('app.name', 'Envision Reporting') }}</h1>
+                                <h1 class="text-lg font-semibold text-navy-900" >{{ config('app.name', 'Envision Reporting') }}</h1>
                             @endisset
                         </div>
 
@@ -318,14 +399,14 @@
                     </div>
 
                     @isset($header)
-                        <div class="px-6 pb-4 sm:hidden">
+                        <div class="px-4 pb-4 sm:hidden">
                             {{ $header }}
                         </div>
                     @endisset
                 </header>
 
                 <!-- Page Content -->
-                <main class="flex-1 p-8 bg-white">
+                <main class="flex-1 bg-gray-50 p-4 sm:p-6 lg:p-8">
                     <!-- Flash Messages -->
                     @if (session('success'))
                         <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">

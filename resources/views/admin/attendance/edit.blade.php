@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-2xl text-navy-900">Edit Attendance Record</h2>
+            <h2 class="font-semibold text-2xl text-navy-900" style="padding-right: 15px !important;">Edit Attendance Record</h2>
             <a href="{{ route('admin.attendance.index') }}" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
                 Back to List
             </a>

@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-2xl text-navy-900">Employee Dashboard</h2>
+        <h2 class="font-semibold text-2xl text-navy-900" style="padding-right: 15px !important;">Employee Dashboard</h2>
     </x-slot>
 
     <div class="space-y-6">

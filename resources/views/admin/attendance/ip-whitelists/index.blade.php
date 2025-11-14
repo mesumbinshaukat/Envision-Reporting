@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-2xl text-navy-900">Employee IP Whitelists</h2>
+            <h2 class="font-semibold text-2xl text-navy-900" style="padding-right: 15px !important;">Employee IP Whitelists</h2>
             <a href="{{ route('admin.attendance.index') }}" class="text-sm text-navy-900 hover:underline">&larr; Back to Attendance</a>
         </div>
     </x-slot>

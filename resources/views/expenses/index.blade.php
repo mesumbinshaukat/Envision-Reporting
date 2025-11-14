@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-2xl text-navy-900">Expenses</h2>
+            <h2 class="font-semibold text-2xl text-navy-900" style="padding-right: 15px !important;">Expenses</h2>
             <a href="{{ route('expenses.create') }}" class="px-4 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Add Expense</a>
         </div>
     </x-slot>

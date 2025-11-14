@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-2xl text-navy-900">Release Salary</h2>
+        <h2 class="font-semibold text-2xl text-navy-900" style="padding-right: 15px !important;">Release Salary</h2>
     </x-slot>
 
     <div class="max-w-4xl">
