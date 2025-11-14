@@ -12,20 +12,34 @@
     </x-slot>
 
     <div class="space-y-6">
-        <form method="GET" action="{{ route('invoices.index') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4" id="invoiceSearchForm">
-            <input type="text" name="search" id="invoiceSearch" value="{{ request('search') }}" placeholder="Search client..." class="px-4 py-2 border border-navy-900 rounded">
-            <select name="status" id="statusFilter" class="px-4 py-2 border border-navy-900 rounded">
-                <option value="">All Status</option>
-                <option value="Pending" {{ request('status') == 'Pending' ? 'selected' : '' }}>Pending</option>
-                <option value="Partial Paid" {{ request('status') == 'Partial Paid' ? 'selected' : '' }}>Partial Paid</option>
-                <option value="Payment Done" {{ request('status') == 'Payment Done' ? 'selected' : '' }}>Payment Done</option>
-            </select>
-            <input type="date" name="date_from" id="dateFrom" value="{{ request('date_from') }}" placeholder="From" class="px-4 py-2 border border-navy-900 rounded">
-            <input type="date" name="date_to" id="dateTo" value="{{ request('date_to') }}" placeholder="To" class="px-4 py-2 border border-navy-900 rounded">
-            <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Filter</button>
-            @if(request()->hasAny(['search', 'status', 'date_from', 'date_to']))
-                <a href="{{ route('invoices.index') }}" class="px-6 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">Clear</a>
-            @endif
+        <form method="GET" action="{{ route('invoices.index') }}" class="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-6 gap-4" id="invoiceSearchForm">
+            <div class="flex flex-col">
+                <label for="invoiceSearch" class="text-xs font-semibold text-gray-600">Search</label>
+                <input type="text" name="search" id="invoiceSearch" value="{{ request('search') }}" placeholder="Search client..." class="px-4 py-2 border border-navy-900 rounded w-full">
+            </div>
+            <div class="flex flex-col">
+                <label for="statusFilter" class="text-xs font-semibold text-gray-600">Status</label>
+                <select name="status" id="statusFilter" class="px-4 py-2 border border-navy-900 rounded w-full">
+                    <option value="">All Status</option>
+                    <option value="Pending" {{ request('status') == 'Pending' ? 'selected' : '' }}>Pending</option>
+                    <option value="Partial Paid" {{ request('status') == 'Partial Paid' ? 'selected' : '' }}>Partial Paid</option>
+                    <option value="Payment Done" {{ request('status') == 'Payment Done' ? 'selected' : '' }}>Payment Done</option>
+                </select>
+            </div>
+            <div class="flex flex-col">
+                <label for="dateFrom" class="text-xs font-semibold text-gray-600">Date From</label>
+                <input type="date" name="date_from" id="dateFrom" value="{{ request('date_from') }}" class="px-4 py-2 border border-navy-900 rounded w-full">
+            </div>
+            <div class="flex flex-col">
+                <label for="dateTo" class="text-xs font-semibold text-gray-600">Date To</label>
+                <input type="date" name="date_to" id="dateTo" value="{{ request('date_to') }}" class="px-4 py-2 border border-navy-900 rounded w-full">
+            </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="flex-1 px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Filter</button>
+                @if(request()->hasAny(['search', 'status', 'date_from', 'date_to']))
+                    <a href="{{ route('invoices.index') }}" class="px-6 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white text-center">Clear</a>
+                @endif
+            </div>
         </form>
 
         <div class="bg-navy-900 text-white p-4 rounded-lg" id="totalAmountBox">
@@ -160,8 +174,18 @@
                 </div>
                 
                 <!-- Pagination -->
-                <div class="px-4 py-3 border-t border-gray-200 bg-gray-50">
-                    {{ $invoices->appends(request()->query())->links() }}</div>
+                <div class="px-4 py-3 border-t border-gray-200 bg-gray-50 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm text-gray-600">
+                    <div>
+                        Showing
+                        <span class="font-semibold">{{ $invoices->firstItem() ?? 0 }}-{{ $invoices->lastItem() ?? 0 }}</span>
+                        of
+                        <span class="font-semibold">{{ $invoices->total() }}</span>
+                        invoices
+                    </div>
+                    <div class="flex justify-end">
+                        {{ $invoices->appends(request()->query())->links() }}
+                    </div>
+                </div>
             @else
                 <div class="p-8 text-center text-gray-600">
                     <p>No invoices found.</p>
