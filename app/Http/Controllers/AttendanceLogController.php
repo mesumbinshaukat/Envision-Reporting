@@ -44,7 +44,7 @@ class AttendanceLogController extends Controller
             $query->failedAttempts();
         }
 
-        $logs = $query->paginate(50);
+        $logs = $query->paginate(10)->withQueryString();
         $employees = EmployeeUser::with('employee')->get();
 
         return view('admin.attendance-logs.index', compact('logs', 'employees'));
