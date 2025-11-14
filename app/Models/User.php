@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -21,6 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'profile_photo_path',
         'office_latitude',
         'office_longitude',
         'office_radius_meters',
@@ -97,6 +99,17 @@ class User extends Authenticatable
     public function baseCurrency()
     {
         return $this->hasOne(Currency::class)->where('is_base', true)->where('is_active', true);
+    }
+
+    public function getProfilePhotoUrlAttribute(): ?string
+    {
+        if (!$this->profile_photo_path) {
+            return null;
+        }
+
+        $relativePath = ltrim($this->profile_photo_path, '/');
+
+        return asset('storage/' . $relativePath);
     }
 
     // Helper method to check if this is an admin user

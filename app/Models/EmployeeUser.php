@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 class EmployeeUser extends Authenticatable
 {
@@ -15,6 +16,7 @@ class EmployeeUser extends Authenticatable
         'email',
         'password',
         'name',
+        'profile_photo_path',
     ];
 
     protected $hidden = [
@@ -67,5 +69,14 @@ class EmployeeUser extends Authenticatable
     public function getGuardName()
     {
         return 'employee';
+    }
+
+    public function getProfilePhotoUrlAttribute(): ?string
+    {
+        if (!$this->profile_photo_path) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->profile_photo_path);
     }
 }

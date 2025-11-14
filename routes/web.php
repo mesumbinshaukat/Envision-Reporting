@@ -16,6 +16,7 @@ use App\Http\Controllers\AttendanceFixRequestController;
 use App\Http\Controllers\AttendanceLogController;
 use App\Http\Controllers\OfficeLocationController;
 use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\EmployeeIpWhitelistController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -95,6 +96,10 @@ Route::middleware(['auth.both', 'admin'])->group(function () {
         Route::get('/create', [AdminAttendanceController::class, 'create'])->name('create');
         Route::post('/', [AdminAttendanceController::class, 'store'])->name('store');
         Route::get('/statistics/view', [AdminAttendanceController::class, 'statistics'])->name('statistics');
+
+        Route::get('/ip-whitelists', [EmployeeIpWhitelistController::class, 'index'])->name('ip-whitelists.index');
+        Route::post('/ip-whitelists', [EmployeeIpWhitelistController::class, 'store'])->name('ip-whitelists.store');
+        Route::delete('/ip-whitelists/{ipWhitelist}', [EmployeeIpWhitelistController::class, 'destroy'])->name('ip-whitelists.destroy');
         
         // Fix request routes (must come before wildcard routes)
         Route::prefix('fix-requests')->name('fix-requests.')->group(function () {

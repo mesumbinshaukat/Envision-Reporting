@@ -148,6 +148,13 @@
                                         </svg>
                                         <span class="ml-2 sidebar-text">Attendance Logs</span>
                                     </a>
+
+                                    <a href="{{ route('admin.attendance.ip-whitelists.index') }}" class="flex items-center px-3 py-2 rounded text-sm transition-colors {{ request()->routeIs('admin.attendance.ip-whitelists.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-100' }}" title="IP Whitelists">
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c.5304 0 1.0391-.2107 1.4142-.5858C13.7893 10.0391 14 9.5304 14 9s-.2107-1.0391-.5858-1.4142C13.0391 7.2107 12.5304 7 12 7s-1.0391.2107-1.4142.5858C10.2107 7.9609 10 8.4696 10 9s.2107 1.0391.5858 1.4142C10.9609 10.7893 11.4696 11 12 11zm0 0v2m0 4h.01M21 12c0 4.9706-8.9999 9-9 9s-9-4.0294-9-9c0-1.3254.5273-2.5977 1.4645-3.5355C4.4023 7.5273 5.6746 7 7 7c1.8604 0 3.411 1.2744 4.6821 2.5455C12.2744 11.411 13.8276 13 16 13c1.326 0 2.5983-.5273 3.5355-1.4645C20.4727 10.5983 21 9.326 21 8" />
+                                        </svg>
+                                        <span class="ml-2 sidebar-text">IP Whitelists</span>
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -237,19 +244,85 @@
                             chevron.style.transform = 'rotate(180deg)';
                         }
                     }
+
+                    const attendanceLinks = [
+                        'admin/attendance/ip-whitelists'
+                    ];
+
+                    attendanceLinks.forEach(segment => {
+                        if (currentPath.includes(segment)) {
+                            const menu = document.getElementById('attendanceMenu');
+                            const chevron = document.getElementById('attendanceChevron');
+                            menu.classList.remove('hidden');
+                            menu.style.maxHeight = menu.scrollHeight + 'px';
+                            chevron.style.transform = 'rotate(180deg)';
+                        }
+                    });
                 });
             </script>
 
             <!-- Main Content -->
             <div class="flex-1 flex flex-col">
-                <!-- Page Heading -->
-                @isset($header)
-                    <header class="bg-white border-b border-navy-900">
-                        <div class="py-6 px-8">
+                <!-- Top Navigation -->
+                <header class="bg-white border-b border-navy-900">
+                    <div class="flex items-center justify-between px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <button type="button" onclick="toggleSidebar()" class="p-2 rounded text-navy-900 hover:bg-navy-900 hover:text-white lg:hidden" aria-label="Toggle sidebar">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                            @isset($header)
+                                <div class="hidden sm:block">
+                                    {{ $header }}
+                                </div>
+                            @else
+                                <h1 class="text-lg font-semibold text-navy-900">{{ config('app.name', 'Envision Reporting') }}</h1>
+                            @endisset
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            <div class="relative" x-data="{ open: false }">
+                                @php
+                                    $isAdmin = auth()->guard('web')->check();
+                                    $user = $isAdmin ? auth()->guard('web')->user() : auth()->guard('employee')->user();
+                                    $photoUrl = $user?->profile_photo_url;
+                                    $initials = $user ? collect(explode(' ', $user->name))->map(fn ($part) => mb_substr($part, 0, 1))->join('') : null;
+                                @endphp
+                                <button type="button" @click="open = !open" class="flex items-center gap-2 bg-navy-50 border border-navy-200 rounded-full px-2 py-1 focus:outline-none focus:ring-2 focus:ring-navy-300">
+                                    <div class="w-10 h-10 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-navy-200 text-navy-900 flex items-center justify-center font-semibold">
+                                        @if ($photoUrl)
+                                            <img src="{{ $photoUrl }}" alt="Profile photo" class="w-full h-full object-cover">
+                                        @else
+                                            <span>{{ $initials ?: 'U' }}</span>
+                                        @endif
+                                    </div>
+                                    <div class="text-left hidden sm:block">
+                                        <div class="text-sm font-semibold text-navy-900">{{ $user?->name }}</div>
+                                        <div class="text-xs text-gray-500">{{ $isAdmin ? 'Administrator' : 'Employee' }}</div>
+                                    </div>
+                                    <svg class="w-4 h-4 text-navy-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                <div x-cloak x-show="open" @click.outside="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white border border-navy-100 rounded-lg shadow-lg z-20">
+                                    <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-navy-900 hover:bg-navy-50">Profile</a>
+                                    <form method="POST" action="{{ route('logout') }}">
+                                        @csrf
+                                        <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @isset($header)
+                        <div class="px-6 pb-4 sm:hidden">
                             {{ $header }}
                         </div>
-                    </header>
-                @endisset
+                    @endisset
+                </header>
 
                 <!-- Page Content -->
                 <main class="flex-1 p-8 bg-white">
