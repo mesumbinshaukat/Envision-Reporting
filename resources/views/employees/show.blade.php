@@ -20,7 +20,7 @@
     <div class="max-w-4xl space-y-6">
         <div class="bg-white border border-navy-900 rounded-lg p-6 space-y-6">
             <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-                <div class="w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 rounded-full border border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center text-2xl font-semibold text-gray-600">
+                <div class="w-24 sm:w-28 aspect-square flex-shrink-0 rounded-full border border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center text-2xl font-semibold text-gray-600">
                     @if($employee->profile_photo_url)
                         <img src="{{ $employee->profile_photo_url }}" alt="{{ $employee->name }} profile photo" class="h-full w-full object-cover">
                     @else
