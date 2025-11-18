@@ -55,7 +55,7 @@ class AttendanceLogController extends Controller
      */
     public function show(AttendanceLog $log)
     {
-        $log->load(['employeeUser.employee', 'attendance']);
+        $log->load(['employeeUser.employee.user', 'attendance']);
         
         return view('admin.attendance-logs.show', compact('log'));
     }

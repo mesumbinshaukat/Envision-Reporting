@@ -13,6 +13,16 @@ class Employee extends Model
 {
     use SoftDeletes;
 
+    public const GEO_MODE_DISABLED = 'disabled';
+    public const GEO_MODE_REQUIRED = 'required';
+    public const GEO_MODE_REQUIRED_WITH_WHITELIST = 'required_with_whitelist';
+
+    public const GEOLOCATION_MODE_OPTIONS = [
+        self::GEO_MODE_DISABLED,
+        self::GEO_MODE_REQUIRED,
+        self::GEO_MODE_REQUIRED_WITH_WHITELIST,
+    ];
+
     protected $fillable = [
         'user_id',
         'currency_id',
@@ -28,13 +38,26 @@ class Employee extends Model
         'salary',
         'commission_rate',
         'geolocation_required',
+        'geolocation_mode',
     ];
 
     protected $casts = [
         'joining_date' => 'date',
         'last_date' => 'date',
         'geolocation_required' => 'boolean',
+        'geolocation_mode' => 'string',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Employee $employee) {
+            if (!in_array($employee->geolocation_mode, self::GEOLOCATION_MODE_OPTIONS, true)) {
+                $employee->geolocation_mode = $employee->geolocation_required ? self::GEO_MODE_REQUIRED : self::GEO_MODE_DISABLED;
+            }
+
+            $employee->geolocation_required = $employee->geolocation_mode !== self::GEO_MODE_DISABLED;
+        });
+    }
 
     public function user()
     {
@@ -119,5 +142,29 @@ class Employee extends Model
 
             return false;
         });
+    }
+
+    public function requiresGeolocation(): bool
+    {
+        return $this->geolocation_mode !== self::GEO_MODE_DISABLED;
+    }
+
+    public function enforcesOfficeRadius(): bool
+    {
+        return $this->geolocation_mode === self::GEO_MODE_REQUIRED;
+    }
+
+    public function usesWhitelistOverride(): bool
+    {
+        return $this->geolocation_mode === self::GEO_MODE_REQUIRED_WITH_WHITELIST;
+    }
+
+    public function geolocationModeLabel(): string
+    {
+        return match ($this->geolocation_mode) {
+            self::GEO_MODE_DISABLED => 'Geolocation disabled',
+            self::GEO_MODE_REQUIRED_WITH_WHITELIST => 'Geolocation via IP whitelist',
+            default => 'Geolocation required (office radius)',
+        };
     }
 }

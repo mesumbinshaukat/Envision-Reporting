@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
-use App\Models\Currency;
+use App\Models\EmployeeIpWhitelist;
 use App\Traits\HandlesCurrency;
-use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 
 class EmployeeController extends Controller
@@ -42,7 +45,9 @@ class EmployeeController extends Controller
     {
         $currencies = $this->getUserCurrencies();
         $baseCurrency = $this->getBaseCurrency();
-        return view('employees.create', compact('currencies', 'baseCurrency'));
+        $geolocationModeOptions = $this->geolocationModeOptions();
+
+        return view('employees.create', compact('currencies', 'baseCurrency', 'geolocationModeOptions'));
     }
 
     public function store(Request $request)
@@ -60,27 +65,53 @@ class EmployeeController extends Controller
             'last_date' => 'nullable|date',
             'salary' => 'required|numeric|min:0',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
-            'geolocation_required' => 'sometimes|boolean',
+            'geolocation_mode' => ['nullable', Rule::in(Employee::GEOLOCATION_MODE_OPTIONS)],
             'create_user_account' => 'nullable|boolean',
             'user_password' => 'required_if:create_user_account,1|nullable|min:8',
         ]);
         
+        $shouldCreateAccount = $request->boolean('create_user_account');
+        $geolocationMode = $shouldCreateAccount
+            ? ($validated['geolocation_mode'] ?? Employee::GEO_MODE_DISABLED)
+            : Employee::GEO_MODE_DISABLED;
+
+        if (!in_array($geolocationMode, Employee::GEOLOCATION_MODE_OPTIONS, true)) {
+            $geolocationMode = Employee::GEO_MODE_REQUIRED;
+        }
+
+        $ipWhitelistEntries = [];
+        if ($geolocationMode === Employee::GEO_MODE_REQUIRED_WITH_WHITELIST) {
+            $ipWhitelistEntries = $this->prepareIpWhitelistEntries($request->input('ip_whitelists', []));
+
+            if (empty($ipWhitelistEntries)) {
+                throw ValidationException::withMessages([
+                    'ip_whitelists' => 'Please add at least one IP address when using IP whitelisting.',
+                ]);
+            }
+        }
+
         $validated['user_id'] = auth()->id();
         $validated['commission_rate'] = $validated['commission_rate'] ?? 0;
-        $validated['geolocation_required'] = $request->boolean('geolocation_required', true);
-        
-        $employee = Employee::create($validated);
-        
-        // Create employee user account if requested
-        if ($request->create_user_account && $request->user_password) {
-            \App\Models\EmployeeUser::create([
-                'employee_id' => $employee->id,
-                'admin_id' => auth()->id(),
-                'email' => $validated['email'],
-                'password' => \Hash::make($request->user_password),
-                'name' => $employee->name,
-            ]);
-        }
+        $validated['geolocation_mode'] = $geolocationMode;
+        $validated['geolocation_required'] = $geolocationMode !== Employee::GEO_MODE_DISABLED;
+
+        DB::transaction(function () use ($validated, $shouldCreateAccount, $request, $ipWhitelistEntries) {
+            $employee = Employee::create($validated);
+
+            if ($shouldCreateAccount && $request->user_password) {
+                \App\Models\EmployeeUser::create([
+                    'employee_id' => $employee->id,
+                    'admin_id' => auth()->id(),
+                    'email' => $validated['email'],
+                    'password' => \Hash::make($request->user_password),
+                    'name' => $employee->name,
+                ]);
+            }
+
+            if (!empty($ipWhitelistEntries)) {
+                $this->createEmployeeIpWhitelists($employee, $ipWhitelistEntries);
+            }
+        });
         
         return redirect()->route('employees.index')->with('success', 'Employee created successfully.');
     }
@@ -88,16 +119,19 @@ class EmployeeController extends Controller
     public function show(Employee $employee)
     {
         $this->authorize('view', $employee);
-        $employee->load(['invoices', 'bonuses', 'salaryReleases', 'currency', 'employeeUser']);
+        $employee->load(['invoices', 'bonuses', 'salaryReleases', 'currency', 'employeeUser', 'ipWhitelists']);
         return view('employees.show', compact('employee'));
     }
 
     public function edit(Employee $employee)
     {
         $this->authorize('update', $employee);
+        $employee->load('ipWhitelists');
         $currencies = $this->getUserCurrencies();
         $baseCurrency = $this->getBaseCurrency();
-        return view('employees.edit', compact('employee', 'currencies', 'baseCurrency'));
+        $geolocationModeOptions = $this->geolocationModeOptions();
+
+        return view('employees.edit', compact('employee', 'currencies', 'baseCurrency', 'geolocationModeOptions'));
     }
 
     public function update(Request $request, Employee $employee)
@@ -117,13 +151,35 @@ class EmployeeController extends Controller
             'last_date' => 'nullable|date',
             'salary' => 'required|numeric|min:0',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
-            'geolocation_required' => 'sometimes|boolean',
+            'geolocation_mode' => ['nullable', Rule::in(Employee::GEOLOCATION_MODE_OPTIONS)],
         ]);
         
         $validated['commission_rate'] = $validated['commission_rate'] ?? 0;
-        $validated['geolocation_required'] = $request->boolean('geolocation_required');
+        $geolocationMode = $employee->employeeUser
+            ? ($validated['geolocation_mode'] ?? $employee->geolocation_mode)
+            : Employee::GEO_MODE_DISABLED;
+
+        $ipWhitelistEntries = [];
+
+        if (!in_array($geolocationMode, Employee::GEOLOCATION_MODE_OPTIONS, true)) {
+            $geolocationMode = Employee::GEO_MODE_REQUIRED;
+        }
+
+        if ($geolocationMode === Employee::GEO_MODE_REQUIRED_WITH_WHITELIST) {
+            $ipWhitelistEntries = $this->prepareIpWhitelistEntries($request->input('ip_whitelists', []));
+
+            if (empty($ipWhitelistEntries)) {
+                throw ValidationException::withMessages([
+                    'ip_whitelists' => 'Please add at least one IP address when using IP whitelisting.',
+                ]);
+            }
+        }
+
+        $validated['geolocation_mode'] = $geolocationMode;
+        $validated['geolocation_required'] = $geolocationMode !== Employee::GEO_MODE_DISABLED;
         
         $employee->update($validated);
+        $this->syncEmployeeIpWhitelists($employee, $ipWhitelistEntries, $geolocationMode);
         
         return redirect()->route('employees.index')->with('success', 'Employee updated successfully.');
     }
@@ -143,7 +199,17 @@ class EmployeeController extends Controller
     {
         $this->authorize('update', $employee);
         
-        $employee->geolocation_required = !$employee->geolocation_required;
+        if (!$employee->employeeUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Create an employee login before toggling geolocation.',
+            ], 422);
+        }
+
+        $employee->geolocation_mode = $employee->geolocation_mode === Employee::GEO_MODE_DISABLED
+            ? Employee::GEO_MODE_REQUIRED
+            : Employee::GEO_MODE_DISABLED;
+        $employee->geolocation_required = $employee->geolocation_mode !== Employee::GEO_MODE_DISABLED;
         $employee->save();
         
         $status = $employee->geolocation_required ? 'enabled' : 'disabled';
@@ -152,7 +218,135 @@ class EmployeeController extends Controller
         return response()->json([
             'success' => true,
             'message' => $message,
-            'geolocation_required' => $employee->geolocation_required
+            'geolocation_required' => $employee->geolocation_required,
+            'geolocation_mode' => $employee->geolocation_mode,
         ]);
+    }
+
+    /**
+     * Return selectable geolocation modes with friendly labels.
+     */
+    protected function geolocationModeOptions(): array
+    {
+        return [
+            Employee::GEO_MODE_DISABLED => 'Default (Geolocation Not Required)',
+            Employee::GEO_MODE_REQUIRED => 'Require geolocation for attendance',
+            Employee::GEO_MODE_REQUIRED_WITH_WHITELIST => 'Geolocation Required With IP Whitelisting',
+        ];
+    }
+
+    /**
+     * Normalize and validate whitelist inputs from the request payload.
+     *
+     * @param array<int, array<string, mixed>> $input
+     * @return array<int, array<string, mixed>>
+     * @throws ValidationException
+     */
+    protected function prepareIpWhitelistEntries(array $input): array
+    {
+        $entries = [];
+        $errors = [];
+
+        foreach ($input as $index => $payload) {
+            $ip = isset($payload['ip_address']) ? trim($payload['ip_address']) : '';
+            $label = isset($payload['label']) ? trim($payload['label']) : null;
+
+            if ($ip === '') {
+                continue;
+            }
+
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                $entries[] = [
+                    'ip_address' => $ip,
+                    'ip_version' => 'ipv4',
+                    'label' => $label,
+                ];
+                continue;
+            }
+
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                $entries[] = [
+                    'ip_address' => strtolower($ip),
+                    'ip_version' => 'ipv6',
+                    'label' => $label,
+                ];
+                continue;
+            }
+
+            $errors["ip_whitelists.{$index}.ip_address"] = 'Please provide a valid IPv4 or IPv6 address.';
+        }
+
+        $duplicates = collect($entries)
+            ->groupBy(fn ($entry) => strtolower($entry['ip_address']))
+            ->filter(fn ($group) => $group->count() > 1)
+            ->keys();
+
+        if ($duplicates->isNotEmpty()) {
+            $errors['ip_whitelists'] = 'Duplicate IP addresses are not allowed.';
+        }
+
+        if (!empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return collect($entries)
+            ->unique(fn ($entry) => strtolower($entry['ip_address']))
+            ->values()
+            ->all();
+    }
+
+    protected function createEmployeeIpWhitelists(Employee $employee, array $entries): void
+    {
+        foreach ($entries as $entry) {
+            EmployeeIpWhitelist::create([
+                'employee_id' => $employee->id,
+                'ip_address' => $entry['ip_address'],
+                'ip_version' => $entry['ip_version'],
+                'label' => $entry['label'] ?? null,
+                'created_by' => auth()->id(),
+            ]);
+        }
+    }
+
+    protected function syncEmployeeIpWhitelists(Employee $employee, array $entries, string $geolocationMode): void
+    {
+        if ($geolocationMode !== Employee::GEO_MODE_REQUIRED_WITH_WHITELIST) {
+            if ($employee->hasIpWhitelist()) {
+                $employee->ipWhitelists()->delete();
+            }
+
+            return;
+        }
+
+        $existing = $employee->ipWhitelists()
+            ->get()
+            ->keyBy(fn ($whitelist) => strtolower($whitelist->ip_address));
+
+        foreach ($entries as $entry) {
+            $key = strtolower($entry['ip_address']);
+
+            if (isset($existing[$key])) {
+                $whitelist = $existing->pull($key);
+                $newLabel = $entry['label'] ?? null;
+
+                if ($whitelist->label !== $newLabel) {
+                    $whitelist->update(['label' => $newLabel]);
+                }
+
+                continue;
+            }
+
+            EmployeeIpWhitelist::create([
+                'employee_id' => $employee->id,
+                'ip_address' => $entry['ip_address'],
+                'ip_version' => $entry['ip_version'],
+                'label' => $entry['label'] ?? null,
+                'created_by' => auth()->id(),
+            ]);
+        }
+
+        foreach ($existing as $stale) {
+            $stale->delete();
+        }
     }
 }

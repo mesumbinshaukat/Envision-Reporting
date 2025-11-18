@@ -8,6 +8,18 @@
             @csrf
             @method('PUT')
 
+            @php
+                $geoModeDefault = \App\Models\Employee::GEO_MODE_DISABLED;
+                $oldGeolocationMode = old('geolocation_mode', $employee->geolocation_mode ?? $geoModeDefault);
+                $initialIpWhitelists = collect(old('ip_whitelists', $employee->ipWhitelists->map(fn ($whitelist) => [
+                    'ip_address' => $whitelist->ip_address,
+                    'label' => $whitelist->label,
+                ])))->filter(fn ($entry) => is_array($entry) && !empty($entry['ip_address']))->values();
+
+                $ipWhitelistError = $errors->first('ip_whitelists')
+                    ?? collect($errors->get('ip_whitelists.*.ip_address'))->first();
+            @endphp
+
             <div>
                 <label for="name" class="block text-sm font-semibold text-navy-900 mb-1">Name *</label>
                 <input type="text" name="name" id="name" value="{{ old('name', $employee->name) }}" required class="w-full px-4 py-2 border border-navy-900 rounded">
@@ -89,17 +101,45 @@
                 <input type="number" name="commission_rate" id="commission_rate" value="{{ old('commission_rate', $employee->commission_rate) }}" step="0.01" min="0" max="100" class="w-full px-4 py-2 border border-navy-900 rounded">
             </div>
 
-            <!-- Geolocation Required Checkbox -->
-            <div class="border-t border-gray-300 pt-4">
-                <label class="flex items-center cursor-pointer">
-                    <input type="checkbox" name="geolocation_required" id="geolocation_required" value="1" {{ old('geolocation_required', $employee->geolocation_required) ? 'checked' : '' }} class="mr-2 w-4 h-4">
-                    <span class="text-sm font-semibold text-navy-900">📍 Require geolocation for attendance</span>
-                </label>
-                <p class="text-xs text-gray-600 mt-1 ml-6">
-                    When enabled, employee must be within office radius to check in/out. 
-                    Disable for remote employees who work from anywhere.
-                </p>
-            </div>
+            @if($employee->employeeUser)
+                <div class="border-t border-gray-300 pt-4 space-y-4">
+                    <div>
+                        <label for="geolocation_mode" class="block text-sm font-semibold text-navy-900 mb-1">Attendance Geolocation Mode *</label>
+                        <select name="geolocation_mode" id="geolocation_mode" class="w-full px-4 py-2 border border-navy-900 rounded">
+                            @foreach($geolocationModeOptions as $value => $label)
+                                <option value="{{ $value }}" {{ $oldGeolocationMode === $value ? 'selected' : '' }}>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-600 mt-1" id="geolocation_mode_hint"></p>
+                    </div>
+
+                    <div id="ip_whitelist_section" class="space-y-3" style="display: none;">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="text-sm font-semibold text-navy-900">Whitelisted IP Addresses</h4>
+                                <p class="text-xs text-gray-600">These IPs are trusted for this employee when they are outside the office radius.</p>
+                            </div>
+                            <button type="button" id="add_ip_btn" class="text-sm text-navy-900 underline">+ Add IP</button>
+                        </div>
+
+                        @if($ipWhitelistError)
+                            <p class="text-xs text-red-600">{{ $ipWhitelistError }}</p>
+                        @endif
+
+                        <div id="ip_whitelist_list" class="space-y-3"></div>
+                        <p class="text-xs text-gray-600">
+                            Need broader management? Visit the
+                            <a href="{{ route('admin.attendance.ip-whitelists.index') }}" class="text-navy-900 underline" target="_blank">IP whitelist admin page</a>.
+                        </p>
+                    </div>
+                </div>
+            @else
+                <div class="border-t border-gray-300 pt-4">
+                    <p class="text-sm text-gray-600">
+                        Geolocation settings are available after creating an employee user account.
+                    </p>
+                </div>
+            @endif
 
             <div class="flex gap-4 mt-4">
                 <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">Update Employee</button>
@@ -142,6 +182,88 @@
     </div>
 
     <script>
+        const geoModeCopy = {
+            '{{ \App\Models\Employee::GEO_MODE_DISABLED }}': 'Employee can check in from anywhere. Geolocation capture is skipped.',
+            '{{ \App\Models\Employee::GEO_MODE_REQUIRED }}': 'Employee must be within office radius. GPS and IP are logged.',
+            '{{ \App\Models\Employee::GEO_MODE_REQUIRED_WITH_WHITELIST }}': 'GPS + IP are logged, but whitelisted IPs can check in even if outside radius.',
+        };
+
+        const geoModeWhitelistValue = '{{ \App\Models\Employee::GEO_MODE_REQUIRED_WITH_WHITELIST }}';
+
+        function onGeoModeChangeEdit() {
+            const select = document.getElementById('geolocation_mode');
+            if (!select) {
+                return;
+            }
+
+            const hint = document.getElementById('geolocation_mode_hint');
+            const ipSection = document.getElementById('ip_whitelist_section');
+            const selected = select.value;
+
+            if (hint) {
+                hint.textContent = geoModeCopy[selected] ?? '';
+            }
+
+            if (ipSection) {
+                ipSection.style.display = selected === geoModeWhitelistValue ? 'block' : 'none';
+                if (selected === geoModeWhitelistValue && !document.querySelector('#ip_whitelist_list .ip-whitelist-row')) {
+                    addIpWhitelistRowEdit();
+                }
+            }
+        }
+
+        function addIpWhitelistRowEdit(ip = '', label = '') {
+            const list = document.getElementById('ip_whitelist_list');
+            if (!list) {
+                return;
+            }
+
+            const index = list.children.length;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'ip-whitelist-row grid grid-cols-1 md:grid-cols-5 gap-3 items-start';
+
+            wrapper.innerHTML = `
+                <div class="md:col-span-2">
+                    <label class="text-xs font-semibold text-navy-900 mb-1 block">IP Address</label>
+                    <input type="text" name="ip_whitelists[${index}][ip_address]" value="${ip}" class="w-full border border-navy-900 rounded px-3 py-2" placeholder="203.0.113.5">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs font-semibold text-navy-900 mb-1 block">Label</label>
+                    <input type="text" name="ip_whitelists[${index}][label]" value="${label}" class="w-full border border-navy-900 rounded px-3 py-2" placeholder="Home WiFi">
+                </div>
+                <div class="md:col-span-1 flex items-end">
+                    <button type="button" class="text-red-600 text-sm underline" onclick="removeIpWhitelistRowEdit(this)">Remove</button>
+                </div>
+            `;
+
+            list.appendChild(wrapper);
+        }
+
+        function removeIpWhitelistRowEdit(button) {
+            const row = button.closest('.ip-whitelist-row');
+            if (row) {
+                row.remove();
+            }
+        }
+
+        function hydrateEditForm() {
+            const addBtn = document.getElementById('add_ip_btn');
+            if (!addBtn) {
+                return;
+            }
+
+            const initialIps = @json($initialIpWhitelists);
+
+            addBtn.addEventListener('click', () => addIpWhitelistRowEdit());
+
+            initialIps.forEach(entry => addIpWhitelistRowEdit(entry.ip_address, entry.label ?? ''));
+
+            document.getElementById('geolocation_mode')?.addEventListener('change', onGeoModeChangeEdit);
+            onGeoModeChangeEdit();
+        }
+
+        document.addEventListener('DOMContentLoaded', hydrateEditForm);
+
         function openEmployeeUserModal() {
             document.getElementById('employeeUserModal').classList.remove('hidden');
             document.getElementById('employeeUserModal').classList.add('flex');

@@ -50,11 +50,23 @@
         <!-- Location Information -->
         <div class="bg-white border border-navy-900 rounded-lg p-6">
             <h3 class="text-xl font-bold text-navy-900 mb-4">Location Information</h3>
+
+            @php
+                $employee = $log->employeeUser->employee;
+                $officeLat = $employee?->user?->office_latitude;
+                $officeLon = $employee?->user?->office_longitude;
+                $geolocationEnabled = $employee?->geolocation_required;
+            @endphp
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <h4 class="text-sm font-semibold text-gray-600 mb-1">Coordinates</h4>
-                    @if($log->latitude && $log->longitude)
+                    <h4 class="text-sm font-semibold text-gray-600 mb-1">
+                        Employee Coordinates
+                        @if(!$geolocationEnabled)
+                            <span class="text-xs text-gray-500 font-normal">(Geolocation disabled)</span>
+                        @endif
+                    </h4>
+                    @if($log->latitude && $log->longitude && $geolocationEnabled)
                         <p class="text-lg text-navy-900 font-mono">
                             {{ number_format($log->latitude, 6) }}, {{ number_format($log->longitude, 6) }}
                         </p>
@@ -65,8 +77,28 @@
                         >
                             View on Google Maps →
                         </a>
-                    @else
+                    @elseif($geolocationEnabled)
                         <p class="text-gray-400">Not available</p>
+                    @else
+                        <p class="text-gray-400">Not required for this employee</p>
+                    @endif
+                </div>
+
+                <div>
+                    <h4 class="text-sm font-semibold text-gray-600 mb-1">Office Coordinates</h4>
+                    @if($officeLat && $officeLon)
+                        <p class="text-lg text-navy-900 font-mono">
+                            {{ number_format($officeLat, 6) }}, {{ number_format($officeLon, 6) }}
+                        </p>
+                        <a 
+                            href="https://www.google.com/maps?q={{ $officeLat }},{{ $officeLon }}" 
+                            target="_blank"
+                            class="text-blue-600 hover:underline text-sm mt-1 inline-block"
+                        >
+                            View Office on Google Maps →
+                        </a>
+                    @else
+                        <p class="text-gray-400">Office location not configured</p>
                     @endif
                 </div>
 

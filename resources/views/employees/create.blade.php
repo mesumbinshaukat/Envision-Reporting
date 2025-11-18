@@ -7,6 +7,21 @@
         <form method="POST" action="{{ route('employees.store') }}" class="bg-white border border-navy-900 rounded-lg p-6 space-y-4">
             @csrf
 
+            @php
+                $geoModeDefault = \App\Models\Employee::GEO_MODE_DISABLED;
+                $oldGeolocationMode = old('geolocation_mode', $geoModeDefault);
+                $initialIpWhitelists = collect(old('ip_whitelists', []))
+                    ->filter(fn ($entry) => is_array($entry) && !empty($entry['ip_address']))
+                    ->values()
+                    ->map(fn ($entry) => [
+                        'ip_address' => $entry['ip_address'],
+                        'label' => $entry['label'] ?? '',
+                    ]);
+
+                $ipWhitelistError = $errors->first('ip_whitelists')
+                    ?? collect($errors->get('ip_whitelists.*.ip_address'))->first();
+            @endphp
+
             <div>
                 <label for="name" class="block text-sm font-semibold text-navy-900 mb-1">Name *</label>
                 <input type="text" name="name" id="name" value="{{ old('name') }}" required class="w-full px-4 py-2 border border-navy-900 rounded">
@@ -89,31 +104,53 @@
                 <p class="text-sm text-gray-600 mt-1">Enter commission percentage (e.g., 5 for 5%)</p>
             </div>
 
-            <!-- Geolocation Required Checkbox -->
+            <!-- Create User Account Checkbox -->
             <div class="border-t border-gray-300 pt-4">
                 <label class="flex items-center cursor-pointer">
-                    <input type="checkbox" name="geolocation_required" id="geolocation_required" value="1" checked class="mr-2 w-4 h-4">
-                    <span class="text-sm font-semibold text-navy-900">📍 Require geolocation for attendance</span>
-                </label>
-                <p class="text-xs text-gray-600 mt-1 ml-6">
-                    When enabled, employee must be within office radius to check in/out. 
-                    Disable for remote employees who work from anywhere.
-                </p>
-            </div>
-
-            <!-- Create User Account Checkbox -->
-            <div class="border-t border-gray-300 pt-4 mt-4">
-                <label class="flex items-center cursor-pointer">
-                    <input type="checkbox" name="create_user_account" id="create_user_account" value="1" class="mr-2 w-4 h-4" onchange="toggleUserPasswordField()">
+                    <input type="checkbox" name="create_user_account" id="create_user_account" value="1" class="mr-2 w-4 h-4" onchange="toggleUserAccountFields()" {{ old('create_user_account') ? 'checked' : '' }}>
                     <span class="text-sm font-semibold text-navy-900">Create employee user account (allows employee to login)</span>
                 </label>
             </div>
 
             <!-- Password Field (Hidden by default) -->
-            <div id="password_field" style="display: none;">
+            <div id="password_field" class="space-y-1" style="display: none;">
                 <label for="user_password" class="block text-sm font-semibold text-navy-900 mb-1">User Password *</label>
                 <input type="password" name="user_password" id="user_password" minlength="8" class="w-full px-4 py-2 border border-navy-900 rounded" disabled>
                 <p class="text-sm text-gray-600 mt-1">Minimum 8 characters. Employee will use their email to login.</p>
+            </div>
+
+            <!-- Geolocation Mode + IP Whitelist (visible only when account is created) -->
+            <div id="geolocation_section" class="border-t border-gray-300 pt-4 space-y-4" style="display: none;">
+                <div>
+                    <label for="geolocation_mode" class="block text-sm font-semibold text-navy-900 mb-1">Attendance Geolocation Mode *</label>
+                    <select name="geolocation_mode" id="geolocation_mode" class="w-full px-4 py-2 border border-navy-900 rounded" disabled>
+                        @foreach($geolocationModeOptions as $value => $label)
+                            <option value="{{ $value }}" {{ $oldGeolocationMode === $value ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-gray-600 mt-1" id="geolocation_mode_hint"></p>
+                </div>
+
+                <div id="ip_whitelist_section" class="space-y-3" style="display: none;">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sm font-semibold text-navy-900">Whitelisted IP Addresses</h4>
+                            <p class="text-xs text-gray-600">These IPs bypass the office radius requirement but still record GPS & IP data.</p>
+                        </div>
+                        <button type="button" id="add_ip_btn" class="text-sm text-navy-900 underline">+ Add IP</button>
+                    </div>
+
+                    @if($ipWhitelistError)
+                        <p class="text-xs text-red-600">{{ $ipWhitelistError }}</p>
+                    @endif
+
+                    <div id="ip_whitelist_list" class="space-y-3"></div>
+
+                    <p class="text-xs text-gray-600">
+                        Need to manage existing IPs later? Use the
+                        <a href="{{ route('admin.attendance.ip-whitelists.index') }}" class="text-navy-900 underline" target="_blank">IP whitelist admin page</a>.
+                    </p>
+                </div>
             </div>
 
             <div class="flex gap-4">
@@ -124,29 +161,119 @@
     </div>
 
     <script>
-        function toggleUserPasswordField() {
+        const geoModeCopy = {
+            '{{ \App\Models\Employee::GEO_MODE_DISABLED }}': 'Employee can check in from anywhere. Geolocation capture is skipped.',
+            '{{ \App\Models\Employee::GEO_MODE_REQUIRED }}': 'Employee must be within office radius. GPS and IP are logged.',
+            '{{ \App\Models\Employee::GEO_MODE_REQUIRED_WITH_WHITELIST }}': 'GPS + IP are logged, but whitelisted IPs can check in even if outside radius.',
+        };
+
+        const geoModeWhitelistValue = '{{ \App\Models\Employee::GEO_MODE_REQUIRED_WITH_WHITELIST }}';
+
+        function toggleUserAccountFields() {
             const checkbox = document.getElementById('create_user_account');
             const passwordField = document.getElementById('password_field');
             const passwordInput = document.getElementById('user_password');
             const submitBtn = document.getElementById('submit_btn');
+            const geoSection = document.getElementById('geolocation_section');
+            const geoModeSelect = document.getElementById('geolocation_mode');
 
-            if (checkbox.checked) {
-                passwordField.style.display = 'block';
-                passwordInput.disabled = false;
-                passwordInput.required = true;
-                submitBtn.disabled = true; // Disable until password is entered
-                
-                // Enable submit when password is typed
-                passwordInput.addEventListener('input', function() {
-                    submitBtn.disabled = this.value.length < 8;
-                });
-            } else {
-                passwordField.style.display = 'none';
-                passwordInput.disabled = true;
-                passwordInput.required = false;
+            const enabled = checkbox.checked;
+
+            passwordField.style.display = enabled ? 'block' : 'none';
+            passwordInput.disabled = !enabled;
+            passwordInput.required = enabled;
+            if (!enabled) {
                 passwordInput.value = '';
+            }
+
+            geoSection.style.display = enabled ? 'block' : 'none';
+            geoModeSelect.disabled = !enabled;
+
+            if (!enabled) {
+                geoModeSelect.value = '{{ $geoModeDefault }}';
+                hideIpWhitelistSection();
                 submitBtn.disabled = false;
+            } else {
+                submitBtn.disabled = passwordInput.value.length < 8;
             }
         }
+
+        function hideIpWhitelistSection() {
+            document.getElementById('ip_whitelist_section').style.display = 'none';
+        }
+
+        function onGeoModeChange() {
+            const geoModeSelect = document.getElementById('geolocation_mode');
+            const hint = document.getElementById('geolocation_mode_hint');
+            const selected = geoModeSelect.value;
+            hint.textContent = geoModeCopy[selected] ?? '';
+
+            const ipSection = document.getElementById('ip_whitelist_section');
+            if (selected === geoModeWhitelistValue) {
+                ipSection.style.display = 'block';
+                if (!document.querySelector('#ip_whitelist_list .ip-whitelist-row')) {
+                    addIpWhitelistRow();
+                }
+            } else {
+                ipSection.style.display = 'none';
+            }
+        }
+
+        function addIpWhitelistRow(ip = '', label = '') {
+            const list = document.getElementById('ip_whitelist_list');
+            const index = list.children.length;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'ip-whitelist-row grid grid-cols-1 md:grid-cols-5 gap-3 items-start';
+
+            wrapper.innerHTML = `
+                <div class="md:col-span-2">
+                    <label class="text-xs font-semibold text-navy-900 mb-1 block">IP Address</label>
+                    <input type="text" name="ip_whitelists[${index}][ip_address]" value="${ip}" class="w-full border border-navy-900 rounded px-3 py-2" placeholder="203.0.113.5">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs font-semibold text-navy-900 mb-1 block">Label</label>
+                    <input type="text" name="ip_whitelists[${index}][label]" value="${label}" class="w-full border border-navy-900 rounded px-3 py-2" placeholder="Home WiFi">
+                </div>
+                <div class="md:col-span-1 flex items-end">
+                    <button type="button" class="text-red-600 text-sm underline" onclick="removeIpWhitelistRow(this)">Remove</button>
+                </div>
+            `;
+
+            list.appendChild(wrapper);
+        }
+
+        function removeIpWhitelistRow(button) {
+            const row = button.closest('.ip-whitelist-row');
+            if (row) {
+                row.remove();
+            }
+        }
+
+        function hydrateFromOldData() {
+            const checkbox = document.getElementById('create_user_account');
+            const passwordInput = document.getElementById('user_password');
+            const submitBtn = document.getElementById('submit_btn');
+            const geoModeSelect = document.getElementById('geolocation_mode');
+
+            const initialIps = @json($initialIpWhitelists);
+
+            document.getElementById('add_ip_btn').addEventListener('click', () => addIpWhitelistRow());
+            geoModeSelect.addEventListener('change', onGeoModeChange);
+
+            const enabled = checkbox.checked;
+            toggleUserAccountFields();
+
+            if (enabled && initialIps.length > 0) {
+                initialIps.forEach(entry => addIpWhitelistRow(entry.ip_address, entry.label));
+            }
+
+            onGeoModeChange();
+
+            passwordInput.addEventListener('input', function() {
+                submitBtn.disabled = checkbox.checked && this.value.length < 8;
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', hydrateFromOldData);
     </script>
 </x-app-layout>

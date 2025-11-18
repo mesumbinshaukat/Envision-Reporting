@@ -50,8 +50,9 @@ class AttendanceController extends Controller
         $employee = $employeeUser->employee()->with(['user', 'ipWhitelists'])->firstOrFail();
         $user = $employee->user;
 
-        // Check if geolocation is required for this employee
-        $geolocationRequired = $employee->geolocation_required ?? true;
+        $geolocationRequired = $employee->requiresGeolocation();
+        $enforceOfficeRadius = $employee->enforcesOfficeRadius();
+        $usesWhitelistMode = $employee->usesWhitelistOverride();
 
         $ipPair = $geoService->getClientIpPair($request);
         $ipWhitelisted = $employee->isIpWhitelisted($ipPair['ipv4'], $ipPair['ipv6']);
@@ -126,11 +127,9 @@ class AttendanceController extends Controller
             ], 400);
         }
 
-        // Initialize distance variable
         $distance = null;
         $radiusMeters = $user->office_radius_meters ?? 15;
 
-        // Only validate location if geolocation is required for this employee
         if ($geolocationRequired) {
             // Check if office location is configured
             if (!$user->office_latitude || !$user->office_longitude) {
@@ -173,8 +172,7 @@ class AttendanceController extends Controller
                 'office_lon' => $user->office_longitude,
             ]);
 
-            // Check if within allowed radius
-            if ($distance > $radiusMeters) {
+            if ($enforceOfficeRadius && $distance > $radiusMeters) {
                 if ($ipWhitelisted) {
                     $ipWhitelistApplied = true;
                     \Log::info('Check-in allowed via IP whitelist override', [
@@ -186,7 +184,6 @@ class AttendanceController extends Controller
                         'allowed_radius' => $radiusMeters,
                     ]);
                 } else {
-                    // Log failed attempt
                     $geoService->logAttempt(
                         $employeeUser->id,
                         null,
@@ -205,6 +202,15 @@ class AttendanceController extends Controller
                         'required_distance' => $radiusMeters,
                     ], 403);
                 }
+            } elseif ($usesWhitelistMode && $ipWhitelisted) {
+                $ipWhitelistApplied = true;
+                \Log::info('Check-in via geolocation whitelist mode', [
+                    'employee_id' => $employeeUser->id,
+                    'distance_meters' => $distance ? round($distance, 2) : null,
+                    'allowed_radius' => $radiusMeters,
+                    'ipv4' => $ipPair['ipv4'],
+                    'ipv6' => $ipPair['ipv6'],
+                ]);
             }
         } else {
             // Remote employee - log that geolocation was skipped
@@ -394,8 +400,7 @@ class AttendanceController extends Controller
                 $user->office_longitude
             );
 
-            // Check if within allowed radius
-            if ($distance > $radiusMeters) {
+            if ($enforceOfficeRadius && $distance > $radiusMeters) {
                 if ($ipWhitelisted) {
                     $ipWhitelistApplied = true;
                     \Log::info('Check-out allowed via IP whitelist override', [
@@ -425,6 +430,15 @@ class AttendanceController extends Controller
                         'required_distance' => $radiusMeters,
                     ], 403);
                 }
+            } elseif ($usesWhitelistMode && $ipWhitelisted) {
+                $ipWhitelistApplied = true;
+                \Log::info('Check-out via geolocation whitelist mode', [
+                    'employee_id' => $employeeUser->id,
+                    'distance_meters' => $distance ? round($distance, 2) : null,
+                    'allowed_radius' => $radiusMeters,
+                    'ipv4' => $ipPair['ipv4'],
+                    'ipv6' => $ipPair['ipv6'],
+                ]);
             }
         } else {
             // Remote employee - log that geolocation was skipped
