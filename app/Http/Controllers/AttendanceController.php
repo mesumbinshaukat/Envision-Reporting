@@ -88,7 +88,7 @@ class AttendanceController extends Controller
 
         // Only process coordinates if geolocation is required
         if ($geolocationRequired && isset($validated['latitude']) && isset($validated['longitude'])) {
-            // Normalize coordinates to 8 decimal places for consistency
+            // Normalize coordinates to 10 decimal places for consistency
             $normalized = $geoService->normalizeCoordinates($validated['latitude'], $validated['longitude']);
             $latitude = $normalized['latitude'];
             $longitude = $normalized['longitude'];
@@ -300,7 +300,7 @@ class AttendanceController extends Controller
 
         // Only process coordinates if geolocation is required
         if ($geolocationRequired && isset($validated['latitude']) && isset($validated['longitude'])) {
-            // Normalize coordinates to 8 decimal places for consistency
+            // Normalize coordinates to 10 decimal places for consistency
             $normalized = $geoService->normalizeCoordinates($validated['latitude'], $validated['longitude']);
             $latitude = $normalized['latitude'];
             $longitude = $normalized['longitude'];

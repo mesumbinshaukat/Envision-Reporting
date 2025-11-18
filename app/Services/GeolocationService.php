@@ -9,12 +9,12 @@ use Jenssegers\Agent\Agent;
 class GeolocationService
 {
     /**
-     * Normalize coordinates to 8 decimal places for consistency.
+     * Normalize coordinates to 10 decimal places for consistency.
      * This ensures all coordinates are stored and compared with the same precision.
      */
     public function normalizeCoordinate(float $coordinate): float
     {
-        return round($coordinate, 8);
+        return round($coordinate, 10);
     }
 
     /**
@@ -31,7 +31,7 @@ class GeolocationService
     /**
      * Calculate distance between two coordinates using Haversine formula.
      * Returns distance in meters.
-     * Coordinates are normalized to 8 decimal places before calculation.
+     * Coordinates are normalized to 10 decimal places before calculation.
      */
     public function calculateDistance(
         float $lat1,
@@ -39,7 +39,7 @@ class GeolocationService
         float $lat2,
         float $lon2
     ): float {
-        // Normalize coordinates to 8 decimal places for consistency
+        // Normalize coordinates to 10 decimal places for consistency
         $lat1 = $this->normalizeCoordinate($lat1);
         $lon1 = $this->normalizeCoordinate($lon1);
         $lat2 = $this->normalizeCoordinate($lat2);
@@ -87,6 +87,7 @@ class GeolocationService
     {
         $ipv4 = null;
         $ipv6 = null;
+        $detectionError = null;
 
         // Prefer explicitly supplied public IPs from the client (captured via JS)
         $reportedIpv4 = $request->input('public_ip') ?? $request->input('public_ip_v4');
@@ -99,47 +100,42 @@ class GeolocationService
             $ipv6 = $reportedIpv6;
         }
 
-        $candidates = [];
+        $attempts = 0;
 
-        if ($forwarded = $request->header('X-Forwarded-For')) {
-            foreach (explode(',', $forwarded) as $ip) {
-                $candidates[] = trim($ip);
-            }
-        }
+        // Attempt 1: direct server variables ($request->ip() and REMOTE_ADDR)
+        $attempts++;
+        $this->processIpCandidate($request->ip(), $ipv4, $ipv6);
+        $this->processIpCandidate($request->server('REMOTE_ADDR'), $ipv4, $ipv6);
 
-        if ($realIp = $request->header('X-Real-IP')) {
-            $candidates[] = trim($realIp);
-        }
+        // Attempt 2: header inspection for first non-private IP
+        if (!$ipv4 && !$ipv6) {
+            $attempts++;
+            $headerValues = [
+                $request->header('X-Forwarded-For'),
+                $request->header('HTTP_X_FORWARDED_FOR'),
+                $request->header('HTTP_CLIENT_IP'),
+                $request->header('HTTP_X_REAL_IP'),
+                $request->header('X-Real-IP'),
+            ];
 
-        $candidates[] = $request->ip();
-        $candidates[] = $request->server('REMOTE_ADDR');
-
-        foreach ($candidates as $ipCandidate) {
-            if (!is_string($ipCandidate) || $ipCandidate === '') {
-                continue;
-            }
-
-            // Handle IPv4-mapped IPv6 addresses (::ffff:)
-            if (stripos($ipCandidate, '::ffff:') === 0) {
-                $mapped = substr($ipCandidate, 7);
-                if (!$ipv4 && filter_var($mapped, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                    $ipv4 = $mapped;
+            foreach ($headerValues as $headerValue) {
+                foreach ($this->extractHeaderIps($headerValue) as $candidate) {
+                    $this->processIpCandidate($candidate, $ipv4, $ipv6, false);
+                    if ($ipv4 || $ipv6) {
+                        break 2;
+                    }
                 }
-                continue;
             }
+        }
 
-            if (!$ipv4 && filter_var($ipCandidate, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                $ipv4 = $ipCandidate;
-                continue;
-            }
-
-            if (!$ipv6 && filter_var($ipCandidate, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-                $ipv6 = $ipCandidate;
-            }
-
-            if ($ipv4 && $ipv6) {
-                break;
-            }
+        // Attempt 3: silent fallback (no further external lookups)
+        if (!$ipv4 && !$ipv6) {
+            $attempts++;
+            $detectionError = sprintf(
+                'Unable to detect IP: no valid headers or server vars found after %d attempts',
+                $attempts
+            );
+            $request->attributes->set('ip_detection_error', $detectionError);
         }
 
         return [
@@ -191,6 +187,15 @@ class GeolocationService
         $deviceInfo = $this->parseUserAgent($request);
         $clientIps = $this->getClientIpPair($request);
         $primaryIp = $clientIps['ipv4'] ?? $clientIps['ipv6'];
+        $ipDetectionError = $request->attributes->get('ip_detection_error');
+
+        if (!$clientIps['ipv4'] && !$clientIps['ipv6'] && $ipDetectionError) {
+            $failureReason = $failureReason ?? 'ip_detection_failed';
+            $additionalInfo = array_merge(
+                $additionalInfo ?? [],
+                ['error' => $ipDetectionError]
+            );
+        }
 
         return AttendanceLog::create([
             'employee_user_id' => $employeeUserId,
@@ -210,6 +215,70 @@ class GeolocationService
             'additional_info' => $additionalInfo ? json_encode($additionalInfo) : null,
             'attempted_at' => now(),
         ]);
+    }
+
+    /**
+     * Process a potential IP candidate and assign it to IPv4/IPv6 slots.
+     */
+    protected function processIpCandidate($candidate, ?string &$ipv4, ?string &$ipv6, bool $allowPrivate = true): void
+    {
+        if (!is_string($candidate)) {
+            return;
+        }
+
+        $candidate = trim($candidate);
+        if ($candidate === '') {
+            return;
+        }
+
+        if (stripos($candidate, '::ffff:') === 0) {
+            $mapped = substr($candidate, 7);
+            if ($mapped !== false) {
+                $candidate = $mapped;
+            }
+        }
+
+        if (!$allowPrivate && $this->isPrivateIp($candidate)) {
+            return;
+        }
+
+        if (!$ipv4 && filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $ipv4 = $candidate;
+            return;
+        }
+
+        if (!$ipv6 && filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $ipv6 = $candidate;
+        }
+    }
+
+    /**
+     * Extract potential IPs from a header value, handling comma-separated lists.
+     */
+    protected function extractHeaderIps(?string $value): array
+    {
+        if (!is_string($value) || $value === '') {
+            return [];
+        }
+
+        return array_filter(array_map('trim', explode(',', $value)));
+    }
+
+    /**
+     * Determine if an IP address belongs to a private or reserved range.
+     */
+    protected function isPrivateIp(string $ip): bool
+    {
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return preg_match('/^(10\.)|(127\.)|(169\.254\.)|(192\.168\.)|(172\.(1[6-9]|2[0-9]|3[0-1])\.)/', $ip) === 1;
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $ip = strtolower($ip);
+            return $ip === '::1' || strpos($ip, 'fe80:') === 0 || strpos($ip, 'fc') === 0 || strpos($ip, 'fd') === 0;
+        }
+
+        return false;
     }
 
     /**

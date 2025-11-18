@@ -202,10 +202,10 @@
 
         // Initialize hybrid geolocation system with more samples for accuracy
         const hybridGeo = new HybridGeolocation({
-            maxAttempts: 7, // Take 7 samples to match admin setup
-            timeout: 20000,
-            minAccuracy: 100,
-            samplingInterval: 2000
+            maxAttempts: 12,
+            timeout: 30000,
+            minAccuracy: 30,
+            samplingInterval: 2500
         });
 
         const wifiPositioning = new WiFiPositioning();
@@ -351,7 +351,7 @@
             const debugInfo = document.getElementById('debugInfo');
             
             debugDiv.classList.remove('hidden');
-            debugInfo.innerHTML = '⏳ Taking 7 GPS samples for accuracy (15-20 seconds)... Please stay still and check console for progress.';
+            debugInfo.innerHTML = '⏳ Taking 12 GPS samples for accuracy (~30 seconds)... Please stay still and check console for progress.';
             
             if (!navigator.geolocation) {
                 debugInfo.innerHTML = '❌ Geolocation not supported';
@@ -361,6 +361,10 @@
             try {
                 // Get GPS location
                 let location = await hybridGeo.getAccurateLocation();
+
+                if (typeof location.accuracy === 'number' && location.accuracy > 30) {
+                    throw new Error('Poor GPS signal - please try near a window or outdoors for better accuracy.');
+                }
                 let methodUsed = location.method || '📍 Raw GPS';
                 console.log('GPS result:', location);
                 
@@ -375,8 +379,8 @@
                     console.log('  Corrected:', correctedLat, correctedLon);
                     
                     location = {
-                        latitude: parseFloat(correctedLat.toFixed(8)),
-                        longitude: parseFloat(correctedLon.toFixed(8)),
+                        latitude: parseFloat(correctedLat.toFixed(10)),
+                        longitude: parseFloat(correctedLon.toFixed(10)),
                         accuracy: Math.min(location.accuracy, 20),
                         method: '🎯 DB-Calibrated',
                         originalGPS: {
@@ -387,9 +391,9 @@
                     methodUsed = '🎯 DB-Calibrated';
                 }
                 
-                // Normalize coordinates to 8 decimal places
-                const lat = parseFloat(location.latitude.toFixed(8));
-                const lon = parseFloat(location.longitude.toFixed(8));
+                // Normalize coordinates to 10 decimal places
+                const lat = parseFloat(location.latitude.toFixed(10));
+                const lon = parseFloat(location.longitude.toFixed(10));
                 const acc = Math.round(location.accuracy);
                 
                 // Office coordinates (from admin settings)
@@ -408,7 +412,7 @@
                         <div class="mt-2 pt-2 border-t border-gray-300">
                             <div class="${statusColor} font-semibold">${statusIcon} Distance from Office: ${distance.toFixed(2)} meters</div>
                             <div class="text-gray-600">Required: Within ${officeRadius} meters</div>
-                            <div class="text-gray-600">Office: ${officeLat.toFixed(8)}, ${officeLon.toFixed(8)}</div>
+                            <div class="text-gray-600">Office: ${officeLat.toFixed(10)}, ${officeLon.toFixed(10)}</div>
                             ${location.corrected ? '<div class="text-blue-600 text-xs mt-1">✨ Location corrected using calibration data</div>' : ''}
                             ${location.sampleCount ? `<div class="text-blue-600 text-xs">${location.sampleCount} GPS samples averaged</div>` : ''}
                             ${withinRange ? 
@@ -422,13 +426,13 @@
                 // Show calibration info if available
                 const calibInfo = dbCalibration ? 
                     `<div class="text-xs text-green-600 mt-1">✅ Database calibration active: ${dbCalibration.label}</div>
-                     <div class="text-xs text-gray-600">Offset: ${dbCalibration.latitude_offset.toFixed(8)}, ${dbCalibration.longitude_offset.toFixed(8)}</div>` : 
+                     <div class="text-xs text-gray-600">Offset: ${dbCalibration.latitude_offset.toFixed(10)}, ${dbCalibration.longitude_offset.toFixed(10)}</div>` : 
                     `<div class="text-xs text-orange-600 mt-1">⚠️ No calibration data. Admin should set office location.</div>`;
                 
                 debugInfo.innerHTML = `
                     ✅ Location obtained<br>
-                    📍 Your Latitude: ${lat.toFixed(8)}<br>
-                    📍 Your Longitude: ${lon.toFixed(8)}<br>
+                    📍 Your Latitude: ${lat.toFixed(10)}<br>
+                    📍 Your Longitude: ${lon.toFixed(10)}<br>
                     🎯 GPS Accuracy: ${acc} meters<br>
                     🔧 Method: ${methodUsed}<br>
                     ${calibInfo}
@@ -467,7 +471,7 @@
             }
 
             // Show getting location message
-            showMessage('📡 Getting your precise location (taking 7 GPS samples, ~15 seconds)... Please stay still.', 'success');
+            showMessage('📡 Getting your precise location (taking 12 GPS samples, ~30 seconds)... Please stay still.', 'success');
 
             try {
                 // Get GPS location first
@@ -480,8 +484,8 @@
                     const correctedLon = location.longitude + dbCalibration.longitude_offset;
                     
                     location = {
-                        latitude: parseFloat(correctedLat.toFixed(8)),
-                        longitude: parseFloat(correctedLon.toFixed(8)),
+                        latitude: parseFloat(correctedLat.toFixed(10)),
+                        longitude: parseFloat(correctedLon.toFixed(10)),
                         accuracy: Math.min(location.accuracy, 20), // Improved accuracy
                         method: 'DB-Calibrated',
                         originalGPS: {
@@ -493,10 +497,10 @@
                     console.log('✨ Applied database calibration:', location);
                 }
                 
-                // Normalize coordinates to 8 decimal places before sending
+                // Normalize coordinates to 10 decimal places before sending
                 const coords = {
-                    latitude: parseFloat(location.latitude.toFixed(8)),
-                    longitude: parseFloat(location.longitude.toFixed(8)),
+                    latitude: parseFloat(location.latitude.toFixed(10)),
+                    longitude: parseFloat(location.longitude.toFixed(10)),
                     accuracy: location.accuracy
                 };
                 
