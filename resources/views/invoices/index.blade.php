@@ -117,7 +117,7 @@
                                                 <div class="flex gap-1">
                                                     <form method="POST" action="{{ route('invoices.approve', $invoice) }}">
                                                         @csrf
-                                                        <button type="submit" class="px-2 py-1 bg-green-600 text-black rounded text-xs hover:bg-green-700">Approve</button>
+                                                        <button type="submit" class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">Approve</button>
                                                     </form>
                                                     <form method="POST" action="{{ route('invoices.reject', $invoice) }}" onsubmit="return confirm('Reject this invoice?');">
                                                         @csrf
