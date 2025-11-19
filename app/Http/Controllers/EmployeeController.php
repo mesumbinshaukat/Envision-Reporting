@@ -37,8 +37,10 @@ class EmployeeController extends Controller
             $query->where('employment_type', $request->employment_type);
         }
         
-        $employees = $query->paginate(10);
-        return view('employees.index', compact('employees'));
+        $employees = $query->paginate(10)->withQueryString();
+        $geolocationModeOptions = $this->geolocationModeOptions();
+
+        return view('employees.index', compact('employees', 'geolocationModeOptions'));
     }
 
     public function create()
@@ -348,5 +350,191 @@ class EmployeeController extends Controller
         foreach ($existing as $stale) {
             $stale->delete();
         }
+    }
+
+    public function bulkAction(Request $request)
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['enable_location', 'disable_location', 'delete'])],
+            'employee_ids' => ['required', 'array', 'min:1'],
+            'employee_ids.*' => ['integer'],
+        ]);
+
+        $ids = collect($data['employee_ids'])->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please select at least one employee.',
+            ], 422);
+        }
+
+        $employees = Employee::where('user_id', auth()->id())
+            ->whereIn('id', $ids)
+            ->with('employeeUser')
+            ->get();
+
+        if ($employees->count() !== $ids->count()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'One or more selected employees could not be found.',
+            ], 422);
+        }
+
+        $summary = [
+            'processed' => [],
+            'skipped' => [],
+        ];
+
+        DB::transaction(function () use ($data, $employees, &$summary) {
+            foreach ($employees as $employee) {
+                $this->authorize('update', $employee);
+
+                switch ($data['action']) {
+                    case 'enable_location':
+                        if (!$employee->employeeUser) {
+                            $summary['skipped'][] = [
+                                'id' => $employee->id,
+                                'reason' => 'No employee login. Create one before enabling location.',
+                            ];
+                            continue 2;
+                        }
+
+                        $employee->geolocation_mode = Employee::GEO_MODE_REQUIRED;
+                        $employee->save();
+                        $summary['processed'][] = $employee->id;
+                        break;
+
+                    case 'disable_location':
+                        $employee->geolocation_mode = Employee::GEO_MODE_DISABLED;
+                        $employee->save();
+                        $summary['processed'][] = $employee->id;
+                        break;
+
+                    case 'delete':
+                        $this->authorize('delete', $employee);
+                        $employee->delete();
+                        $summary['processed'][] = $employee->id;
+                        break;
+                }
+            }
+        });
+
+        $actionMessages = [
+            'enable_location' => 'Location requirement enabled for selected employees.',
+            'disable_location' => 'Location requirement disabled for selected employees.',
+            'delete' => 'Selected employees deleted successfully.',
+        ];
+
+        return response()->json([
+            'success' => true,
+            'message' => $actionMessages[$data['action']] ?? 'Bulk action completed.',
+            'summary' => $summary,
+        ]);
+    }
+
+    public function bulkFetch(Request $request)
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:25'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $ids = collect($data['ids'])->unique()->values();
+
+        $employees = Employee::where('user_id', auth()->id())
+            ->whereIn('id', $ids)
+            ->with(['currency', 'employeeUser'])
+            ->get();
+
+        if ($employees->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No employees found for the provided selection.',
+            ], 404);
+        }
+
+        $collection = $employees->map(function (Employee $employee) {
+            return [
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'email' => $employee->email,
+                'role' => $employee->role,
+                'employment_type' => $employee->employment_type,
+                'salary' => $employee->salary,
+                'commission_rate' => $employee->commission_rate,
+                'currency_symbol' => optional($employee->currency)->symbol ?? 'Rs.',
+                'geolocation_mode' => $employee->geolocation_mode,
+                'geolocation_mode_label' => $employee->geolocationModeLabel(),
+                'has_user_account' => (bool) $employee->employeeUser,
+                'geolocation_required' => $employee->geolocation_required,
+                'joining_date' => optional($employee->joining_date)->format('M d, Y'),
+                'phone' => $employee->primary_contact,
+                'marital_status' => $employee->marital_status,
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'employees' => $collection,
+        ]);
+    }
+
+    public function bulkUpdate(Request $request)
+    {
+        $data = $request->validate([
+            'updates' => ['required', 'array', 'min:1'],
+            'updates.*.id' => ['required', 'integer'],
+            'updates.*.role' => ['required', 'string', 'max:255'],
+            'updates.*.employment_type' => ['required', 'string', 'max:255'],
+            'updates.*.salary' => ['required', 'numeric', 'min:0'],
+            'updates.*.commission_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'updates.*.geolocation_mode' => ['nullable', Rule::in(Employee::GEOLOCATION_MODE_OPTIONS)],
+        ]);
+
+        $ids = collect($data['updates'])->pluck('id')->unique();
+
+        $employees = Employee::where('user_id', auth()->id())
+            ->whereIn('id', $ids)
+            ->with('employeeUser')
+            ->get()
+            ->keyBy('id');
+
+        if ($employees->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No employees matched your selection.',
+            ], 404);
+        }
+
+        DB::transaction(function () use ($data, $employees) {
+            foreach ($data['updates'] as $payload) {
+                $employee = $employees->get($payload['id']);
+
+                if (!$employee) {
+                    continue;
+                }
+
+                $this->authorize('update', $employee);
+
+                $employee->role = $payload['role'];
+                $employee->employment_type = $payload['employment_type'];
+                $employee->salary = $payload['salary'];
+                $employee->commission_rate = $payload['commission_rate'];
+
+                if ($employee->employeeUser && array_key_exists('geolocation_mode', $payload) && $payload['geolocation_mode']) {
+                    $employee->geolocation_mode = $payload['geolocation_mode'];
+                } elseif (!$employee->employeeUser) {
+                    $employee->geolocation_mode = Employee::GEO_MODE_DISABLED;
+                }
+
+                $employee->save();
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Employees updated successfully.',
+        ]);
     }
 }

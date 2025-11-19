@@ -76,6 +76,9 @@ Route::middleware(['auth.both', 'employee'])->group(function () {
 Route::middleware(['auth.both', 'admin'])->group(function () {
     Route::resource('employees', EmployeeController::class);
     Route::post('/employees/{employee}/toggle-geolocation', [EmployeeController::class, 'toggleGeolocation'])->name('employees.toggle-geolocation');
+    Route::post('/employees/bulk/action', [EmployeeController::class, 'bulkAction'])->name('employees.bulk-action');
+    Route::post('/employees/bulk/fetch', [EmployeeController::class, 'bulkFetch'])->name('employees.bulk-fetch');
+    Route::post('/employees/bulk/update', [EmployeeController::class, 'bulkUpdate'])->name('employees.bulk-update');
     Route::post('/employees/{employee}/employee-user', [EmployeeUserController::class, 'store'])->name('employee-users.store');
     Route::delete('/employee-users/{employeeUser}', [EmployeeUserController::class, 'destroy'])->name('employee-users.destroy');
     Route::delete('/employees/{employee}/full-delete', [EmployeeUserController::class, 'destroyFull'])->name('employees.full-delete');

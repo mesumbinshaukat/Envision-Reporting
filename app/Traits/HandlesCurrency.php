@@ -3,20 +3,38 @@
 namespace App\Traits;
 
 use App\Models\Currency;
-use App\Services\CurrencyService;
 
 trait HandlesCurrency
 {
+    /**
+     * Resolve the user ID currencies should belong to.
+     */
+    protected function resolveCurrencyOwnerId(): ?int
+    {
+        if (auth()->guard('employee')->check()) {
+            return optional(auth()->guard('employee')->user())->admin_id;
+        }
+
+        return auth()->id();
+    }
+
     /**
      * Get base currency for current user
      */
     protected function getBaseCurrency()
     {
-        $userId = auth()->id();
-        return Currency::where('user_id', $userId)
-            ->where('is_base', true)
-            ->where('is_active', true)
-            ->first();
+        $userId = $this->resolveCurrencyOwnerId();
+
+        if (!$userId) {
+            return null;
+        }
+
+        $query = Currency::where('user_id', $userId)
+            ->where('is_active', true);
+
+        $baseCurrency = (clone $query)->where('is_base', true)->first();
+
+        return $baseCurrency ?? $query->orderBy('code')->first();
     }
 
     /**
@@ -24,7 +42,12 @@ trait HandlesCurrency
      */
     protected function getUserCurrencies()
     {
-        $userId = auth()->id();
+        $userId = $this->resolveCurrencyOwnerId();
+
+        if (!$userId) {
+            return collect();
+        }
+
         return Currency::where('user_id', $userId)
             ->where('is_active', true)
             ->orderBy('is_base', 'desc')
@@ -37,13 +60,15 @@ trait HandlesCurrency
      */
     protected function getCurrencyOrBase($currencyId = null)
     {
-        if ($currencyId) {
-            $currency = Currency::find($currencyId);
-            if ($currency && $currency->user_id === auth()->id()) {
-                return $currency;
-            }
+        $userId = $this->resolveCurrencyOwnerId();
+
+        if ($currencyId && $userId) {
+            return Currency::where('user_id', $userId)
+                ->where('is_active', true)
+                ->where('id', $currencyId)
+                ->first() ?? $this->getBaseCurrency();
         }
-        
+
         return $this->getBaseCurrency();
     }
 
