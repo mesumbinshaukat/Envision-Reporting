@@ -17,6 +17,7 @@ use App\Http\Controllers\AttendanceLogController;
 use App\Http\Controllers\OfficeLocationController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\EmployeeIpWhitelistController;
+use App\Http\Controllers\EmployeeActivityLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -28,7 +29,7 @@ Route::get('/main', function () {
 })->middleware('auth.both')->name('main');
 
 // Routes accessible by both admin and employee
-Route::middleware(['auth.both'])->group(function () {
+Route::middleware(['auth.both', 'log.employee.activity'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
     // Calibration data - accessible by employees for check-in
@@ -56,7 +57,7 @@ Route::middleware(['auth.both'])->group(function () {
 });
 
 // Employee-only routes (attendance)
-Route::middleware(['auth.both', 'employee'])->group(function () {
+Route::middleware(['auth.both', 'employee', 'log.employee.activity'])->group(function () {
     // Employee attendance
     Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
     Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])->name('attendance.check-in');
@@ -73,7 +74,7 @@ Route::middleware(['auth.both', 'employee'])->group(function () {
 });
 
 // Admin-only routes
-Route::middleware(['auth.both', 'admin'])->group(function () {
+Route::middleware(['auth.both', 'admin', 'log.employee.activity'])->group(function () {
     Route::resource('employees', EmployeeController::class);
     Route::post('/employees/{employee}/toggle-geolocation', [EmployeeController::class, 'toggleGeolocation'])->name('employees.toggle-geolocation');
     Route::post('/employees/bulk/action', [EmployeeController::class, 'bulkAction'])->name('employees.bulk-action');
@@ -139,6 +140,12 @@ Route::middleware(['auth.both', 'admin'])->group(function () {
     Route::prefix('admin/attendance-logs')->name('admin.attendance-logs.')->group(function () {
         Route::get('/', [AttendanceLogController::class, 'index'])->name('index');
         Route::get('/{log}', [AttendanceLogController::class, 'show'])->name('show');
+    });
+
+    // Employee Activity Logs
+    Route::prefix('admin/activity-logs')->name('admin.activity-logs.')->group(function () {
+        Route::get('/', [EmployeeActivityLogController::class, 'index'])->name('index');
+        Route::get('/{log}', [EmployeeActivityLogController::class, 'show'])->name('show');
     });
 });
 

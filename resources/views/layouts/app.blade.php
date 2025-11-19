@@ -196,6 +196,12 @@
                             </svg>
                             <span class="ml-3 sidebar-text">Currency</span>
                         </a>
+                        <a href="{{ route('admin.activity-logs.index') }}" class="flex items-center px-4 py-2 rounded {{ request()->routeIs('admin.activity-logs.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-900 hover:text-white' }}" title="Employee Activity Logs">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5V3a2 2 0 012-2h2a2 2 0 012 2v2M9 5h6"></path>
+                            </svg>
+                            <span class="ml-3 sidebar-text">Activity Logs</span>
+                        </a>
                     @endif
                 </nav>
 
@@ -363,14 +369,14 @@
                         </div>
 
                         <div class="flex items-center gap-4">
-                            <div class="relative" x-data="{ open: false }">
+                            <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false">
                                 @php
                                     $isAdmin = auth()->guard('web')->check();
                                     $user = $isAdmin ? auth()->guard('web')->user() : auth()->guard('employee')->user();
                                     $photoUrl = $user?->profile_photo_url;
                                     $initials = $user ? collect(explode(' ', $user->name))->map(fn ($part) => mb_substr($part, 0, 1))->join('') : null;
                                 @endphp
-                                <button type="button" @click="open = !open" class="flex items-center gap-2 bg-navy-50 border border-navy-200 rounded-full px-2 py-1 focus:outline-none focus:ring-2 focus:ring-navy-300">
+                                <button type="button" @click="open = !open" class="flex items-center gap-2 bg-navy-50 border border-navy-200 rounded-full px-2 py-1 focus:outline-none focus:ring-2 focus:ring-navy-300" :aria-expanded="open.toString()" aria-haspopup="true">
                                     <div class="w-10 h-10 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-navy-200 text-navy-900 flex items-center justify-center font-semibold">
                                         @if ($photoUrl)
                                             <img src="{{ $photoUrl }}" alt="Profile photo" class="w-full h-full object-cover">
@@ -387,7 +393,7 @@
                                     </svg>
                                 </button>
 
-                                <div x-cloak x-show="open" @click.outside="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white border border-navy-100 rounded-lg shadow-lg z-20">
+                                <div x-cloak x-show="open" x-transition class="absolute right-0 mt-2 w-48 bg-white border border-navy-100 rounded-lg shadow-lg z-20" @keydown.escape.prevent.stop="open = false">
                                     <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-navy-900 hover:bg-navy-50">Profile</a>
                                     <form method="POST" action="{{ route('logout') }}">
                                         @csrf

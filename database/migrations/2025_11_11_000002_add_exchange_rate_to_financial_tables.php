@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -32,33 +33,40 @@ return new class extends Migration
         });
 
         // Backfill existing records with current conversion rates
-        DB::statement('
-            UPDATE invoices i
-            JOIN currencies c ON i.currency_id = c.id
-            SET i.exchange_rate_at_time = c.conversion_rate
-            WHERE i.exchange_rate_at_time IS NULL
-        ');
+        if (DB::getDriverName() === 'sqlite') {
+            $this->backfillWithoutJoins('invoices');
+            $this->backfillWithoutJoins('bonuses');
+            $this->backfillWithoutJoins('expenses');
+            $this->backfillWithoutJoins('salary_releases');
+        } else {
+            DB::statement('
+                UPDATE invoices i
+                JOIN currencies c ON i.currency_id = c.id
+                SET i.exchange_rate_at_time = c.conversion_rate
+                WHERE i.exchange_rate_at_time IS NULL
+            ');
 
-        DB::statement('
-            UPDATE bonuses b
-            JOIN currencies c ON b.currency_id = c.id
-            SET b.exchange_rate_at_time = c.conversion_rate
-            WHERE b.exchange_rate_at_time IS NULL
-        ');
+            DB::statement('
+                UPDATE bonuses b
+                JOIN currencies c ON b.currency_id = c.id
+                SET b.exchange_rate_at_time = c.conversion_rate
+                WHERE b.exchange_rate_at_time IS NULL
+            ');
 
-        DB::statement('
-            UPDATE expenses e
-            JOIN currencies c ON e.currency_id = c.id
-            SET e.exchange_rate_at_time = c.conversion_rate
-            WHERE e.exchange_rate_at_time IS NULL
-        ');
+            DB::statement('
+                UPDATE expenses e
+                JOIN currencies c ON e.currency_id = c.id
+                SET e.exchange_rate_at_time = c.conversion_rate
+                WHERE e.exchange_rate_at_time IS NULL
+            ');
 
-        DB::statement('
-            UPDATE salary_releases sr
-            JOIN currencies c ON sr.currency_id = c.id
-            SET sr.exchange_rate_at_time = c.conversion_rate
-            WHERE sr.exchange_rate_at_time IS NULL
-        ');
+            DB::statement('
+                UPDATE salary_releases sr
+                JOIN currencies c ON sr.currency_id = c.id
+                SET sr.exchange_rate_at_time = c.conversion_rate
+                WHERE sr.exchange_rate_at_time IS NULL
+            ');
+        }
     }
 
     /**
@@ -81,5 +89,32 @@ return new class extends Migration
         Schema::table('salary_releases', function (Blueprint $table) {
             $table->dropColumn('exchange_rate_at_time');
         });
+    }
+    protected function backfillWithoutJoins(string $table): void
+    {
+        $rows = DB::table($table)
+            ->whereNull('exchange_rate_at_time')
+            ->whereNotNull('currency_id')
+            ->get(['id', 'currency_id']);
+
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        $currencyRates = DB::table('currencies')
+            ->whereIn('id', $rows->pluck('currency_id')->unique())
+            ->pluck('conversion_rate', 'id');
+
+        foreach ($rows as $row) {
+            $rate = $currencyRates[$row->currency_id] ?? null;
+
+            if ($rate === null) {
+                continue;
+            }
+
+            DB::table($table)
+                ->where('id', $row->id)
+                ->update(['exchange_rate_at_time' => $rate]);
+        }
     }
 };

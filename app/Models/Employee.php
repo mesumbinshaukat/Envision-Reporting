@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\EmployeeIpWhitelist;
@@ -11,7 +12,7 @@ use App\Models\EmployeeIpWhitelist;
  */
 class Employee extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     public const GEO_MODE_DISABLED = 'disabled';
     public const GEO_MODE_REQUIRED = 'required';

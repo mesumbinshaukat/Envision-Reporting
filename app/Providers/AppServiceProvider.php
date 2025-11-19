@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use App\Models\EmployeeActivityLog;
 use App\Models\EmployeeIpWhitelist;
+use App\Policies\EmployeeActivityLogPolicy;
 use App\Policies\EmployeeIpWhitelistPolicy;
 
 class AppServiceProvider extends ServiceProvider
@@ -31,5 +33,6 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::policy(EmployeeIpWhitelist::class, EmployeeIpWhitelistPolicy::class);
+        Gate::policy(EmployeeActivityLog::class, EmployeeActivityLogPolicy::class);
     }
 }

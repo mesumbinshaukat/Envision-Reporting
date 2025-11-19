@@ -8,6 +8,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -17,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'employee' => \App\Http\Middleware\EnsureUserIsEmployee::class,
             'session.warmup' => \App\Http\Middleware\WarmupSession::class,
             'prevent.cache' => \App\Http\Middleware\EnsureSessionCookieHeaders::class,
+            'log.employee.activity' => \App\Http\Middleware\LogEmployeeActivity::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

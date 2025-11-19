@@ -41,6 +41,9 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
+        /** @var \App\Services\EmployeeActivityLogger $activityLogger */
+        $activityLogger = app(\App\Services\EmployeeActivityLogger::class);
+
         // Try admin login first
         if (Auth::guard('web')->attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::clear($this->throttleKey());
@@ -50,11 +53,40 @@ class LoginRequest extends FormRequest
         // Try employee login
         if (Auth::guard('employee')->attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::clear($this->throttleKey());
+
+            $employeeUser = Auth::guard('employee')->user();
+
+            $activityLogger->log('auth_login_success', [
+                'category' => 'auth',
+                'summary' => 'Employee login successful',
+                'description' => sprintf('Employee %s logged in successfully.', $employeeUser?->name ?? $this->input('email')),
+                'employee_user' => $employeeUser,
+                'metadata' => [
+                    'email' => $this->input('email'),
+                    'remember' => $this->boolean('remember'),
+                ],
+            ]);
+
             return;
         }
 
         // Both failed
         RateLimiter::hit($this->throttleKey());
+
+        $employeeUser = \App\Models\EmployeeUser::where('email', $this->input('email'))->first();
+
+        $activityLogger->log('auth_login_failed', [
+            'category' => 'auth',
+            'summary' => 'Employee login failed',
+            'description' => 'Employee login attempt failed due to invalid credentials.',
+            'employee_user' => $employeeUser,
+            'allow_without_employee' => true,
+            'metadata' => [
+                'email' => $this->input('email'),
+                'remember' => $this->boolean('remember'),
+                'ip' => $this->ip(),
+            ],
+        ]);
 
         throw ValidationException::withMessages([
             'email' => trans('auth.failed'),
