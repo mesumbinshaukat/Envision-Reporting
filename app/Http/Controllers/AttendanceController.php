@@ -264,7 +264,9 @@ class AttendanceController extends Controller
         $user = $employee->user;
 
         // Check if geolocation is required for this employee
-        $geolocationRequired = $employee->geolocation_required ?? true;
+        $geolocationRequired = $employee->requiresGeolocation();
+        $enforceOfficeRadius = $employee->enforcesOfficeRadius();
+        $usesWhitelistMode = $employee->usesWhitelistOverride();
 
         $ipPair = $geoService->getClientIpPair($request);
         $ipWhitelisted = $employee->isIpWhitelisted($ipPair['ipv4'], $ipPair['ipv6']);
