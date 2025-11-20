@@ -85,7 +85,7 @@
             <div class="flex items-center justify-between">
                 <a href="{{ url('/') }}" class="flex items-center space-x-3">
                     <!-- <img src="{{ asset('assets/logo.png') }}" alt="{{ config('app.name') }} logo" class="h-12 w-auto"> -->
-                    <div class="hidden sm:block">
+                    <div class="sm:block">
                         <p class="text-xs uppercase tracking-[0.3em] text-navy-900">BIZENTIFY</p>
                         <p class="text-base font-semibold text-slate-700">{{ config('app.name') }}</p>
                     </div>
