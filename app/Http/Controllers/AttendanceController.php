@@ -33,9 +33,22 @@ class AttendanceController extends Controller
             ->get();
 
         // Get today's attendance if exists
+        $today = Carbon::today();
         $todayAttendance = Attendance::forEmployee($employeeUser->id)
-            ->where('attendance_date', Carbon::today())
+            ->where('attendance_date', $today)
             ->first();
+
+        if (!$todayAttendance) {
+            $todayAttendance = Attendance::forEmployee($employeeUser->id)
+                ->whereNull('check_out')
+                ->orderByDesc('attendance_date')
+                ->orderByDesc('check_in')
+                ->first();
+
+            if ($todayAttendance && $todayAttendance->attendance_date->diffInDays($today) > 1) {
+                $todayAttendance = null;
+            }
+        }
 
         return view('attendance.index', compact('attendances', 'todayAttendance', 'employee'));
     }
@@ -52,6 +65,7 @@ class AttendanceController extends Controller
 
         $geolocationRequired = $employee->requiresGeolocation();
         $enforceOfficeRadius = $employee->enforcesOfficeRadius();
+        $officeEnforcementEnabled = $employee->shouldEnforceOfficeLocation();
         $usesWhitelistMode = $employee->usesWhitelistOverride();
 
         $ipPair = $geoService->getClientIpPair($request);
@@ -127,12 +141,38 @@ class AttendanceController extends Controller
             ], 400);
         }
 
+        // Prevent new check-in if there is a pending check-out from a previous day
+        $pendingAttendance = Attendance::forEmployee($employeeUser->id)
+            ->whereNull('check_out')
+            ->orderByDesc('attendance_date')
+            ->first();
+
+        if ($pendingAttendance && $pendingAttendance->attendance_date->isBefore($today)) {
+            $geoService->logAttempt(
+                $employeeUser->id,
+                $pendingAttendance->id,
+                'check_in_failed',
+                'pending_check_out',
+                $latitude,
+                $longitude,
+                null,
+                $request,
+                ['pending_attendance_date' => $pendingAttendance->attendance_date->toDateString()]
+            );
+
+            return response()->json([
+                'success' => false,
+                'message' => 'You still have an open attendance from ' . $pendingAttendance->attendance_date->format('M d, Y') . '. Please check out first or request an attendance fix.',
+            ], 400);
+        }
+
         $distance = null;
         $radiusMeters = $user->office_radius_meters ?? 15;
 
         if ($geolocationRequired) {
-            // Check if office location is configured
-            if (!$user->office_latitude || !$user->office_longitude) {
+            $hasOfficeLocation = $user->office_latitude && $user->office_longitude;
+
+            if (!$hasOfficeLocation && $officeEnforcementEnabled) {
                 // Log attempt
                 $geoService->logAttempt(
                     $employeeUser->id,
@@ -152,27 +192,29 @@ class AttendanceController extends Controller
                 ], 400);
             }
 
-            // Calculate distance from office
-            $distance = $geoService->calculateDistance(
-                $latitude,
-                $longitude,
-                $user->office_latitude,
-                $user->office_longitude
-            );
+            if ($hasOfficeLocation) {
+                // Calculate distance from office
+                $distance = $geoService->calculateDistance(
+                    $latitude,
+                    $longitude,
+                    $user->office_latitude,
+                    $user->office_longitude
+                );
 
-            // Log distance calculation for debugging
-            \Log::info('Check-in distance calculated', [
-                'employee_id' => $employeeUser->id,
-                'distance_meters' => round($distance, 2),
-                'allowed_radius' => $radiusMeters,
-                'within_range' => $distance <= $radiusMeters,
-                'employee_lat' => $latitude,
-                'employee_lon' => $longitude,
-                'office_lat' => $user->office_latitude,
-                'office_lon' => $user->office_longitude,
-            ]);
+                // Log distance calculation for debugging
+                \Log::info('Check-in distance calculated', [
+                    'employee_id' => $employeeUser->id,
+                    'distance_meters' => round($distance, 2),
+                    'allowed_radius' => $radiusMeters,
+                    'within_range' => $distance <= $radiusMeters,
+                    'employee_lat' => $latitude,
+                    'employee_lon' => $longitude,
+                    'office_lat' => $user->office_latitude,
+                    'office_lon' => $user->office_longitude,
+                ]);
+            }
 
-            if ($enforceOfficeRadius && $distance > $radiusMeters) {
+            if ($enforceOfficeRadius && $officeEnforcementEnabled && $distance !== null && $distance > $radiusMeters) {
                 if ($ipWhitelisted) {
                     $ipWhitelistApplied = true;
                     \Log::info('Check-in allowed via IP whitelist override', [
@@ -266,6 +308,7 @@ class AttendanceController extends Controller
         // Check if geolocation is required for this employee
         $geolocationRequired = $employee->requiresGeolocation();
         $enforceOfficeRadius = $employee->enforcesOfficeRadius();
+        $officeEnforcementEnabled = $employee->shouldEnforceOfficeLocation();
         $usesWhitelistMode = $employee->usesWhitelistOverride();
 
         $ipPair = $geoService->getClientIpPair($request);
@@ -276,6 +319,18 @@ class AttendanceController extends Controller
         $attendance = Attendance::forEmployee($employeeUser->id)
             ->where('attendance_date', $today)
             ->first();
+
+        if (!$attendance) {
+            $attendance = Attendance::forEmployee($employeeUser->id)
+                ->whereNull('check_out')
+                ->orderByDesc('attendance_date')
+                ->orderByDesc('check_in')
+                ->first();
+
+            if ($attendance && $attendance->attendance_date->diffInDays($today) > 1) {
+                $attendance = null;
+            }
+        }
 
         if ($employee->hasIpWhitelist() && !$ipWhitelisted) {
             $geoService->logAttempt(
@@ -374,8 +429,9 @@ class AttendanceController extends Controller
 
         // Only validate location if geolocation is required for this employee
         if ($geolocationRequired) {
-            // Check if office location is configured
-            if (!$user->office_latitude || !$user->office_longitude) {
+            $hasOfficeLocation = $user->office_latitude && $user->office_longitude;
+
+            if (!$hasOfficeLocation && $officeEnforcementEnabled) {
                 $geoService->logAttempt(
                     $employeeUser->id,
                     $attendance->id,
@@ -394,15 +450,17 @@ class AttendanceController extends Controller
                 ], 400);
             }
 
-            // Calculate distance from office
-            $distance = $geoService->calculateDistance(
-                $latitude,
-                $longitude,
-                $user->office_latitude,
-                $user->office_longitude
-            );
+            if ($hasOfficeLocation) {
+                // Calculate distance from office
+                $distance = $geoService->calculateDistance(
+                    $latitude,
+                    $longitude,
+                    $user->office_latitude,
+                    $user->office_longitude
+                );
+            }
 
-            if ($enforceOfficeRadius && $distance > $radiusMeters) {
+            if ($enforceOfficeRadius && $officeEnforcementEnabled && $distance !== null && $distance > $radiusMeters) {
                 if ($ipWhitelisted) {
                     $ipWhitelistApplied = true;
                     \Log::info('Check-out allowed via IP whitelist override', [

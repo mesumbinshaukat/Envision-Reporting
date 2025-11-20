@@ -95,7 +95,9 @@ class Attendance extends Model
     public function getWorkDurationAttribute(): ?float
     {
         if ($this->check_in && $this->check_out) {
-            return $this->check_in->diffInHours($this->check_out, true);
+            $minutes = $this->check_in->diffInMinutes($this->check_out, true);
+
+            return round($minutes / 60, 2);
         }
 
         return null;

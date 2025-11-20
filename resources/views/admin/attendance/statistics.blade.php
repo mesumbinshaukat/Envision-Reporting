@@ -59,10 +59,46 @@
             </form>
         </div>
 
+        <!-- Office Schedule Overview -->
+        <div class="bg-white border border-navy-900 rounded-lg p-6 space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h3 class="text-xl font-bold text-navy-900">Reporting Window</h3>
+                    <p class="text-sm text-gray-600">{{ $startDate->format('M d, Y') }} &ndash; {{ $endDate->format('M d, Y') }}</p>
+                </div>
+                <div class="bg-navy-50 border border-navy-200 rounded-lg px-4 py-3 grid grid-cols-2 gap-4 md:gap-8 text-sm">
+                    <div>
+                        <p class="font-semibold text-navy-900">Office Timings</p>
+                        <p class="text-gray-600">
+                            {{ $schedule->start_time }} &ndash; {{ $schedule->end_time }}
+                            @if($schedule->start_time && $schedule->end_time && 
+                                \Carbon\Carbon::parse($schedule->end_time)->lessThanOrEqualTo(\Carbon\Carbon::parse($schedule->start_time)))
+                                <span class="block text-xs text-orange-600">Crosses midnight</span>
+                            @endif
+                        </p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-navy-900">Timezone</p>
+                        <p class="text-gray-600">{{ $schedule->timezone }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+                <p class="font-semibold text-blue-900 mb-1">Configured Working Days</p>
+                <p class="capitalize">{{ $workingDaysCollection->map(fn($date) => $date->translatedFormat('D'))->unique()->implode(', ') ?: 'None' }}</p>
+                @if($closures->isNotEmpty())
+                    <p class="mt-2 text-blue-700">
+                        {{ $closures->count() }} closure{{ $closures->count() === 1 ? '' : 's' }} applied in this range.
+                    </p>
+                @endif
+            </div>
+        </div>
+
         <!-- Summary Statistics -->
         <div class="bg-white border border-navy-900 rounded-lg p-6">
             <h3 class="text-xl font-bold text-navy-900 mb-4">
-                Summary for {{ $startDate->format('M d, Y') }} to {{ $endDate->format('M d, Y') }}
+                Summary Metrics
             </h3>
             
             <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
@@ -79,12 +115,28 @@
                     <p class="text-3xl font-bold text-yellow-600">{{ $statistics->sum('incomplete_days') }}</p>
                 </div>
                 <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <h4 class="text-sm font-semibold text-gray-600 mb-2">Days on Leave</h4>
-                    <p class="text-3xl font-bold text-red-600">{{ $statistics->sum('days_on_leave') }}</p>
+                    <h4 class="text-sm font-semibold text-gray-600 mb-2">Non-Working Days</h4>
+                    <p class="text-3xl font-bold text-red-600">{{ $totalWorkingDays }}</p>
+                    <p class="text-xs text-red-500 mt-1">Working days after removing configured closures.</p>
                 </div>
                 <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
                     <h4 class="text-sm font-semibold text-gray-600 mb-2">Total Hours</h4>
                     <p class="text-3xl font-bold text-purple-600">{{ number_format($statistics->sum('total_hours'), 1) }}</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <h4 class="text-sm font-semibold text-gray-600 mb-2">Late Hours</h4>
+                    <p class="text-3xl font-bold text-orange-600">{{ number_format($statistics->sum('late_hours'), 1) }}</p>
+                </div>
+                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                    <h4 class="text-sm font-semibold text-gray-600 mb-2">Overtime Hours</h4>
+                    <p class="text-3xl font-bold text-emerald-600">{{ number_format($statistics->sum('overtime_hours'), 1) }}</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                    <h4 class="text-sm font-semibold text-gray-600 mb-2">Days on Leave</h4>
+                    <p class="text-3xl font-bold text-slate-600">{{ $statistics->sum('days_on_leave') }}</p>
                 </div>
             </div>
         </div>
@@ -105,6 +157,8 @@
                                 <th class="text-left py-2 px-4 text-navy-900">Days on Leave</th>
                                 <th class="text-left py-2 px-4 text-navy-900">Total Hours</th>
                                 <th class="text-left py-2 px-4 text-navy-900">Avg Hours/Day</th>
+                                <th class="text-left py-2 px-4 text-navy-900">Late (hrs)</th>
+                                <th class="text-left py-2 px-4 text-navy-900">Overtime (hrs)</th>
                                 <th class="text-left py-2 px-4 text-navy-900">Completion Rate</th>
                             </tr>
                         </thead>
@@ -127,23 +181,27 @@
                                                 {{ $stat['incomplete_days'] }}
                                             </span>
                                         @else
-                                            <span class="text-gray-400">0</span>
+                                            <span class="text-gray-500 text-sm">0</span>
                                         @endif
                                     </td>
                                     <td class="py-2 px-4">
                                         @if($stat['days_on_leave'] > 0)
-                                            <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">
+                                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
                                                 {{ $stat['days_on_leave'] }}
                                             </span>
                                         @else
-                                            <span class="text-gray-400">0</span>
+                                            <span class="text-gray-500 text-sm">0</span>
                                         @endif
                                     </td>
-                                    <td class="py-2 px-4 font-semibold">{{ number_format($stat['total_hours'], 2) }}h</td>
-                                    <td class="py-2 px-4">{{ number_format($stat['average_hours'], 2) }}h</td>
+                                    <td class="py-2 px-4">{{ number_format($stat['total_hours'], 1) }}</td>
+                                    <td class="py-2 px-4">{{ number_format($stat['average_hours'], 1) }}</td>
+                                    <td class="py-2 px-4">{{ number_format($stat['late_hours'], 1) }}</td>
+                                    <td class="py-2 px-4">{{ number_format($stat['overtime_hours'], 1) }}</td>
                                     <td class="py-2 px-4">
                                         @php
-                                            $completionRate = $stat['total_days'] > 0 ? ($stat['completed_days'] / $stat['total_days']) * 100 : 0;
+                                            $completionRate = $stat['total_days'] > 0
+                                                ? round(($stat['completed_days'] / $stat['total_days']) * 100, 1)
+                                                : 0;
                                         @endphp
                                         <div class="flex items-center gap-2">
                                             <div class="flex-1 bg-gray-200 rounded-full h-2">
@@ -161,8 +219,33 @@
                     </table>
                 </div>
             @else
-                <p class="text-gray-600 text-center py-8">No attendance data found for the selected date range.</p>
+                <p class="text-gray-600 text-center py-6">No statistics available for the selected range.</p>
             @endif
         </div>
+
+        @if ($closures->isNotEmpty())
+            <div class="bg-white border border-navy-900 rounded-lg p-6">
+                <h3 class="text-xl font-bold text-navy-900 mb-4">Closures Applied</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach ($closures as $closure)
+                        @php
+                            $duration = $closure->end_date
+                                ? $closure->start_date->diffInDays($closure->end_date) + 1
+                                : 1;
+                        @endphp
+                        <div class="border border-navy-200 rounded-lg p-4 bg-navy-50">
+                            <p class="font-semibold text-navy-900">
+                                {{ $closure->start_date->format('M d, Y') }}
+                                @if ($closure->end_date)
+                                    &ndash; {{ $closure->end_date->format('M d, Y') }}
+                                @endif
+                            </p>
+                            <p class="text-sm text-gray-600">{{ $closure->reason ?? 'General Closure' }}</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ $duration }} {{ Str::plural('day', $duration) }}</p>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 </x-app-layout>

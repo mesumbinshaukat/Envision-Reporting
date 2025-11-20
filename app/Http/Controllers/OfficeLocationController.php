@@ -97,6 +97,49 @@ class OfficeLocationController extends Controller
     }
 
     /**
+     * Toggle enforcement of office location radius checks.
+     */
+    public function toggleEnforcement(Request $request)
+    {
+        $admin = Auth::guard('web')->user();
+
+        if (!$admin) {
+            abort(403, 'Only administrators can toggle office location enforcement.');
+        }
+
+        $validated = $request->validate([
+            'enforce_office_location' => 'required|boolean',
+        ]);
+
+        $desiredState = (bool) $validated['enforce_office_location'];
+
+        if ($admin->enforce_office_location !== $desiredState) {
+            $admin->update([
+                'enforce_office_location' => $desiredState,
+            ]);
+
+            \Log::info('Office location enforcement updated.', [
+                'admin_id' => $admin->id,
+                'enforce_office_location' => $desiredState,
+            ]);
+        }
+
+        $message = $desiredState
+            ? 'Office location enforcement enabled. Employees must be within the configured radius to check in or out.'
+            : 'Office location enforcement disabled. Radius checks are temporarily relaxed for all employees.';
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'enforce_office_location' => $desiredState,
+                'message' => $message,
+            ]);
+        }
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    /**
      * Get current location from browser.
      */
     public function getCurrentLocation(Request $request)

@@ -160,6 +160,17 @@ class Employee extends Model
         return $this->geolocation_mode === self::GEO_MODE_REQUIRED_WITH_WHITELIST;
     }
 
+    public function shouldEnforceOfficeLocation(): bool
+    {
+        $user = $this->relationLoaded('user') ? $this->user : $this->user()->first();
+
+        if (!$user) {
+            return true;
+        }
+
+        return (bool) ($user->enforce_office_location ?? true);
+    }
+
     public function geolocationModeLabel(): string
     {
         return match ($this->geolocation_mode) {

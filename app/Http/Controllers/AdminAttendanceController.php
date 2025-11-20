@@ -6,8 +6,10 @@ use App\Models\Attendance;
 use App\Models\EmployeeUser;
 use App\Http\Requests\StoreAttendanceRequest;
 use App\Http\Requests\UpdateAttendanceRequest;
+use App\Services\OfficeScheduleService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AdminAttendanceController extends Controller
 {
@@ -135,7 +137,7 @@ class AdminAttendanceController extends Controller
     /**
      * Display attendance statistics and summary.
      */
-    public function statistics(Request $request)
+    public function statistics(Request $request, OfficeScheduleService $scheduleService)
     {
         $startDate = $request->filled('start_date') 
             ? Carbon::parse($request->start_date) 
@@ -145,15 +147,14 @@ class AdminAttendanceController extends Controller
             ? Carbon::parse($request->end_date) 
             : Carbon::now()->endOfMonth();
 
-        // Calculate total working days (excluding Saturdays and Sundays)
-        $totalWorkingDays = 0;
-        $currentDate = $startDate->copy();
-        while ($currentDate->lte($endDate)) {
-            if (!$currentDate->isWeekend()) {
-                $totalWorkingDays++;
-            }
-            $currentDate->addDay();
-        }
+        /** @var \App\Models\User $adminUser */
+        $adminUser = Auth::user();
+        $schedule = $scheduleService->getSchedule($adminUser);
+        $closures = $scheduleService->getClosuresForRange($adminUser, $startDate, $endDate);
+
+        $workingDaysCollection = $scheduleService->getWorkingDaysBetween($adminUser, $startDate, $endDate, $closures);
+        $workingDaySet = $workingDaysCollection->map(fn (Carbon $date) => $date->toDateString());
+        $totalWorkingDays = $workingDaySet->count();
 
         // Get employees query
         $employeesQuery = EmployeeUser::with(['attendances' => function ($query) use ($startDate, $endDate) {
@@ -171,27 +172,64 @@ class AdminAttendanceController extends Controller
         $allEmployees = EmployeeUser::orderBy('name')->get();
 
         // Calculate statistics
-        $statistics = $employees->map(function ($employee) use ($startDate, $endDate, $totalWorkingDays) {
+        $statistics = $employees->map(function ($employee) use ($startDate, $endDate, $totalWorkingDays, $workingDaySet, $schedule, $scheduleService) {
             $attendances = $employee->attendances;
             $totalDays = $attendances->count();
             $completedDays = $attendances->filter(fn($a) => $a->hasCheckedOut())->count();
-            $totalHours = $attendances->sum('work_duration');
-            
+            $totalWorkedMinutes = 0;
+            $totalLateMinutes = 0;
+            $totalOvertimeMinutes = 0;
+
+            foreach ($attendances as $attendance) {
+                if (!$attendance->check_in || !$attendance->check_out) {
+                    continue;
+                }
+
+                $scheduleWindow = $scheduleService->resolveScheduleWindow($attendance->attendance_date, $schedule);
+
+                if (!$scheduleWindow) {
+                    continue;
+                }
+
+                $metrics = $scheduleService->calculateAttendanceMetrics($attendance, $scheduleWindow);
+                $totalWorkedMinutes += $metrics['worked_minutes'];
+                $totalLateMinutes += $metrics['late_minutes'];
+                $totalOvertimeMinutes += $metrics['overtime_minutes'];
+            }
+
             // Calculate days on leave (working days - days with attendance)
-            $daysOnLeave = $totalWorkingDays - $totalDays;
+            $workedOnWorkingDays = $attendances->filter(function ($attendance) use ($workingDaySet) {
+                return $workingDaySet->contains($attendance->attendance_date->toDateString());
+            })->count();
+
+            $daysOnLeave = max($totalWorkingDays - $workedOnWorkingDays, 0);
 
             return [
                 'employee' => $employee,
                 'total_days' => $totalDays,
                 'completed_days' => $completedDays,
                 'incomplete_days' => $totalDays - $completedDays,
-                'total_hours' => round($totalHours, 2),
-                'average_hours' => $completedDays > 0 ? round($totalHours / $completedDays, 2) : 0,
+                'total_hours' => round($totalWorkedMinutes / 60, 2),
+                'average_hours' => $completedDays > 0 ? round(($totalWorkedMinutes / 60) / $completedDays, 2) : 0,
                 'days_on_leave' => $daysOnLeave,
                 'total_working_days' => $totalWorkingDays,
+                'late_minutes' => $totalLateMinutes,
+                'late_hours' => round($totalLateMinutes / 60, 2),
+                'overtime_minutes' => $totalOvertimeMinutes,
+                'overtime_hours' => round($totalOvertimeMinutes / 60, 2),
+                'worked_minutes' => $totalWorkedMinutes,
             ];
         });
 
-        return view('admin.attendance.statistics', compact('statistics', 'startDate', 'endDate', 'allEmployees'));
+        return view('admin.attendance.statistics', compact(
+            'statistics',
+            'startDate',
+            'endDate',
+            'allEmployees',
+            'schedule',
+            'workingDaysCollection',
+            'closures',
+            'totalWorkingDays'
+        ));
     }
 }

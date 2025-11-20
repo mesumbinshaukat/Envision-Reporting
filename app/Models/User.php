@@ -8,6 +8,10 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * @property-read \App\Models\OfficeSchedule|null $officeSchedule
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OfficeClosure> $officeClosures
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -26,6 +30,7 @@ class User extends Authenticatable
         'office_latitude',
         'office_longitude',
         'office_radius_meters',
+        'enforce_office_location',
     ];
 
     /**
@@ -46,9 +51,22 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+            'enforce_office_location' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function officeSchedule()
+    {
+        return $this->hasOne(OfficeSchedule::class);
+    }
+
+    public function officeClosures()
+    {
+        return $this->hasMany(OfficeClosure::class);
     }
 
     public function clients()

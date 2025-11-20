@@ -158,7 +158,21 @@
                                         </svg>
                                         <span class="ml-2 sidebar-text">Statistics</span>
                                     </a>
-                                    
+
+                                    <a href="{{ route('admin.attendance.office-schedule.edit') }}" class="flex items-center px-3 py-2 rounded text-sm transition-colors {{ request()->routeIs('admin.attendance.office-schedule.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-100' }}" title="Office Timings">
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m4-3.978a8.5 8.5 0 11-8.5-8.5 8.5 8.5 0 018.5 8.5z"></path>
+                                        </svg>
+                                        <span class="ml-2 sidebar-text">Office Timings</span>
+                                    </a>
+
+                                    <a href="{{ route('admin.attendance.closures.index') }}" class="flex items-center px-3 py-2 rounded text-sm transition-colors {{ request()->routeIs('admin.attendance.closures.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-100' }}" title="Office Closures">
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a8 8 0 018 8h-2m-6-8a8 8 0 00-8 8h2m4 4v2m0-2a8 8 0 01-8-8h2m6 8a8 8 0 008-8h-2"></path>
+                                        </svg>
+                                        <span class="ml-2 sidebar-text">Office Closures</span>
+                                    </a>
+
                                     <a href="{{ route('admin.attendance.fix-requests.index') }}" class="flex items-center px-3 py-2 rounded text-sm transition-colors {{ request()->routeIs('admin.attendance.fix-requests.*') ? 'bg-navy-900 text-white' : 'text-navy-900 hover:bg-navy-100' }}" title="Fix Requests">
                                         <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -369,13 +383,31 @@
                         </div>
 
                         <div class="flex items-center gap-4">
+                            @php
+                                $isAdmin = auth()->guard('web')->check();
+                                $user = $isAdmin ? auth()->guard('web')->user() : auth()->guard('employee')->user();
+                                $photoUrl = $user?->profile_photo_url;
+                                $initials = $user ? collect(explode(' ', $user->name))->map(fn ($part) => mb_substr($part, 0, 1))->join('') : null;
+                                $officeEnforcementEnabled = $isAdmin ? (bool) ($user?->enforce_office_location ?? true) : null;
+                            @endphp
+
+                            @if($isAdmin)
+                                <form method="POST" action="{{ route('admin.office-location.toggle-enforcement') }}" class="hidden sm:flex items-center" onsubmit="toggleLocationGuardFeedback(event)">
+                                    @csrf
+                                    <input type="hidden" name="enforce_office_location" value="{{ $officeEnforcementEnabled ? 0 : 1 }}">
+                                    <button type="submit" class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition {{ $officeEnforcementEnabled ? 'border-emerald-500/40 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-amber-500/40 bg-amber-50 text-amber-700 hover:bg-amber-100' }}" title="Toggle office location enforcement">
+                                        <span class="uppercase tracking-[0.2em] text-[0.65rem]">Location Guard</span>
+                                        <span class="flex items-center gap-2">
+                                            <span class="text-xs font-bold">{{ $officeEnforcementEnabled ? 'On' : 'Off' }}</span>
+                                            <span class="relative inline-flex h-5 w-9 items-center rounded-full transition {{ $officeEnforcementEnabled ? 'bg-emerald-500/70' : 'bg-slate-300' }}">
+                                                <span class="inline-block h-4 w-4 rounded-full bg-white shadow transition {{ $officeEnforcementEnabled ? 'translate-x-4' : 'translate-x-1' }}"></span>
+                                            </span>
+                                        </span>
+                                    </button>
+                                </form>
+                            @endif
+
                             <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false">
-                                @php
-                                    $isAdmin = auth()->guard('web')->check();
-                                    $user = $isAdmin ? auth()->guard('web')->user() : auth()->guard('employee')->user();
-                                    $photoUrl = $user?->profile_photo_url;
-                                    $initials = $user ? collect(explode(' ', $user->name))->map(fn ($part) => mb_substr($part, 0, 1))->join('') : null;
-                                @endphp
                                 <button type="button" @click="open = !open" class="flex items-center gap-2 bg-navy-50 border border-navy-200 rounded-full px-2 py-1 focus:outline-none focus:ring-2 focus:ring-navy-300" :aria-expanded="open.toString()" aria-haspopup="true">
                                     <div class="w-10 h-10 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-navy-200 text-navy-900 flex items-center justify-center font-semibold">
                                         @if ($photoUrl)
@@ -444,7 +476,40 @@
         <!-- Hybrid Geolocation Scripts -->
         <script src="{{ asset('js/hybrid-geolocation.js') }}"></script>
         <script src="{{ asset('js/wifi-positioning.js') }}"></script>
-        
+
+        <script>
+            function toggleLocationGuardFeedback(event) {
+                const form = event.currentTarget;
+                const button = form.querySelector('button[type="submit"]');
+                if (!button) {
+                    return;
+                }
+
+                const originalText = button.innerHTML;
+                const targetState = form.querySelector('input[name="enforce_office_location"]').value === '1';
+                button.disabled = true;
+                button.innerHTML = `<span class="flex items-center gap-2">
+                    <svg class="h-4 w-4 animate-spin text-current" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path>
+                    </svg>
+                    <span class="text-xs font-semibold">Turning ${targetState ? 'On' : 'Off'}...</span>
+                </span>`;
+
+                const cleanup = () => {
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                };
+
+                if (!form.dataset.bound) {
+                    form.addEventListener('ajax:complete', cleanup, { once: true });
+                    form.dataset.bound = 'true';
+                }
+
+                setTimeout(cleanup, 4000);
+            }
+        </script>
+
         @stack('scripts')
     </body>
 </html>

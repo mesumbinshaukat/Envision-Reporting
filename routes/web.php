@@ -15,6 +15,8 @@ use App\Http\Controllers\AdminAttendanceController;
 use App\Http\Controllers\AttendanceFixRequestController;
 use App\Http\Controllers\AttendanceLogController;
 use App\Http\Controllers\OfficeLocationController;
+use App\Http\Controllers\OfficeScheduleController;
+use App\Http\Controllers\OfficeClosureController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\EmployeeIpWhitelistController;
 use App\Http\Controllers\EmployeeActivityLogController;
@@ -101,6 +103,13 @@ Route::middleware(['auth.both', 'admin', 'log.employee.activity'])->group(functi
         Route::post('/', [AdminAttendanceController::class, 'store'])->name('store');
         Route::get('/statistics/view', [AdminAttendanceController::class, 'statistics'])->name('statistics');
 
+        Route::get('/office-schedule', [OfficeScheduleController::class, 'edit'])->name('office-schedule.edit');
+        Route::put('/office-schedule', [OfficeScheduleController::class, 'update'])->name('office-schedule.update');
+
+        Route::get('/closures', [OfficeClosureController::class, 'index'])->name('closures.index');
+        Route::post('/closures', [OfficeClosureController::class, 'store'])->name('closures.store');
+        Route::delete('/closures/{closure}', [OfficeClosureController::class, 'destroy'])->name('closures.destroy');
+
         Route::get('/ip-whitelists', [EmployeeIpWhitelistController::class, 'index'])->name('ip-whitelists.index');
         Route::post('/ip-whitelists', [EmployeeIpWhitelistController::class, 'store'])->name('ip-whitelists.store');
         Route::delete('/ip-whitelists/{ipWhitelist}', [EmployeeIpWhitelistController::class, 'destroy'])->name('ip-whitelists.destroy');
@@ -134,6 +143,7 @@ Route::middleware(['auth.both', 'admin', 'log.employee.activity'])->group(functi
         Route::post('/', [OfficeLocationController::class, 'update'])->name('update');
         Route::get('/calibration', [OfficeLocationController::class, 'getCalibration'])->name('calibration');
         Route::post('/current-location', [OfficeLocationController::class, 'getCurrentLocation'])->name('current-location');
+        Route::post('/toggle-enforcement', [OfficeLocationController::class, 'toggleEnforcement'])->name('toggle-enforcement');
     });
     
     // Attendance Logs (admin only)
