@@ -171,6 +171,11 @@ class Employee extends Model
         return (bool) ($user->enforce_office_location ?? true);
     }
 
+    public function requiresActiveGeolocation(): bool
+    {
+        return $this->shouldEnforceOfficeLocation() && $this->requiresGeolocation();
+    }
+
     public function geolocationModeLabel(): string
     {
         return match ($this->geolocation_mode) {

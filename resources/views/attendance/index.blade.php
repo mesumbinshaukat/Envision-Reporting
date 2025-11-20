@@ -26,7 +26,7 @@
         <div id="dynamicMessage" class="hidden px-4 py-3 rounded"></div>
 
         <!-- Location Info - Only show for employees with geolocation required -->
-        @if($employee->geolocation_required)
+        @if($employee->requiresActiveGeolocation())
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div class="flex items-start">
                 <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,7 +198,7 @@
     @push('scripts')
     <script>
         // Check if geolocation is required for this employee
-        const geolocationRequired = @json($employee->geolocation_required);
+        const geolocationRequired = @json($employee->requiresActiveGeolocation());
 
         // Initialize hybrid geolocation system with more samples for accuracy
         const hybridGeo = new HybridGeolocation({

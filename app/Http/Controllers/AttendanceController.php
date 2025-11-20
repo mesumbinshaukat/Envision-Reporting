@@ -63,10 +63,25 @@ class AttendanceController extends Controller
         $employee = $employeeUser->employee()->with(['user', 'ipWhitelists'])->firstOrFail();
         $user = $employee->user;
 
-        $geolocationRequired = $employee->requiresGeolocation();
-        $enforceOfficeRadius = $employee->enforcesOfficeRadius();
         $officeEnforcementEnabled = $employee->shouldEnforceOfficeLocation();
-        $usesWhitelistMode = $employee->usesWhitelistOverride();
+        $employeeGeolocationRequired = $employee->requiresGeolocation();
+        $geolocationRequired = $officeEnforcementEnabled && $employeeGeolocationRequired;
+        $enforceOfficeRadius = $officeEnforcementEnabled && $employee->enforcesOfficeRadius();
+        $usesWhitelistMode = $officeEnforcementEnabled && $employee->usesWhitelistOverride();
+
+        $baseAttemptContext = [
+            'office_enforcement_enabled' => $officeEnforcementEnabled,
+            'employee_geolocation_required' => $employeeGeolocationRequired,
+            'employee_geolocation_mode' => $employee->geolocation_mode,
+        ];
+
+        $logAdditionalInfo = static function (?array $context = null) use ($baseAttemptContext) {
+            if ($context === null) {
+                return $baseAttemptContext;
+            }
+
+            return array_merge($baseAttemptContext, $context);
+        };
 
         $ipPair = $geoService->getClientIpPair($request);
         $ipWhitelisted = $employee->isIpWhitelisted($ipPair['ipv4'], $ipPair['ipv6']);
@@ -82,7 +97,11 @@ class AttendanceController extends Controller
                 null,
                 null,
                 $request,
-                ['error' => 'ip_not_whitelisted', 'ipv4' => $ipPair['ipv4'], 'ipv6' => $ipPair['ipv6']]
+                $logAdditionalInfo([
+                    'error' => 'ip_not_whitelisted',
+                    'ipv4' => $ipPair['ipv4'],
+                    'ipv6' => $ipPair['ipv6'],
+                ])
             );
 
             return response()->json([
@@ -132,7 +151,8 @@ class AttendanceController extends Controller
                 $latitude,
                 $longitude,
                 null,
-                $request
+                $request,
+                $logAdditionalInfo()
             );
 
             return response()->json([
@@ -152,12 +172,15 @@ class AttendanceController extends Controller
                 $employeeUser->id,
                 $pendingAttendance->id,
                 'check_in_failed',
-                'pending_check_out',
+                'other',
                 $latitude,
                 $longitude,
                 null,
                 $request,
-                ['pending_attendance_date' => $pendingAttendance->attendance_date->toDateString()]
+                $logAdditionalInfo([
+                    'code' => 'pending_check_out',
+                    'pending_attendance_date' => $pendingAttendance->attendance_date->toDateString(),
+                ])
             );
 
             return response()->json([
@@ -183,7 +206,9 @@ class AttendanceController extends Controller
                     $longitude,
                     null,
                     $request,
-                    ['error' => 'Office location not configured']
+                    $logAdditionalInfo([
+                        'error' => 'office_location_not_configured',
+                    ])
                 );
 
                 return response()->json([
@@ -234,7 +259,11 @@ class AttendanceController extends Controller
                         $latitude,
                         $longitude,
                         $distance,
-                        $request
+                        $request,
+                        $logAdditionalInfo([
+                            'distance_meters' => $distance,
+                            'allowed_radius_meters' => $radiusMeters,
+                        ])
                     );
 
                     return response()->json([
@@ -285,7 +314,11 @@ class AttendanceController extends Controller
             $longitude,
             $distance,
             $request,
-            $ipWhitelistApplied ? ['ip_whitelist_override' => true] : null
+            $logAdditionalInfo(
+                $ipWhitelistApplied
+                    ? ['ip_whitelist_override' => true]
+                    : null
+            )
         );
 
         return response()->json([
@@ -306,10 +339,25 @@ class AttendanceController extends Controller
         $user = $employee->user;
 
         // Check if geolocation is required for this employee
-        $geolocationRequired = $employee->requiresGeolocation();
-        $enforceOfficeRadius = $employee->enforcesOfficeRadius();
         $officeEnforcementEnabled = $employee->shouldEnforceOfficeLocation();
-        $usesWhitelistMode = $employee->usesWhitelistOverride();
+        $employeeGeolocationRequired = $employee->requiresGeolocation();
+        $geolocationRequired = $officeEnforcementEnabled && $employeeGeolocationRequired;
+        $enforceOfficeRadius = $officeEnforcementEnabled && $employee->enforcesOfficeRadius();
+        $usesWhitelistMode = $officeEnforcementEnabled && $employee->usesWhitelistOverride();
+
+        $baseAttemptContext = [
+            'office_enforcement_enabled' => $officeEnforcementEnabled,
+            'employee_geolocation_required' => $employeeGeolocationRequired,
+            'employee_geolocation_mode' => $employee->geolocation_mode,
+        ];
+
+        $logAdditionalInfo = static function (?array $context = null) use ($baseAttemptContext) {
+            if ($context === null) {
+                return $baseAttemptContext;
+            }
+
+            return array_merge($baseAttemptContext, $context);
+        };
 
         $ipPair = $geoService->getClientIpPair($request);
         $ipWhitelisted = $employee->isIpWhitelisted($ipPair['ipv4'], $ipPair['ipv6']);
@@ -342,7 +390,11 @@ class AttendanceController extends Controller
                 null,
                 null,
                 $request,
-                ['error' => 'ip_not_whitelisted', 'ipv4' => $ipPair['ipv4'], 'ipv6' => $ipPair['ipv6']]
+                $logAdditionalInfo([
+                    'error' => 'ip_not_whitelisted',
+                    'ipv4' => $ipPair['ipv4'],
+                    'ipv6' => $ipPair['ipv6'],
+                ])
             );
 
             return response()->json([
@@ -396,7 +448,8 @@ class AttendanceController extends Controller
                 $latitude,
                 $longitude,
                 null,
-                $request
+                $request,
+                $logAdditionalInfo()
             );
 
             return response()->json([
@@ -414,7 +467,8 @@ class AttendanceController extends Controller
                 $latitude,
                 $longitude,
                 null,
-                $request
+                $request,
+                $logAdditionalInfo()
             );
 
             return response()->json([
@@ -441,7 +495,7 @@ class AttendanceController extends Controller
                     $longitude,
                     null,
                     $request,
-                    ['error' => 'Office location not configured']
+                    $logAdditionalInfo(['error' => 'office_location_not_configured'])
                 );
 
                 return response()->json([
@@ -480,7 +534,11 @@ class AttendanceController extends Controller
                         $latitude,
                         $longitude,
                         $distance,
-                        $request
+                        $request,
+                        $logAdditionalInfo([
+                            'distance_meters' => $distance,
+                            'allowed_radius_meters' => $radiusMeters,
+                        ])
                     );
 
                     return response()->json([
@@ -529,7 +587,11 @@ class AttendanceController extends Controller
             $longitude,
             $distance,
             $request,
-            $ipWhitelistApplied ? ['ip_whitelist_override' => true] : null
+            $logAdditionalInfo(
+                $ipWhitelistApplied
+                    ? ['ip_whitelist_override' => true]
+                    : null
+            )
         );
 
         return response()->json([
