@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreAttendanceRequest extends FormRequest
@@ -27,6 +28,53 @@ class StoreAttendanceRequest extends FormRequest
             'check_in' => ['nullable', 'date_format:Y-m-d H:i:s'],
             'check_out' => ['nullable', 'date_format:Y-m-d H:i:s', 'after:check_in'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge($this->normalizedDateTimes());
+    }
+
+    private function normalizedDateTimes(): array
+    {
+        $fields = ['check_in', 'check_out'];
+        $normalized = [];
+
+        foreach ($fields as $field) {
+            $value = $this->input($field);
+
+            if (!$value) {
+                continue;
+            }
+
+            $normalized[$field] = $this->normalizeDateTime($value) ?? $value;
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeDateTime(string $value): ?string
+    {
+        $formats = [
+            'Y-m-d\\TH:i',
+            'Y-m-d\\TH:i:s',
+            'Y-m-d H:i',
+            'Y-m-d H:i:s',
+        ];
+
+        foreach ($formats as $format) {
+            try {
+                return Carbon::createFromFormat($format, $value)->format('Y-m-d H:i:s');
+            } catch (\Exception $e) {
+                // Try next format
+            }
+        }
+
+        try {
+            return Carbon::parse($value)->format('Y-m-d H:i:s');
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     /**
