@@ -70,6 +70,7 @@ class EmployeeController extends Controller
             'geolocation_mode' => ['nullable', Rule::in(Employee::GEOLOCATION_MODE_OPTIONS)],
             'create_user_account' => 'nullable|boolean',
             'user_password' => 'required_if:create_user_account,1|nullable|min:8',
+            'is_sales_person' => 'nullable|boolean',
         ]);
         
         $shouldCreateAccount = $request->boolean('create_user_account');
@@ -94,6 +95,7 @@ class EmployeeController extends Controller
 
         $validated['user_id'] = auth()->id();
         $validated['commission_rate'] = $validated['commission_rate'] ?? 0;
+        $validated['is_sales_person'] = $request->boolean('is_sales_person');
         $validated['geolocation_mode'] = $geolocationMode;
         $validated['geolocation_required'] = $geolocationMode !== Employee::GEO_MODE_DISABLED;
 
@@ -154,9 +156,11 @@ class EmployeeController extends Controller
             'salary' => 'required|numeric|min:0',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
             'geolocation_mode' => ['nullable', Rule::in(Employee::GEOLOCATION_MODE_OPTIONS)],
+            'is_sales_person' => 'nullable|boolean',
         ]);
-        
+
         $validated['commission_rate'] = $validated['commission_rate'] ?? 0;
+        $validated['is_sales_person'] = $request->boolean('is_sales_person');
         $geolocationMode = $employee->employeeUser
             ? ($validated['geolocation_mode'] ?? $employee->geolocation_mode)
             : Employee::GEO_MODE_DISABLED;

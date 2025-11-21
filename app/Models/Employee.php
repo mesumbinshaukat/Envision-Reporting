@@ -38,6 +38,7 @@ class Employee extends Model
         'last_date',
         'salary',
         'commission_rate',
+        'is_sales_person',
         'geolocation_required',
         'geolocation_mode',
     ];
@@ -47,6 +48,7 @@ class Employee extends Model
         'last_date' => 'date',
         'geolocation_required' => 'boolean',
         'geolocation_mode' => 'string',
+        'is_sales_person' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -180,6 +182,11 @@ class Employee extends Model
         }
 
         return (bool) ($user->enforce_ip_whitelist ?? true);
+    }
+
+    public function isSalesPerson(): bool
+    {
+        return (bool) $this->is_sales_person;
     }
 
     public function requiresActiveGeolocation(): bool

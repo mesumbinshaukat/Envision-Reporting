@@ -104,6 +104,14 @@
                 <p class="text-sm text-gray-600 mt-1">Enter commission percentage (e.g., 5 for 5%)</p>
             </div>
 
+            <div class="flex items-start gap-3">
+                <input type="checkbox" name="is_sales_person" id="is_sales_person" value="1" class="mt-1 w-4 h-4" {{ old('is_sales_person') ? 'checked' : '' }}>
+                <label for="is_sales_person" class="text-sm text-navy-900">
+                    <span class="font-semibold">Enable sales permissions</span>
+                    <span class="block text-xs text-gray-600">Salespeople can create and manage clients and invoices from their employee portal. Leave unchecked for non-sales roles.</span>
+                </label>
+            </div>
+
             <!-- Create User Account Checkbox -->
             <div class="border-t border-gray-300 pt-4">
                 <label class="flex items-center cursor-pointer">

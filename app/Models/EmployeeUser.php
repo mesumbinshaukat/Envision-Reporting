@@ -81,4 +81,9 @@ class EmployeeUser extends Authenticatable
 
         return Storage::disk('public')->url($this->profile_photo_path);
     }
+
+    public function isSalesPerson(): bool
+    {
+        return (bool) optional($this->employee)->is_sales_person;
+    }
 }
