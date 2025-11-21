@@ -4,6 +4,21 @@
     </x-slot>
 
     <div class="space-y-6">
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm">
+            <div class="text-blue-900">
+                <strong>Retention Policy:</strong> Only the last {{ $retentionDays }} days of attendance logs are retained automatically.
+            </div>
+            <form method="POST" action="{{ route('admin.attendance-logs.cleanup') }}" onsubmit="return confirmAttendanceLogCleanup(event)">
+                @csrf
+                <button type="submit" class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-semibold">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V5a2 2 0 00-2-2h-2a2 2 0 00-2 2v2M4 7h16" />
+                    </svg>
+                    Clear All Logs
+                </button>
+            </form>
+        </div>
+
         <!-- Filters -->
         <div class="bg-white border border-navy-900 rounded-lg p-6">
             <h3 class="text-lg font-bold text-navy-900 mb-4">Filters</h3>
@@ -170,3 +185,23 @@
         </div>
     </div>
 </x-app-layout>
+
+@push('scripts')
+    <script>
+        function confirmAttendanceLogCleanup(event) {
+            const proceed = confirm('This will permanently remove all attendance logs. This action cannot be undone. Continue?');
+            if (!proceed) {
+                event.preventDefault();
+                return false;
+            }
+
+            const button = event.currentTarget.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<span class="flex items-center gap-2"><svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v2a6 6 0 00-6 6H4z"></path></svg><span>Clearing...</span></span>';
+            }
+
+            return true;
+        }
+    </script>
+@endpush

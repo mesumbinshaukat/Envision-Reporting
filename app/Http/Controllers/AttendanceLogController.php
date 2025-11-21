@@ -4,16 +4,38 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceLog;
 use App\Models\EmployeeUser;
+use App\Services\LogRetentionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class AttendanceLogController extends Controller
 {
+    private LogRetentionService $retentionService;
+
+    public function __construct(LogRetentionService $retentionService)
+    {
+        $this->retentionService = $retentionService;
+    }
+
     /**
      * Display a listing of attendance logs.
      */
     public function index(Request $request)
     {
+        $this->retentionService->pruneAttendanceLogs();
+
+        $cutoff = Carbon::now()->subDays(LogRetentionService::ATTENDANCE_RETENTION_DAYS);
+
         $query = AttendanceLog::with(['employeeUser.employee', 'attendance'])
+            ->where(function ($builder) use ($cutoff) {
+                $builder->where('attempted_at', '>=', $cutoff)
+                    ->orWhere(function ($inner) use ($cutoff) {
+                        $inner->whereNull('attempted_at')
+                            ->whereNotNull('created_at')
+                            ->where('created_at', '>=', $cutoff);
+                    });
+            })
             ->orderBy('attempted_at', 'desc');
 
         // Filter by employee
@@ -47,7 +69,11 @@ class AttendanceLogController extends Controller
         $logs = $query->paginate(10)->withQueryString();
         $employees = EmployeeUser::with('employee')->get();
 
-        return view('admin.attendance-logs.index', compact('logs', 'employees'));
+        return view('admin.attendance-logs.index', [
+            'logs' => $logs,
+            'employees' => $employees,
+            'retentionDays' => LogRetentionService::ATTENDANCE_RETENTION_DAYS,
+        ]);
     }
 
     /**
@@ -59,4 +85,27 @@ class AttendanceLogController extends Controller
         
         return view('admin.attendance-logs.show', compact('log'));
     }
+
+    public function cleanup(Request $request)
+    {
+        $admin = Auth::guard('web')->user();
+
+        if (!$admin) {
+            abort(403, 'Only administrators can clear attendance logs.');
+        }
+
+        $deleted = $this->retentionService->clearAttendanceLogs();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'deleted' => $deleted,
+                'message' => 'Attendance logs cleared successfully.',
+            ]);
+        }
+
+        return redirect()->route('admin.attendance-logs.index')
+            ->with('success', sprintf('%d attendance log%s removed successfully.', $deleted, $deleted === 1 ? '' : 's'));
+    }
+
 }

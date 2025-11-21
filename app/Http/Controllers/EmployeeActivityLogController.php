@@ -4,12 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\EmployeeActivityLog;
 use App\Models\EmployeeUser;
+use App\Services\LogRetentionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 
 class EmployeeActivityLogController extends Controller
 {
+    public function __construct(private readonly LogRetentionService $retentionService)
+    {
+    }
+
     /**
      * Display a listing of employee activity logs.
      */
@@ -23,6 +29,10 @@ class EmployeeActivityLogController extends Controller
         if (!$adminId) {
             abort(403, 'Only administrators can view employee activity logs.');
         }
+
+        $this->retentionService->pruneActivityLogs($adminId);
+
+        $cutoff = Carbon::now()->subDays(LogRetentionService::ACTIVITY_RETENTION_DAYS);
 
         $perPageInput = $request->input('per_page');
         $perPage = max(min((int) ($perPageInput ?: 25), 100), 5);
@@ -39,7 +49,15 @@ class EmployeeActivityLogController extends Controller
 
         $query = EmployeeActivityLog::query()
             ->with(['employeeUser.employee'])
-            ->where('admin_id', $adminId);
+            ->where('admin_id', $adminId)
+            ->where(function ($builder) use ($cutoff) {
+                $builder->where('occurred_at', '>=', $cutoff)
+                    ->orWhere(function ($inner) use ($cutoff) {
+                        $inner->whereNull('occurred_at')
+                            ->whereNotNull('created_at')
+                            ->where('created_at', '>=', $cutoff);
+                    });
+            });
 
         // Filters
         if ($request->filled('employee_user_id')) {
@@ -191,6 +209,7 @@ class EmployeeActivityLogController extends Controller
                 'direction' => $direction,
                 'http_method' => $request->input('http_method'),
             ],
+            'retentionDays' => LogRetentionService::ACTIVITY_RETENTION_DAYS,
         ]);
     }
 
@@ -212,6 +231,30 @@ class EmployeeActivityLogController extends Controller
         return view('admin.activity-logs.show', compact('log'));
     }
 
+    public function cleanup(Request $request)
+    {
+        Gate::authorize('viewAny', EmployeeActivityLog::class);
+
+        $admin = Auth::guard('web')->user();
+
+        if (!$admin) {
+            abort(403, 'Only administrators can clear activity logs.');
+        }
+
+        $deleted = $this->retentionService->clearActivityLogsForAdmin($admin->id);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'deleted' => $deleted,
+                'message' => 'Activity logs cleared successfully.',
+            ]);
+        }
+
+        return redirect()->route('admin.activity-logs.index')
+            ->with('success', sprintf('%d activity log%s removed successfully.', $deleted, $deleted === 1 ? '' : 's'));
+    }
+
     private function parseDate($value): ?Carbon
     {
         if (!$value) {
@@ -224,4 +267,5 @@ class EmployeeActivityLogController extends Controller
             return null;
         }
     }
+
 }

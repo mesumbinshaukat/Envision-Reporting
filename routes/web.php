@@ -150,12 +150,14 @@ Route::middleware(['auth.both', 'admin', 'log.employee.activity'])->group(functi
     // Attendance Logs (admin only)
     Route::prefix('admin/attendance-logs')->name('admin.attendance-logs.')->group(function () {
         Route::get('/', [AttendanceLogController::class, 'index'])->name('index');
+        Route::post('/cleanup', [AttendanceLogController::class, 'cleanup'])->name('cleanup');
         Route::get('/{log}', [AttendanceLogController::class, 'show'])->name('show');
     });
 
     // Employee Activity Logs
     Route::prefix('admin/activity-logs')->name('admin.activity-logs.')->group(function () {
         Route::get('/', [EmployeeActivityLogController::class, 'index'])->name('index');
+        Route::post('/cleanup', [EmployeeActivityLogController::class, 'cleanup'])->name('cleanup');
         Route::get('/{log}', [EmployeeActivityLogController::class, 'show'])->name('show');
     });
 });
