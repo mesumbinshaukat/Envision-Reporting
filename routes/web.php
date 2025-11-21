@@ -144,6 +144,7 @@ Route::middleware(['auth.both', 'admin', 'log.employee.activity'])->group(functi
         Route::get('/calibration', [OfficeLocationController::class, 'getCalibration'])->name('calibration');
         Route::post('/current-location', [OfficeLocationController::class, 'getCurrentLocation'])->name('current-location');
         Route::post('/toggle-enforcement', [OfficeLocationController::class, 'toggleEnforcement'])->name('toggle-enforcement');
+        Route::post('/toggle-ip-whitelist', [OfficeLocationController::class, 'toggleIpWhitelist'])->name('toggle-ip-whitelist');
     });
     
     // Attendance Logs (admin only)

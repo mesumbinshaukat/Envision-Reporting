@@ -389,22 +389,39 @@
                                 $photoUrl = $user?->profile_photo_url;
                                 $initials = $user ? collect(explode(' ', $user->name))->map(fn ($part) => mb_substr($part, 0, 1))->join('') : null;
                                 $officeEnforcementEnabled = $isAdmin ? (bool) ($user?->enforce_office_location ?? true) : null;
+                                $ipWhitelistEnforcementEnabled = $isAdmin ? (bool) ($user?->enforce_ip_whitelist ?? true) : null;
                             @endphp
 
                             @if($isAdmin)
-                                <form method="POST" action="{{ route('admin.office-location.toggle-enforcement') }}" class="hidden sm:flex items-center" onsubmit="toggleLocationGuardFeedback(event)">
-                                    @csrf
-                                    <input type="hidden" name="enforce_office_location" value="{{ $officeEnforcementEnabled ? 0 : 1 }}">
-                                    <button type="submit" class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition {{ $officeEnforcementEnabled ? 'border-emerald-500/40 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-amber-500/40 bg-amber-50 text-amber-700 hover:bg-amber-100' }}" title="Toggle office location enforcement">
-                                        <span class="uppercase tracking-[0.2em] text-[0.65rem]">Location Guard</span>
-                                        <span class="flex items-center gap-2">
-                                            <span class="text-xs font-bold">{{ $officeEnforcementEnabled ? 'On' : 'Off' }}</span>
-                                            <span class="relative inline-flex h-5 w-9 items-center rounded-full transition {{ $officeEnforcementEnabled ? 'bg-emerald-500/70' : 'bg-slate-300' }}">
-                                                <span class="inline-block h-4 w-4 rounded-full bg-white shadow transition {{ $officeEnforcementEnabled ? 'translate-x-4' : 'translate-x-1' }}"></span>
+                                <div class="hidden sm:flex items-center gap-2">
+                                    <form method="POST" action="{{ route('admin.office-location.toggle-enforcement') }}" class="flex items-center" onsubmit="toggleLocationGuardFeedback(event)">
+                                        @csrf
+                                        <input type="hidden" name="enforce_office_location" value="{{ $officeEnforcementEnabled ? 0 : 1 }}">
+                                        <button type="submit" class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition {{ $officeEnforcementEnabled ? 'border-emerald-500/40 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-amber-500/40 bg-amber-50 text-amber-700 hover:bg-amber-100' }}" title="Toggle office location enforcement">
+                                            <span class="uppercase tracking-[0.2em] text-[0.65rem]">Location Guard</span>
+                                            <span class="flex items-center gap-2">
+                                                <span class="text-xs font-bold">{{ $officeEnforcementEnabled ? 'On' : 'Off' }}</span>
+                                                <span class="relative inline-flex h-5 w-9 items-center rounded-full transition {{ $officeEnforcementEnabled ? 'bg-emerald-500/70' : 'bg-slate-300' }}">
+                                                    <span class="inline-block h-4 w-4 rounded-full bg-white shadow transition {{ $officeEnforcementEnabled ? 'translate-x-4' : 'translate-x-1' }}"></span>
+                                                </span>
                                             </span>
-                                        </span>
-                                    </button>
-                                </form>
+                                        </button>
+                                    </form>
+
+                                    <form method="POST" action="{{ route('admin.office-location.toggle-ip-whitelist') }}" class="flex items-center" onsubmit="toggleIpSafelistFeedback(event)">
+                                        @csrf
+                                        <input type="hidden" name="enforce_ip_whitelist" value="{{ $ipWhitelistEnforcementEnabled ? 0 : 1 }}">
+                                        <button type="submit" class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition {{ $ipWhitelistEnforcementEnabled ? 'border-sky-500/40 bg-sky-50 text-sky-700 hover:bg-sky-100' : 'border-slate-400/50 bg-slate-100 text-slate-700 hover:bg-slate-200' }}" title="Toggle IP safelist enforcement">
+                                            <span class="uppercase tracking-[0.2em] text-[0.65rem]">IP Safelist</span>
+                                            <span class="flex items-center gap-2">
+                                                <span class="text-xs font-bold">{{ $ipWhitelistEnforcementEnabled ? 'On' : 'Off' }}</span>
+                                                <span class="relative inline-flex h-5 w-9 items-center rounded-full transition {{ $ipWhitelistEnforcementEnabled ? 'bg-sky-500/70' : 'bg-slate-300' }}">
+                                                    <span class="inline-block h-4 w-4 rounded-full bg-white shadow transition {{ $ipWhitelistEnforcementEnabled ? 'translate-x-4' : 'translate-x-1' }}"></span>
+                                                </span>
+                                            </span>
+                                        </button>
+                                    </form>
+                                </div>
                             @endif
 
                             <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false">
@@ -478,7 +495,7 @@
         <script src="{{ asset('js/wifi-positioning.js') }}"></script>
 
         <script>
-            function toggleLocationGuardFeedback(event) {
+            function withToggleFeedback(event, inputName) {
                 const form = event.currentTarget;
                 const button = form.querySelector('button[type="submit"]');
                 if (!button) {
@@ -486,7 +503,7 @@
                 }
 
                 const originalText = button.innerHTML;
-                const targetState = form.querySelector('input[name="enforce_office_location"]').value === '1';
+                const targetState = form.querySelector(`input[name="${inputName}"]`).value === '1';
                 button.disabled = true;
                 button.innerHTML = `<span class="flex items-center gap-2">
                     <svg class="h-4 w-4 animate-spin text-current" fill="none" viewBox="0 0 24 24">
@@ -507,6 +524,14 @@
                 }
 
                 setTimeout(cleanup, 4000);
+            }
+
+            function toggleLocationGuardFeedback(event) {
+                withToggleFeedback(event, 'enforce_office_location');
+            }
+
+            function toggleIpSafelistFeedback(event) {
+                withToggleFeedback(event, 'enforce_ip_whitelist');
             }
         </script>
 

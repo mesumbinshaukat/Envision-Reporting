@@ -139,6 +139,46 @@ class OfficeLocationController extends Controller
         return redirect()->back()->with('success', $message);
     }
 
+    public function toggleIpWhitelist(Request $request)
+    {
+        $admin = Auth::guard('web')->user();
+
+        if (!$admin) {
+            abort(403, 'Only administrators can toggle IP safelist enforcement.');
+        }
+
+        $validated = $request->validate([
+            'enforce_ip_whitelist' => 'required|boolean',
+        ]);
+
+        $desiredState = (bool) $validated['enforce_ip_whitelist'];
+
+        if ($admin->enforce_ip_whitelist !== $desiredState) {
+            $admin->update([
+                'enforce_ip_whitelist' => $desiredState,
+            ]);
+
+            \Log::info('IP whitelist enforcement updated.', [
+                'admin_id' => $admin->id,
+                'enforce_ip_whitelist' => $desiredState,
+            ]);
+        }
+
+        $message = $desiredState
+            ? 'IP Safelist enforcement enabled. Only approved networks may bypass location requirements when out of radius.'
+            : 'IP Safelist enforcement disabled. Whitelisted network overrides are temporarily ignored for all employees.';
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'enforce_ip_whitelist' => $desiredState,
+                'message' => $message,
+            ]);
+        }
+
+        return redirect()->back()->with('success', $message);
+    }
+
     /**
      * Get current location from browser.
      */

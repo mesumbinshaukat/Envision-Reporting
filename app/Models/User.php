@@ -32,6 +32,7 @@ class User extends Authenticatable
         'office_longitude',
         'office_radius_meters',
         'enforce_office_location',
+        'enforce_ip_whitelist',
     ];
 
     /**
@@ -55,6 +56,7 @@ class User extends Authenticatable
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'enforce_office_location' => 'boolean',
+            'enforce_ip_whitelist' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];

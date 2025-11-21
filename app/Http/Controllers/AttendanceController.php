@@ -64,15 +64,17 @@ class AttendanceController extends Controller
         $user = $employee->user;
 
         $officeEnforcementEnabled = $employee->shouldEnforceOfficeLocation();
+        $ipWhitelistEnforcementEnabled = $employee->shouldEnforceIpWhitelist();
         $employeeGeolocationRequired = $employee->requiresGeolocation();
         $geolocationRequired = $officeEnforcementEnabled && $employeeGeolocationRequired;
         $enforceOfficeRadius = $officeEnforcementEnabled && $employee->enforcesOfficeRadius();
-        $usesWhitelistMode = $officeEnforcementEnabled && $employee->usesWhitelistOverride();
+        $usesWhitelistMode = $officeEnforcementEnabled && $ipWhitelistEnforcementEnabled && $employee->usesWhitelistOverride();
 
         $baseAttemptContext = [
             'office_enforcement_enabled' => $officeEnforcementEnabled,
             'employee_geolocation_required' => $employeeGeolocationRequired,
             'employee_geolocation_mode' => $employee->geolocation_mode,
+            'ip_whitelist_enforcement_enabled' => $ipWhitelistEnforcementEnabled,
         ];
 
         $logAdditionalInfo = static function (?array $context = null) use ($baseAttemptContext) {
@@ -84,10 +86,12 @@ class AttendanceController extends Controller
         };
 
         $ipPair = $geoService->getClientIpPair($request);
-        $ipWhitelisted = $employee->isIpWhitelisted($ipPair['ipv4'], $ipPair['ipv6']);
+        $ipWhitelisted = $ipWhitelistEnforcementEnabled
+            ? $employee->isIpWhitelisted($ipPair['ipv4'], $ipPair['ipv6'])
+            : false;
         $ipWhitelistApplied = false;
 
-        if ($employee->hasIpWhitelist() && !$ipWhitelisted) {
+        if ($ipWhitelistEnforcementEnabled && $employee->hasIpWhitelist() && !$ipWhitelisted) {
             $geoService->logAttempt(
                 $employeeUser->id,
                 null,
@@ -108,6 +112,15 @@ class AttendanceController extends Controller
                 'success' => false,
                 'message' => 'Your current network is not whitelisted for attendance. Please connect using an approved IP address.',
             ], 403);
+        }
+
+        if (!$ipWhitelistEnforcementEnabled && $employee->hasIpWhitelist()) {
+            \Log::info('IP whitelist enforcement disabled globally; skipping IP validation.', [
+                'employee_id' => $employeeUser->id,
+                'employee_name' => $employee->name,
+                'ipv4' => $ipPair['ipv4'],
+                'ipv6' => $ipPair['ipv6'],
+            ]);
         }
 
         // Validate request data - coordinates are optional for remote employees
@@ -251,6 +264,18 @@ class AttendanceController extends Controller
                         'allowed_radius' => $radiusMeters,
                     ]);
                 } else {
+                    $additionalInfo = [
+                        'distance_meters' => $distance,
+                        'allowed_radius_meters' => $radiusMeters,
+                    ];
+
+                    $responseMessage = "You are too far from the office. You must be within {$radiusMeters} meters to check in. Current distance: " . number_format($distance, 2) . ' meters.';
+
+                    if (!$ipWhitelistEnforcementEnabled && $employee->hasIpWhitelist()) {
+                        $additionalInfo['ip_whitelist_disabled'] = true;
+                        $responseMessage = 'You are outside the office radius and IP whitelisting has been disabled by your administrator. Please either re-enable IP whitelisting or check in from within the office radius.';
+                    }
+
                     $geoService->logAttempt(
                         $employeeUser->id,
                         null,
@@ -260,15 +285,12 @@ class AttendanceController extends Controller
                         $longitude,
                         $distance,
                         $request,
-                        $logAdditionalInfo([
-                            'distance_meters' => $distance,
-                            'allowed_radius_meters' => $radiusMeters,
-                        ])
+                        $logAdditionalInfo($additionalInfo)
                     );
 
                     return response()->json([
                         'success' => false,
-                        'message' => "You are too far from the office. You must be within {$radiusMeters} meters to check in. Current distance: " . number_format($distance, 2) . " meters.",
+                        'message' => $responseMessage,
                         'distance' => round($distance, 2),
                         'required_distance' => $radiusMeters,
                     ], 403);
@@ -340,15 +362,17 @@ class AttendanceController extends Controller
 
         // Check if geolocation is required for this employee
         $officeEnforcementEnabled = $employee->shouldEnforceOfficeLocation();
+        $ipWhitelistEnforcementEnabled = $employee->shouldEnforceIpWhitelist();
         $employeeGeolocationRequired = $employee->requiresGeolocation();
         $geolocationRequired = $officeEnforcementEnabled && $employeeGeolocationRequired;
         $enforceOfficeRadius = $officeEnforcementEnabled && $employee->enforcesOfficeRadius();
-        $usesWhitelistMode = $officeEnforcementEnabled && $employee->usesWhitelistOverride();
+        $usesWhitelistMode = $officeEnforcementEnabled && $ipWhitelistEnforcementEnabled && $employee->usesWhitelistOverride();
 
         $baseAttemptContext = [
             'office_enforcement_enabled' => $officeEnforcementEnabled,
             'employee_geolocation_required' => $employeeGeolocationRequired,
             'employee_geolocation_mode' => $employee->geolocation_mode,
+            'ip_whitelist_enforcement_enabled' => $ipWhitelistEnforcementEnabled,
         ];
 
         $logAdditionalInfo = static function (?array $context = null) use ($baseAttemptContext) {
@@ -360,7 +384,9 @@ class AttendanceController extends Controller
         };
 
         $ipPair = $geoService->getClientIpPair($request);
-        $ipWhitelisted = $employee->isIpWhitelisted($ipPair['ipv4'], $ipPair['ipv6']);
+        $ipWhitelisted = $ipWhitelistEnforcementEnabled
+            ? $employee->isIpWhitelisted($ipPair['ipv4'], $ipPair['ipv6'])
+            : false;
         $ipWhitelistApplied = false;
 
         // Find today's attendance early for whitelist validation and subsequent checks
@@ -380,7 +406,7 @@ class AttendanceController extends Controller
             }
         }
 
-        if ($employee->hasIpWhitelist() && !$ipWhitelisted) {
+        if ($ipWhitelistEnforcementEnabled && $employee->hasIpWhitelist() && !$ipWhitelisted) {
             $geoService->logAttempt(
                 $employeeUser->id,
                 $attendance->id ?? null,
@@ -401,6 +427,15 @@ class AttendanceController extends Controller
                 'success' => false,
                 'message' => 'Your current network is not whitelisted for attendance. Please connect using an approved IP address.',
             ], 403);
+        }
+
+        if (!$ipWhitelistEnforcementEnabled && $employee->hasIpWhitelist()) {
+            \Log::info('IP whitelist enforcement disabled globally; skipping IP validation.', [
+                'employee_id' => $employeeUser->id,
+                'employee_name' => $employee->name,
+                'ipv4' => $ipPair['ipv4'],
+                'ipv6' => $ipPair['ipv6'],
+            ]);
         }
 
         // Validate request data - coordinates are optional for remote employees
@@ -526,6 +561,18 @@ class AttendanceController extends Controller
                         'allowed_radius' => $radiusMeters,
                     ]);
                 } else {
+                    $additionalInfo = [
+                        'distance_meters' => $distance,
+                        'allowed_radius_meters' => $radiusMeters,
+                    ];
+
+                    $responseMessage = "You are too far from the office. You must be within {$radiusMeters} meters to check out. Current distance: " . number_format($distance, 2) . ' meters.';
+
+                    if (!$ipWhitelistEnforcementEnabled && $employee->hasIpWhitelist()) {
+                        $additionalInfo['ip_whitelist_disabled'] = true;
+                        $responseMessage = 'You are outside the office radius and IP whitelisting has been disabled by your administrator. Please either re-enable IP whitelisting or check out from within the office radius.';
+                    }
+
                     $geoService->logAttempt(
                         $employeeUser->id,
                         $attendance->id,
@@ -535,15 +582,12 @@ class AttendanceController extends Controller
                         $longitude,
                         $distance,
                         $request,
-                        $logAdditionalInfo([
-                            'distance_meters' => $distance,
-                            'allowed_radius_meters' => $radiusMeters,
-                        ])
+                        $logAdditionalInfo($additionalInfo)
                     );
 
                     return response()->json([
                         'success' => false,
-                        'message' => "You are too far from the office. You must be within {$radiusMeters} meters to check out. Current distance: " . number_format($distance, 2) . " meters.",
+                        'message' => $responseMessage,
                         'distance' => round($distance, 2),
                         'required_distance' => $radiusMeters,
                     ], 403);

@@ -171,6 +171,17 @@ class Employee extends Model
         return (bool) ($user->enforce_office_location ?? true);
     }
 
+    public function shouldEnforceIpWhitelist(): bool
+    {
+        $user = $this->relationLoaded('user') ? $this->user : $this->user()->first();
+
+        if (!$user) {
+            return true;
+        }
+
+        return (bool) ($user->enforce_ip_whitelist ?? true);
+    }
+
     public function requiresActiveGeolocation(): bool
     {
         return $this->shouldEnforceOfficeLocation() && $this->requiresGeolocation();
