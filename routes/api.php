@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// API Version 1
-Route::prefix('v1')->group(function () {
+// API Version 1 - prefix is set in bootstrap/app.php
+Route::middleware([])->group(function () {
     
     // Authentication routes (public)
     Route::post('/auth/login', [AuthController::class, 'login']);
