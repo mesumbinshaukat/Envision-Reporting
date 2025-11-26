@@ -70,6 +70,114 @@ Authorization: Bearer {token}
 
 ---
 
+## Settings
+
+### Get IP Whitelist Enforcement Status
+```http
+GET /api/v1/settings/ip-whitelist-status
+Authorization: Bearer {token}
+```
+
+**Description:** Returns whether IP whitelist enforcement is enabled globally. Both admin and employee users can access this endpoint.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "IP whitelist enforcement status retrieved successfully",
+  "data": {
+    "enforce_ip_whitelist": true,
+    "enabled": true
+  }
+}
+```
+
+### Get Location Guard Enforcement Status
+```http
+GET /api/v1/settings/location-guard-status
+Authorization: Bearer {token}
+```
+
+**Description:** Returns whether office location (location guard) enforcement is enabled globally. Includes office coordinates and radius if configured.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Location guard enforcement status retrieved successfully",
+  "data": {
+    "enforce_office_location": true,
+    "enabled": true,
+    "office_configured": true,
+    "office_latitude": 40.7128,
+    "office_longitude": -74.0060,
+    "office_radius_meters": 50
+  }
+}
+```
+
+### Get Combined Attendance Settings
+```http
+GET /api/v1/settings/attendance
+Authorization: Bearer {token}
+```
+
+**Description:** Returns combined settings for attendance including IP whitelist and location guard status. For employee tokens, also includes employee-specific geolocation settings.
+
+**Admin Response:**
+```json
+{
+  "success": true,
+  "message": "Attendance settings retrieved successfully",
+  "data": {
+    "ip_whitelist": {
+      "enforce_ip_whitelist": true,
+      "enabled": true
+    },
+    "location_guard": {
+      "enforce_office_location": true,
+      "enabled": true,
+      "office_configured": true,
+      "office_latitude": 40.7128,
+      "office_longitude": -74.0060,
+      "office_radius_meters": 50
+    }
+  }
+}
+```
+
+**Employee Response:**
+```json
+{
+  "success": true,
+  "message": "Attendance settings retrieved successfully",
+  "data": {
+    "ip_whitelist": {
+      "enforce_ip_whitelist": true,
+      "enabled": true
+    },
+    "location_guard": {
+      "enforce_office_location": true,
+      "enabled": true,
+      "office_configured": true,
+      "office_latitude": 40.7128,
+      "office_longitude": -74.0060,
+      "office_radius_meters": 50
+    },
+    "employee": {
+      "geolocation_mode": "required",
+      "geolocation_required": true,
+      "enforces_office_radius": true,
+      "uses_whitelist_override": false,
+      "has_ip_whitelist": false,
+      "ip_whitelists_count": 0
+    }
+  }
+}
+```
+
+---
+
 ## Employees (Admin Only)
 
 ### List Employees
@@ -241,10 +349,123 @@ Content-Type: application/json
 }
 ```
 
+### Get Current Attendance Status
+```http
+GET /api/v1/attendance/status
+Authorization: Bearer {token}
+```
+
+**Description:** Get the current attendance status for the authenticated employee. Includes today's attendance, check-in/check-out status, and any pending checkouts from previous days.
+
+**Query Parameters (Admin Only):**
+- `employee_user_id` (optional): Check status for a specific employee (admin only)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Current attendance status retrieved successfully",
+  "data": {
+    "today_date": "2024-01-15",
+    "checked_in_today": true,
+    "checked_out_today": false,
+    "can_check_in": false,
+    "can_check_out": true,
+    "has_pending_checkout": false,
+    "today_attendance": {
+      "id": 123,
+      "employee_user_id": 5,
+      "attendance_date": "2024-01-15",
+      "check_in": "2024-01-15T09:00:00Z",
+      "check_in_latitude": 40.7128,
+      "check_in_longitude": -74.0060,
+      "check_in_distance_meters": 15.5,
+      "check_out": null,
+      "work_duration": null,
+      "has_checked_in": true,
+      "has_checked_out": false
+    }
+  }
+}
+```
+
+**Response (with pending checkout):**
+```json
+{
+  "success": true,
+  "message": "Current attendance status retrieved successfully",
+  "data": {
+    "today_date": "2024-01-15",
+    "checked_in_today": false,
+    "checked_out_today": false,
+    "can_check_in": false,
+    "can_check_out": false,
+    "has_pending_checkout": true,
+    "pending_attendance": {
+      "id": 122,
+      "date": "2024-01-14",
+      "check_in": "2024-01-14 09:00:00"
+    }
+  }
+}
+```
+
 ### Get Attendance Statistics (Admin Only)
 ```http
 GET /api/v1/attendance/statistics?date_from=2024-01-01&date_to=2024-01-31
 Authorization: Bearer {admin_token}
+```
+
+**Important Notes on Attendance APIs:**
+
+> [!IMPORTANT]
+> **IP Whitelist Enforcement**: When IP whitelist enforcement is enabled globally (`enforce_ip_whitelist = true`), employees with IP whitelists configured must check in/out from whitelisted IPs. If enforcement is disabled, IP whitelists are ignored.
+
+> [!IMPORTANT]
+> **Location Guard Enforcement**: When office location enforcement is enabled globally (`enforce_office_location = true`), employees with geolocation required must be within the configured office radius. If enforcement is disabled, location checks are bypassed.
+
+> [!NOTE]
+> **Geolocation Modes**:
+> - `disabled`: No geolocation required for this employee
+> - `required`: Employee must be within office radius to check in/out
+> - `required_with_whitelist`: Employee must be within office radius OR connected from a whitelisted IP
+
+> [!WARNING]
+> **Edge Cases Handled**:
+> - **Already Checked In**: Returns 400 error if attempting to check in when already checked in today
+> - **Already Checked Out**: Returns 400 error if attempting to check out when already checked out
+> - **Pending Checkout**: Prevents new check-in if there's an unclosed attendance from a previous day
+> - **IP Not Whitelisted**: Returns 403 error if IP whitelist enforcement is enabled and current IP is not whitelisted
+> - **Out of Range**: Returns 403 error if employee is outside office radius (unless IP whitelisted in whitelist mode)
+> - **Office Not Configured**: Returns 400 error if geolocation is required but office location is not set
+> - **Missing Coordinates**: Returns 422 validation error if geolocation is required but coordinates are not provided
+
+**Error Response Examples:**
+
+IP Not Whitelisted:
+```json
+{
+  "success": false,
+  "message": "Your current network is not whitelisted for attendance. Please connect using an approved IP address."
+}
+```
+
+Out of Office Radius:
+```json
+{
+  "success": false,
+  "message": "You are too far from the office. You must be within 50 meters to check in. Current distance: 125.50 meters.",
+  "distance": 125.5,
+  "required_distance": 50
+}
+```
+
+Pending Checkout from Previous Day:
+```json
+{
+  "success": false,
+  "message": "You still have an open attendance from Jan 14, 2024. Please check out first or request an attendance fix."
+}
 ```
 
 ---

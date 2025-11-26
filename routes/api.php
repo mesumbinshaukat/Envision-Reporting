@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\BonusApiController;
 use App\Http\Controllers\Api\V1\SalaryReleaseApiController;
 use App\Http\Controllers\Api\V1\CurrencyApiController;
 use App\Http\Controllers\Api\V1\DashboardApiController;
+use App\Http\Controllers\Api\V1\SettingsApiController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -42,6 +43,11 @@ Route::middleware([])->group(function () {
         // Dashboard
         Route::get('/dashboard', [DashboardApiController::class, 'index']);
         
+        // Settings
+        Route::get('/settings/ip-whitelist-status', [SettingsApiController::class, 'getIpWhitelistStatus']);
+        Route::get('/settings/location-guard-status', [SettingsApiController::class, 'getLocationGuardStatus']);
+        Route::get('/settings/attendance', [SettingsApiController::class, 'getAttendanceSettings']);
+        
         // Employees (admin only) - manual routes to avoid name conflicts
         Route::get('/employees', [EmployeeApiController::class, 'index']);
         Route::post('/employees', [EmployeeApiController::class, 'store']);
@@ -56,6 +62,7 @@ Route::middleware([])->group(function () {
         Route::get('/attendance', [AttendanceApiController::class, 'index']);
         Route::post('/attendance/check-in', [AttendanceApiController::class, 'checkIn']);
         Route::post('/attendance/check-out', [AttendanceApiController::class, 'checkOut']);
+        Route::get('/attendance/status', [AttendanceApiController::class, 'getCurrentStatus']);
         Route::get('/attendance/statistics', [AttendanceApiController::class, 'statistics']);
         Route::get('/attendance/{id}', [AttendanceApiController::class, 'show']);
         

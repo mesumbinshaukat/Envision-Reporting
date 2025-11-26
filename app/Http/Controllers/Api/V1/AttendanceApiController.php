@@ -213,6 +213,75 @@ class AttendanceApiController extends BaseApiController
     }
 
     /**
+     * Get current attendance status for the authenticated employee
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getCurrentStatus(Request $request)
+    {
+        $user = $request->user();
+        
+        // Get employee user ID based on token type
+        if ($user->tokenCan('employee')) {
+            $employeeUserId = $user->id;
+        } elseif ($user->tokenCan('admin')) {
+            // Admin can check status for a specific employee
+            $request->validate([
+                'employee_user_id' => 'required|exists:employee_users,id',
+            ]);
+            $employeeUserId = $request->employee_user_id;
+            
+            // Verify the employee belongs to this admin
+            $employeeUser = EmployeeUser::where('id', $employeeUserId)
+                ->where('admin_id', $user->id)
+                ->first();
+            
+            if (!$employeeUser) {
+                return $this->forbidden('You do not have access to this employee');
+            }
+        } else {
+            return $this->forbidden('Invalid token permissions');
+        }
+
+        $today = Carbon::today();
+        
+        // Get today's attendance
+        $todayAttendance = Attendance::where('employee_user_id', $employeeUserId)
+            ->whereDate('attendance_date', $today)
+            ->first();
+
+        // Get any pending attendance (checked in but not checked out)
+        $pendingAttendance = Attendance::where('employee_user_id', $employeeUserId)
+            ->whereNull('check_out')
+            ->orderByDesc('attendance_date')
+            ->first();
+
+        $status = [
+            'today_date' => $today->toDateString(),
+            'checked_in_today' => $todayAttendance && $todayAttendance->hasCheckedIn(),
+            'checked_out_today' => $todayAttendance && $todayAttendance->hasCheckedOut(),
+            'can_check_in' => !$todayAttendance || !$todayAttendance->hasCheckedIn(),
+            'can_check_out' => $todayAttendance && $todayAttendance->hasCheckedIn() && !$todayAttendance->hasCheckedOut(),
+            'has_pending_checkout' => $pendingAttendance && $pendingAttendance->attendance_date->isBefore($today),
+        ];
+
+        if ($todayAttendance) {
+            $status['today_attendance'] = new AttendanceResource($todayAttendance);
+        }
+
+        if ($pendingAttendance && $pendingAttendance->attendance_date->isBefore($today)) {
+            $status['pending_attendance'] = [
+                'id' => $pendingAttendance->id,
+                'date' => $pendingAttendance->attendance_date->toDateString(),
+                'check_in' => $pendingAttendance->check_in?->toDateTimeString(),
+            ];
+        }
+
+        return $this->success($status, 'Current attendance status retrieved successfully');
+    }
+
+    /**
      * Get attendance statistics
      *
      * @param Request $request
