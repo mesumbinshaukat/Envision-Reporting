@@ -11,6 +11,11 @@ use App\Http\Controllers\Api\V1\SalaryReleaseApiController;
 use App\Http\Controllers\Api\V1\CurrencyApiController;
 use App\Http\Controllers\Api\V1\DashboardApiController;
 use App\Http\Controllers\Api\V1\SettingsApiController;
+use App\Http\Controllers\Api\V1\OfficeScheduleApiController;
+use App\Http\Controllers\Api\V1\OfficeClosureApiController;
+use App\Http\Controllers\Api\V1\AttendanceLogApiController;
+use App\Http\Controllers\Api\V1\ActivityLogApiController;
+use App\Http\Controllers\Api\V1\FixRequestApiController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -65,6 +70,32 @@ Route::middleware([])->group(function () {
         Route::get('/attendance/status', [AttendanceApiController::class, 'getCurrentStatus']);
         Route::get('/attendance/statistics', [AttendanceApiController::class, 'statistics']);
         Route::get('/attendance/{id}', [AttendanceApiController::class, 'show']);
+        
+        // Office Schedule
+        Route::get('/office-schedule', [OfficeScheduleApiController::class, 'getSchedule']);
+        Route::put('/office-schedule', [OfficeScheduleApiController::class, 'updateSchedule']);
+        
+        // Office Closures
+        Route::get('/office-closures', [OfficeClosureApiController::class, 'index']);
+        Route::post('/office-closures', [OfficeClosureApiController::class, 'store']);
+        Route::get('/office-closures/{id}', [OfficeClosureApiController::class, 'show']);
+        Route::delete('/office-closures/{id}', [OfficeClosureApiController::class, 'destroy']);
+        
+        // Attendance Logs (Admin only)
+        Route::get('/attendance-logs', [AttendanceLogApiController::class, 'index']);
+        Route::get('/attendance-logs/{id}', [AttendanceLogApiController::class, 'show']);
+        Route::post('/attendance-logs/cleanup', [AttendanceLogApiController::class, 'cleanup']);
+        
+        // Activity Logs (Admin only)
+        Route::get('/activity-logs', [ActivityLogApiController::class, 'index']);
+        Route::get('/activity-logs/{id}', [ActivityLogApiController::class, 'show']);
+        Route::post('/activity-logs/cleanup', [ActivityLogApiController::class, 'cleanup']);
+        
+        // Fix Requests
+        Route::get('/fix-requests', [FixRequestApiController::class, 'index']);
+        Route::post('/fix-requests', [FixRequestApiController::class, 'store']);
+        Route::get('/fix-requests/{id}', [FixRequestApiController::class, 'show']);
+        Route::post('/fix-requests/{id}/process', [FixRequestApiController::class, 'process']);
         
         // Clients - manual routes to avoid name conflicts
         Route::get('/clients', [ClientApiController::class, 'index']);
