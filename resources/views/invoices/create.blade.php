@@ -279,6 +279,7 @@
             document.getElementById('is_one_time').addEventListener('change', validateForm);
             document.getElementById('paid_amount').addEventListener('input', validateForm);
             
+            // Initialize form state first, then validate
             if (document.getElementById('is_one_time').checked) {
                 toggleOneTimeInvoice();
             }
@@ -289,8 +290,10 @@
             // Check if status is Partial Paid on page load
             togglePartialPaymentField();
             
-            // Initial validation
-            validateForm();
+            // Delay initial validation to ensure all form states are properly initialized
+            setTimeout(function() {
+                validateForm();
+            }, 100);
         });
 
         function togglePartialPaymentField() {
