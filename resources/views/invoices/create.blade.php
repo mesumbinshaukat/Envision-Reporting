@@ -295,7 +295,6 @@
                 validateForm();
             }, 100);
         });
-
         function togglePartialPaymentField() {
             const status = document.getElementById('status').value;
             const partialSection = document.getElementById('partial_payment_section');
