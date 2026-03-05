@@ -36,10 +36,10 @@ class DashboardApiController extends BaseApiController
         $paidInvoices = Invoice::where('user_id', $userId)->where('status', 'paid')->count();
         $totalRevenue = Invoice::where('user_id', $userId)->sum('paid_amount');
 
-        // Monthly revenue
+        // Monthly revenue (based on invoice_date for proper period reporting)
         $monthlyRevenue = Invoice::where('user_id', $userId)
-            ->whereMonth('payment_date', $currentMonth)
-            ->whereYear('payment_date', $currentYear)
+            ->whereMonth('invoice_date', $currentMonth)
+            ->whereYear('invoice_date', $currentYear)
             ->sum('paid_amount');
 
         // Employee statistics

@@ -108,10 +108,29 @@
                         @php
                             $allTransactions = collect();
                             
-                            // Add payments (not invoices) to transactions
+                            // Add invoices to transactions
+                            foreach($reportData['invoices'] as $invoice) {
+                                $clientName = $invoice->is_one_time ? $invoice->one_time_client_name : ($invoice->client ? $invoice->client->name : 'N/A');
+                                $currency = $invoice->currency;
+                                $amountInBase = $invoice->getAmountInBaseCurrency();
+                                
+                                $allTransactions->push([
+                                    'date' => $invoice->invoice_date,
+                                    'type' => 'Invoice',
+                                    'description' => 'Invoice #' . $invoice->id . ($invoice->special_note ? ' - ' . $invoice->special_note : ''),
+                                    'related' => $clientName . ($invoice->employee ? ' (via ' . $invoice->employee->name . ')' : ' (Self)'),
+                                    'status' => $invoice->status,
+                                    'currency' => $currency ? $currency->symbol : 'Rs.',
+                                    'amount' => $invoice->amount,
+                                    'amount_base' => $amountInBase,
+                                    'is_income' => true,
+                                ]);
+                            }
+                            
+                            // Add payments (separate from invoices) to transactions
                             foreach($reportData['invoices'] as $invoice) {
                                 foreach($invoice->payments as $payment) {
-                                    $clientName = $invoice->is_one_time ? $invoice->one_time_client_name : $invoice->client->name;
+                                    $clientName = $invoice->is_one_time ? $invoice->one_time_client_name : ($invoice->client ? $invoice->client->name : 'N/A');
                                     $currency = $invoice->currency;
                                     $amountInBase = $invoice->convertAmountToBase($payment->amount);
                                     
@@ -119,7 +138,7 @@
                                         'date' => $payment->payment_date,
                                         'type' => 'Payment',
                                         'description' => 'Payment for Invoice #' . $invoice->id,
-                                        'related' => $clientName . ($invoice->employee ? ' (via ' . $invoice->employee->name . ')' : ''),
+                                        'related' => $clientName . ($invoice->employee ? ' (via ' . $invoice->employee->name . ')' : ' (Self)'),
                                         'status' => 'Received',
                                         'currency' => $currency ? $currency->symbol : 'Rs.',
                                         'amount' => $payment->amount,

@@ -21,6 +21,7 @@ class Invoice extends Model
         'approved_at',
         'approved_by',
         'due_date',
+        'invoice_date',
         'amount',
         'paid_amount',
         'remaining_amount',
@@ -39,6 +40,7 @@ class Invoice extends Model
 
     protected $casts = [
         'due_date' => 'date',
+        'invoice_date' => 'date',
         'payment_date' => 'date',
         'approved_at' => 'datetime',
         'attachments' => 'array',

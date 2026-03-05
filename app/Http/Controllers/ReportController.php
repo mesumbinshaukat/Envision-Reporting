@@ -25,16 +25,14 @@ class ReportController extends Controller
                 'date_to' => 'required|date|after_or_equal:date_from',
             ]);
             
-            // Get invoices that have payments in the selected date range (inclusive)
+            // Get invoices by invoice_date in the selected date range (inclusive)
             $dateFrom = $validated['date_from'];
-            $dateTo = date('Y-m-d 23:59:59', strtotime($validated['date_to']));
+            $dateTo = $validated['date_to'];
             
             $invoices = Invoice::where('user_id', $userId)
                 ->with(['client', 'employee', 'payments', 'currency'])
-                ->whereHas('payments', function($query) use ($dateFrom, $dateTo) {
-                    $query->where('payment_date', '>=', $dateFrom)
-                          ->where('payment_date', '<=', $dateTo);
-                })
+                ->where('invoice_date', '>=', $dateFrom)
+                ->where('invoice_date', '<=', $dateTo)
                 ->get();
             
             // Filter payments within the date range for each invoice
@@ -126,16 +124,14 @@ class ReportController extends Controller
         
         $userId = auth()->id();
         
-        // Get invoices that have payments in the selected date range (inclusive)
+        // Get invoices by invoice_date in the selected date range (inclusive)
         $dateFrom = $validated['date_from'];
-        $dateTo = date('Y-m-d 23:59:59', strtotime($validated['date_to']));
+        $dateTo = $validated['date_to'];
         
         $invoices = Invoice::where('user_id', $userId)
             ->with(['client', 'employee', 'payments', 'currency'])
-            ->whereHas('payments', function($query) use ($dateFrom, $dateTo) {
-                $query->where('payment_date', '>=', $dateFrom)
-                      ->where('payment_date', '<=', $dateTo);
-            })
+            ->where('invoice_date', '>=', $dateFrom)
+            ->where('invoice_date', '<=', $dateTo)
             ->get();
         
         // Filter payments within the date range for each invoice

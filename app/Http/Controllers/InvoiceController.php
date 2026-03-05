@@ -53,14 +53,14 @@ class InvoiceController extends Controller
         
         if ($request->has('date_from')) {
             $dateFrom = $request->date_from;
-            $dateTo = date('Y-m-d 23:59:59', strtotime($request->date_to ?? $dateFrom));
-            $query->where('created_at', '>=', $dateFrom)
-                  ->where('created_at', '<=', $dateTo);
+            $dateTo = $request->date_to ?? $dateFrom;
+            $query->where('invoice_date', '>=', $dateFrom)
+                  ->where('invoice_date', '<=', $dateTo);
         }
         
         if ($request->has('date_to') && !$request->has('date_from')) {
-            $dateTo = date('Y-m-d 23:59:59', strtotime($request->date_to));
-            $query->where('created_at', '<=', $dateTo);
+            $dateTo = $request->date_to;
+            $query->where('invoice_date', '<=', $dateTo);
         }
         
         $invoices = $query->latest()->paginate(10);

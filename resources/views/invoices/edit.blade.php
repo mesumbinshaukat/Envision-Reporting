@@ -78,6 +78,12 @@
             </div>
 
             <div>
+                <label for="invoice_date" class="block text-sm font-semibold text-navy-900 mb-1">Invoice Date *</label>
+                <input type="date" name="invoice_date" id="invoice_date" value="{{ old('invoice_date', $invoice->invoice_date?->format('Y-m-d')) }}" required class="w-full px-4 py-2 border border-navy-900 rounded">
+                <p class="text-xs text-gray-600 mt-1">The period/month this invoice is for (used for reporting)</p>
+            </div>
+
+            <div>
                 <label for="due_date" class="block text-sm font-semibold text-navy-900 mb-1">Due Date</label>
                 <input type="date" name="due_date" id="due_date" value="{{ old('due_date', $invoice->due_date?->format('Y-m-d')) }}" class="w-full px-4 py-2 border border-navy-900 rounded">
             </div>

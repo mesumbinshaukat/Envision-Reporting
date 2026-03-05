@@ -51,10 +51,18 @@ class InvoiceApiController extends BaseApiController
         if ($request->has('due_date_to')) {
             $query->whereDate('due_date', '<=', $request->due_date_to);
         }
+        
+        // Invoice date range filters
+        if ($request->has('invoice_date_from')) {
+            $query->whereDate('invoice_date', '>=', $request->invoice_date_from);
+        }
+        if ($request->has('invoice_date_to')) {
+            $query->whereDate('invoice_date', '<=', $request->invoice_date_to);
+        }
 
         // Apply sorting
         $this->applySorting($query, [
-            'id', 'due_date', 'amount', 'status', 'approval_status', 'created_at'
+            'id', 'due_date', 'invoice_date', 'amount', 'status', 'approval_status', 'created_at'
         ], 'created_at', 'desc');
 
         $invoices = $this->applyPagination($query);
@@ -71,7 +79,8 @@ class InvoiceApiController extends BaseApiController
             'client_id' => 'required_without:is_one_time|nullable|exists:clients,id',
             'employee_id' => 'nullable|exists:employees,id',
             'currency_id' => 'required|exists:currencies,id',
-            'due_date' => 'required|date',
+            'invoice_date' => 'required|date',
+            'due_date' => 'nullable|date',
             'amount' => 'required|numeric|min:0',
             'tax' => 'nullable|numeric|min:0',
             'special_note' => 'nullable|string',

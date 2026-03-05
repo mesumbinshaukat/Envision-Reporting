@@ -116,6 +116,12 @@
             </div>
 
             <div>
+                <label for="invoice_date" class="block text-sm font-semibold text-navy-900 mb-1">Invoice Date *</label>
+                <input type="date" name="invoice_date" id="invoice_date" value="{{ old('invoice_date', date('Y-m-d')) }}" required class="w-full px-4 py-2 border border-navy-900 rounded">
+                <p class="text-xs text-gray-600 mt-1">The period/month this invoice is for (used for reporting)</p>
+            </div>
+
+            <div>
                 <label for="due_date" class="block text-sm font-semibold text-navy-900 mb-1">Due Date</label>
                 <input type="date" name="due_date" id="due_date" value="{{ old('due_date') }}" class="w-full px-4 py-2 border border-navy-900 rounded">
             </div>
@@ -185,6 +191,7 @@
             const oneTimeInput = document.getElementById('one_time_client_name');
             const amountInput = document.getElementById('amount');
             const statusSelect = document.getElementById('status');
+            const invoiceDateInput = document.getElementById('invoice_date');
             const submitBtn = document.getElementById('submit_btn');
             
             let isValid = true;
@@ -196,6 +203,11 @@
             
             // Check status (required)
             if (!statusSelect.value) {
+                isValid = false;
+            }
+            
+            // Check invoice date (required)
+            if (!invoiceDateInput.value) {
                 isValid = false;
             }
             
@@ -278,6 +290,7 @@
             document.getElementById('one_time_client_name').addEventListener('input', validateForm);
             document.getElementById('is_one_time').addEventListener('change', validateForm);
             document.getElementById('paid_amount').addEventListener('input', validateForm);
+            document.getElementById('invoice_date').addEventListener('change', validateForm);
             
             // Initialize form state first, then validate
             if (document.getElementById('is_one_time').checked) {

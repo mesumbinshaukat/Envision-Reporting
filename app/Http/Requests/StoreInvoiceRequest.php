@@ -29,6 +29,7 @@ class StoreInvoiceRequest extends FormRequest
             'employee_id' => 'nullable|exists:employees,id',
             'currency_id' => 'required|exists:currencies,id',
             'status' => 'required|in:Pending,Partial Paid,Payment Done',
+            'invoice_date' => 'required|date',
             'due_date' => 'nullable|date',
             'amount' => 'required|numeric|min:0',
             'tax' => 'nullable|numeric|min:0',
