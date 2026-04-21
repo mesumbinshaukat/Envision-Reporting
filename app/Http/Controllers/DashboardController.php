@@ -30,10 +30,23 @@ class DashboardController extends Controller
     private function adminDashboard()
     {
         $user = auth()->user();
+        $tenantId = $user->tenantId();
         $baseCurrency = $this->getBaseCurrency();
+        $user->loadMissing('featurePermissions');
+
+        $access = [
+            'clients_read' => $user->canReadFeature('clients'),
+            'clients_write' => $user->canWriteFeature('clients'),
+            'employees_read' => $user->canReadFeature('employees'),
+            'employees_write' => $user->canWriteFeature('employees'),
+            'invoices_read' => $user->canReadFeature('invoices'),
+            'invoices_write' => $user->canWriteFeature('invoices'),
+            'expenses_read' => $user->canReadFeature('expenses'),
+            'expenses_write' => $user->canWriteFeature('expenses'),
+        ];
         
         // Convert all expenses to base currency
-        $expenses = $user->expenses()->with('currency')->get();
+        $expenses = Expense::where('user_id', $tenantId)->with('currency')->get();
         $total_expenses = 0;
         foreach ($expenses as $expense) {
             if ($expense->currency_id && $expense->currency) {
@@ -44,14 +57,15 @@ class DashboardController extends Controller
         }
         
         $stats = [
-            'total_clients' => $user->clients()->count(),
-            'total_employees' => $user->employees()->count(),
-            'pending_invoices' => $user->invoices()->where('status', 'Pending')->count(),
-            'pending_approvals' => $user->invoices()->where('approval_status', 'pending')->count(),
+            'total_clients' => Client::where('user_id', $tenantId)->count(),
+            'total_employees' => Employee::where('user_id', $tenantId)->count(),
+            'pending_invoices' => Invoice::where('user_id', $tenantId)->where('status', 'Pending')->count(),
+            'pending_approvals' => Invoice::where('user_id', $tenantId)->where('approval_status', 'pending')->count(),
             'total_expenses' => $total_expenses,
-            'recent_invoices' => $user->invoices()->with(['client', 'employee', 'currency'])->latest()->take(5)->get(),
-            'recent_expenses' => $user->expenses()->with('currency')->latest()->take(5)->get(),
+            'recent_invoices' => Invoice::where('user_id', $tenantId)->with(['client', 'employee', 'currency'])->latest()->take(5)->get(),
+            'recent_expenses' => Expense::where('user_id', $tenantId)->with('currency')->latest()->take(5)->get(),
             'baseCurrency' => $baseCurrency,
+            'access' => $access,
         ];
         
         return view('dashboard', $stats);

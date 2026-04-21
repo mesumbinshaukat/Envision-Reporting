@@ -11,7 +11,7 @@ class CurrencyApiController extends BaseApiController
 {
     public function index(Request $request)
     {
-        $userId = $request->user()->tokenCan('admin') ? $request->user()->id : $request->user()->admin_id;
+        $userId = $request->user()->tokenCan('admin') ? $request->user()->tenantId() : $request->user()->admin_id;
         
         $currencies = Currency::where('user_id', $userId)->get();
 
@@ -25,14 +25,14 @@ class CurrencyApiController extends BaseApiController
         }
 
         $validated = $request->validate([
-            'code' => 'required|string|max:10|unique:currencies,code,NULL,id,user_id,' . $request->user()->id,
+            'code' => 'required|string|max:10|unique:currencies,code,NULL,id,user_id,' . $request->user()->tenantId(),
             'name' => 'required|string|max:255',
             'symbol' => 'required|string|max:10',
             'conversion_rate' => 'required|numeric|min:0',
             'is_active' => 'boolean',
         ]);
 
-        $validated['user_id'] = $request->user()->id;
+        $validated['user_id'] = $request->user()->tenantId();
         $validated['is_base'] = false;
 
         $currency = Currency::create($validated);
@@ -46,14 +46,14 @@ class CurrencyApiController extends BaseApiController
             return $this->forbidden('Only admin users can update currencies');
         }
 
-        $currency = Currency::where('user_id', $request->user()->id)->find($id);
+        $currency = Currency::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$currency) {
             return $this->notFound('Currency not found');
         }
 
         $validated = $request->validate([
-            'code' => 'sometimes|required|string|max:10|unique:currencies,code,' . $id . ',id,user_id,' . $request->user()->id,
+            'code' => 'sometimes|required|string|max:10|unique:currencies,code,' . $id . ',id,user_id,' . $request->user()->tenantId(),
             'name' => 'sometimes|required|string|max:255',
             'symbol' => 'sometimes|required|string|max:10',
             'conversion_rate' => 'sometimes|required|numeric|min:0',
@@ -70,14 +70,14 @@ class CurrencyApiController extends BaseApiController
             return $this->forbidden('Only admin users can set base currency');
         }
 
-        $currency = Currency::where('user_id', $request->user()->id)->find($id);
+        $currency = Currency::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$currency) {
             return $this->notFound('Currency not found');
         }
 
         // Unset all other base currencies
-        Currency::where('user_id', $request->user()->id)->update(['is_base' => false]);
+        Currency::where('user_id', $request->user()->tenantId())->update(['is_base' => false]);
 
         // Set this as base
         $currency->update(['is_base' => true, 'conversion_rate' => 1.0]);
@@ -91,7 +91,7 @@ class CurrencyApiController extends BaseApiController
             return $this->forbidden('Only admin users can toggle currency status');
         }
 
-        $currency = Currency::where('user_id', $request->user()->id)->find($id);
+        $currency = Currency::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$currency) {
             return $this->notFound('Currency not found');
@@ -108,7 +108,7 @@ class CurrencyApiController extends BaseApiController
             return $this->forbidden('Only admin users can delete currencies');
         }
 
-        $currency = Currency::where('user_id', $request->user()->id)->find($id);
+        $currency = Currency::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$currency) {
             return $this->notFound('Currency not found');

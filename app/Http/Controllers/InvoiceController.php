@@ -35,7 +35,7 @@ class InvoiceController extends Controller
             })->where('approval_status', '!=', 'rejected');
         } else {
             // Admin sees all invoices from their account
-            $query->where('user_id', $user->id);
+            $query->where('user_id', $user->tenantId());
         }
         
         if ($request->has('search')) {
@@ -90,7 +90,7 @@ class InvoiceController extends Controller
                 })
                 ->get();
         } else {
-            $userId = auth()->id();
+            $userId = auth()->user()->tenantId();
             $clients = Client::where('user_id', $userId)->get();
         }
         
@@ -141,7 +141,7 @@ class InvoiceController extends Controller
                 $validated['employee_id'] = $employeeUser->employee_id;
             }
         } else {
-            $validated['user_id'] = auth()->id();
+            $validated['user_id'] = auth()->user()->tenantId();
             $validated['approval_status'] = 'approved'; // Admin invoices auto-approved
             $validated['approved_at'] = now();
             $validated['approved_by'] = auth()->id();
@@ -349,7 +349,7 @@ class InvoiceController extends Controller
             if ($remainingAmount > 0) {
                 Payment::create([
                     'invoice_id' => $invoice->id,
-                    'user_id' => auth()->id(),
+                    'user_id' => auth()->user()->tenantId(),
                     'amount' => $remainingAmount,
                     'payment_date' => now(),
                     'payment_month' => now()->format('Y-m'),
@@ -438,7 +438,7 @@ class InvoiceController extends Controller
         if ($isEmployee) {
             $userId = $employeeUser->admin_id;
         } else {
-            $userId = auth()->id();
+            $userId = auth()->user()->tenantId();
         }
         
         // Create payment record

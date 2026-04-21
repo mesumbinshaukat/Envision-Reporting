@@ -24,7 +24,7 @@ class InvoiceApiController extends BaseApiController
         $user = $request->user();
         
         if ($user->tokenCan('admin')) {
-            $query = Invoice::where('user_id', $user->id);
+            $query = Invoice::where('user_id', $user->tenantId());
         } else {
             // Employee sees invoices they created or are assigned to
             $query = Invoice::where(function($q) use ($user) {
@@ -73,7 +73,7 @@ class InvoiceApiController extends BaseApiController
     public function store(Request $request)
     {
         $user = $request->user();
-        $userId = $user->tokenCan('admin') ? $user->id : $user->admin_id;
+        $userId = $user->tokenCan('admin') ? $user->tenantId() : $user->admin_id;
 
         $validated = $request->validate([
             'client_id' => 'required_without:is_one_time|nullable|exists:clients,id',
@@ -143,7 +143,7 @@ class InvoiceApiController extends BaseApiController
         $query = Invoice::with(['client', 'employee', 'currency', 'payments', 'milestones']);
 
         if ($user->tokenCan('admin')) {
-            $query->where('user_id', $user->id);
+            $query->where('user_id', $user->tenantId());
         } else {
             $query->where(function($q) use ($user) {
                 $q->where('created_by_employee_id', $user->id)
@@ -167,7 +167,7 @@ class InvoiceApiController extends BaseApiController
         $query = Invoice::query();
 
         if ($user->tokenCan('admin')) {
-            $query->where('user_id', $user->id);
+            $query->where('user_id', $user->tenantId());
         } else {
             $query->where('created_by_employee_id', $user->id)
                   ->where('user_id', $user->admin_id);
@@ -201,7 +201,7 @@ class InvoiceApiController extends BaseApiController
             return $this->forbidden('Only admin users can delete invoices');
         }
 
-        $invoice = Invoice::where('user_id', $request->user()->id)->find($id);
+        $invoice = Invoice::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$invoice) {
             return $this->notFound('Invoice not found');
@@ -218,7 +218,7 @@ class InvoiceApiController extends BaseApiController
             return $this->forbidden('Only admin users can approve invoices');
         }
 
-        $invoice = Invoice::where('user_id', $request->user()->id)->find($id);
+        $invoice = Invoice::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$invoice) {
             return $this->notFound('Invoice not found');
@@ -239,7 +239,7 @@ class InvoiceApiController extends BaseApiController
             return $this->forbidden('Only admin users can reject invoices');
         }
 
-        $invoice = Invoice::where('user_id', $request->user()->id)->find($id);
+        $invoice = Invoice::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$invoice) {
             return $this->notFound('Invoice not found');
@@ -261,7 +261,7 @@ class InvoiceApiController extends BaseApiController
         $query = Invoice::with(['client', 'employee', 'currency', 'payments', 'milestones']);
 
         if ($user->tokenCan('admin')) {
-            $query->where('user_id', $user->id);
+            $query->where('user_id', $user->tenantId());
         } else {
             $query->where(function($q) use ($user) {
                 $q->where('created_by_employee_id', $user->id)

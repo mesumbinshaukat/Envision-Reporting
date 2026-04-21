@@ -30,7 +30,7 @@ class EmployeeApiController extends BaseApiController
             return $this->forbidden('Only admin users can access employee list');
         }
 
-        $userId = $request->user()->id;
+        $userId = $request->user()->tenantId();
         
         $query = Employee::where('user_id', $userId)
             ->with(['currency', 'employeeUser', 'ipWhitelists']);
@@ -72,7 +72,7 @@ class EmployeeApiController extends BaseApiController
             return $this->forbidden('Only admin users can create employees');
         }
 
-        $userId = $request->user()->id;
+        $userId = $request->user()->tenantId();
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -134,7 +134,7 @@ class EmployeeApiController extends BaseApiController
             return $this->forbidden('Only admin users can view employee details');
         }
 
-        $employee = Employee::where('user_id', $request->user()->id)
+        $employee = Employee::where('user_id', $request->user()->tenantId())
             ->with(['currency', 'employeeUser', 'ipWhitelists', 'invoices', 'bonuses', 'salaryReleases'])
             ->find($id);
 
@@ -158,13 +158,13 @@ class EmployeeApiController extends BaseApiController
             return $this->forbidden('Only admin users can update employees');
         }
 
-        $employee = Employee::where('user_id', $request->user()->id)->find($id);
+        $employee = Employee::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$employee) {
             return $this->notFound('Employee not found');
         }
 
-        $userId = $request->user()->id;
+        $userId = $request->user()->tenantId();
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
@@ -228,7 +228,7 @@ class EmployeeApiController extends BaseApiController
             return $this->forbidden('Only admin users can delete employees');
         }
 
-        $employee = Employee::where('user_id', $request->user()->id)->find($id);
+        $employee = Employee::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$employee) {
             return $this->notFound('Employee not found');
@@ -252,7 +252,7 @@ class EmployeeApiController extends BaseApiController
             return $this->forbidden('Only admin users can toggle geolocation');
         }
 
-        $employee = Employee::where('user_id', $request->user()->id)->find($id);
+        $employee = Employee::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$employee) {
             return $this->notFound('Employee not found');
@@ -285,7 +285,7 @@ class EmployeeApiController extends BaseApiController
             'employee_ids.*' => 'required|integer|exists:employees,id',
         ]);
 
-        $userId = $request->user()->id;
+        $userId = $request->user()->tenantId();
         $employees = Employee::where('user_id', $userId)
             ->whereIn('id', $validated['employee_ids']);
 

@@ -39,6 +39,9 @@ Content-Type: application/json
 }
 ```
 
+> [!NOTE]
+> Admin bearer tokens represent the authenticated web user. If the user is a moderator/supervisor, access to admin endpoints is further restricted by feature permissions (Read/Write).
+
 ### Login (Employee)
 ```http
 POST /api/v1/auth/employee/login
@@ -179,6 +182,8 @@ Authorization: Bearer {token}
 ---
 
 ## Employees (Admin Only)
+> [!IMPORTANT]
+> Even with an admin token, moderators/supervisors must have the appropriate feature permissions (e.g. `employees:read` or `employees:write`) or the API will return `403 Forbidden`.
 
 ### List Employees
 ```http

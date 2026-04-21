@@ -20,7 +20,7 @@ class BonusApiController extends BaseApiController
             return $this->forbidden('Only admin users can view bonuses');
         }
 
-        $query = Bonus::where('user_id', $request->user()->id)->with(['employee', 'currency']);
+        $query = Bonus::where('user_id', $request->user()->tenantId())->with(['employee', 'currency']);
 
         $this->applySorting($query, ['id', 'date', 'amount', 'created_at'], 'created_at', 'desc');
 
@@ -44,7 +44,7 @@ class BonusApiController extends BaseApiController
             'release_type' => 'required|in:with_salary,separate',
         ]);
 
-        $validated['user_id'] = $request->user()->id;
+        $validated['user_id'] = $request->user()->tenantId();
         $validated['released'] = $request->release_type === 'separate';
 
         // Capture exchange rate
@@ -65,7 +65,7 @@ class BonusApiController extends BaseApiController
             return $this->forbidden('Only admin users can view bonuses');
         }
 
-        $bonus = Bonus::where('user_id', $request->user()->id)->with(['employee', 'currency'])->find($id);
+        $bonus = Bonus::where('user_id', $request->user()->tenantId())->with(['employee', 'currency'])->find($id);
 
         if (!$bonus) {
             return $this->notFound('Bonus not found');
@@ -80,7 +80,7 @@ class BonusApiController extends BaseApiController
             return $this->forbidden('Only admin users can update bonuses');
         }
 
-        $bonus = Bonus::where('user_id', $request->user()->id)->find($id);
+        $bonus = Bonus::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$bonus) {
             return $this->notFound('Bonus not found');
@@ -111,7 +111,7 @@ class BonusApiController extends BaseApiController
             return $this->forbidden('Only admin users can delete bonuses');
         }
 
-        $bonus = Bonus::where('user_id', $request->user()->id)->find($id);
+        $bonus = Bonus::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$bonus) {
             return $this->notFound('Bonus not found');

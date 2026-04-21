@@ -20,7 +20,7 @@ class SalaryReleaseApiController extends BaseApiController
             return $this->forbidden('Only admin users can view salary releases');
         }
 
-        $query = SalaryRelease::where('user_id', $request->user()->id)->with(['employee', 'currency']);
+        $query = SalaryRelease::where('user_id', $request->user()->tenantId())->with(['employee', 'currency']);
 
         $this->applySorting($query, ['id', 'release_date', 'month', 'year', 'created_at'], 'created_at', 'desc');
 
@@ -49,7 +49,7 @@ class SalaryReleaseApiController extends BaseApiController
             'notes' => 'nullable|string',
         ]);
 
-        $validated['user_id'] = $request->user()->id;
+        $validated['user_id'] = $request->user()->tenantId();
 
         $salaryRelease = SalaryRelease::create($validated);
         $salaryRelease->load(['employee', 'currency']);
@@ -63,7 +63,7 @@ class SalaryReleaseApiController extends BaseApiController
             return $this->forbidden('Only admin users can view salary releases');
         }
 
-        $salaryRelease = SalaryRelease::where('user_id', $request->user()->id)
+        $salaryRelease = SalaryRelease::where('user_id', $request->user()->tenantId())
             ->with(['employee', 'currency'])
             ->find($id);
 
@@ -80,7 +80,7 @@ class SalaryReleaseApiController extends BaseApiController
             return $this->forbidden('Only admin users can update salary releases');
         }
 
-        $salaryRelease = SalaryRelease::where('user_id', $request->user()->id)->find($id);
+        $salaryRelease = SalaryRelease::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$salaryRelease) {
             return $this->notFound('Salary release not found');
@@ -102,7 +102,7 @@ class SalaryReleaseApiController extends BaseApiController
             return $this->forbidden('Only admin users can delete salary releases');
         }
 
-        $salaryRelease = SalaryRelease::where('user_id', $request->user()->id)->find($id);
+        $salaryRelease = SalaryRelease::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$salaryRelease) {
             return $this->notFound('Salary release not found');
@@ -119,7 +119,7 @@ class SalaryReleaseApiController extends BaseApiController
             return $this->forbidden('Only admin users can download salary release PDFs');
         }
 
-        $salaryRelease = SalaryRelease::where('user_id', $request->user()->id)
+        $salaryRelease = SalaryRelease::where('user_id', $request->user()->tenantId())
             ->with(['employee', 'currency'])
             ->find($id);
 

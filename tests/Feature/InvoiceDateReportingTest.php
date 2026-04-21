@@ -113,8 +113,8 @@ class InvoiceDateReportingTest extends TestCase
         $response->assertStatus(200);
         
         // Check if the response contains the February invoice
-        $response->assertSee('10000'); // Feb invoice amount
-        $response->assertDontSee('15000'); // Mar invoice amount should not be visible
+        $response->assertSee('10,000.00'); // Feb invoice amount
+        $response->assertDontSee('15,000.00'); // Mar invoice amount should not be visible
     }
 
     public function test_invoice_controller_filtering_by_invoice_date()
@@ -157,8 +157,8 @@ class InvoiceDateReportingTest extends TestCase
         $response->assertStatus(200);
         
         // Should see February invoice but not March invoice
-        $response->assertSee('10000');
-        $response->assertDontSee('15000');
+        $response->assertSee('10,000.00');
+        $response->assertDontSee('15,000.00');
     }
 
     public function test_database_query_directly()

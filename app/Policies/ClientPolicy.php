@@ -24,7 +24,7 @@ class ClientPolicy
     {
         // Admin user
         if ($user instanceof User) {
-            return $user->id === $client->user_id;
+            return $user->tenantId() === $client->user_id;
         }
         
         // Employee user
@@ -50,7 +50,7 @@ class ClientPolicy
     {
         // Admin user
         if ($user instanceof User) {
-            return $user->id === $client->user_id;
+            return $user->tenantId() === $client->user_id;
         }
         
         // Employee user
@@ -68,7 +68,7 @@ class ClientPolicy
     {
         // Admin user
         if ($user instanceof User) {
-            return $user->id === $client->user_id;
+            return $user->tenantId() === $client->user_id;
         }
         
         // Employee user
@@ -86,7 +86,7 @@ class ClientPolicy
     {
         // Only admin can restore
         if ($user instanceof User) {
-            return $user->id === $client->user_id;
+            return $user->tenantId() === $client->user_id;
         }
         
         return false;
@@ -99,7 +99,7 @@ class ClientPolicy
     {
         // Only admin can force delete
         if ($user instanceof User) {
-            return $user->id === $client->user_id;
+            return $user->tenantId() === $client->user_id;
         }
         
         return false;

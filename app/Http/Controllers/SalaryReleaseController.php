@@ -8,6 +8,7 @@ use App\Models\Bonus;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Currency;
+use App\Models\EmployeeAllowance;
 use App\Traits\HandlesCurrency;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -135,9 +136,19 @@ class SalaryReleaseController extends Controller
             return $bonus->getAmountInBaseCurrency();
         });
         
+        // Get active employee allowances (convert to base currency)
+        $allowances = $employee->employeeAllowances()
+            ->where('is_active', true)
+            ->with(['allowanceType', 'currency'])
+            ->get();
+        
+        $allowanceAmount = $allowances->sum(function($allowance) {
+            return $allowance->getAmountInBaseCurrency();
+        });
+        
         $baseSalary = $employee->salary;
         $deductions = $request->deductions ?? 0;
-        $totalCalculated = $baseSalary + $commissionAmount + $bonusAmount - $deductions;
+        $totalCalculated = $baseSalary + $commissionAmount + $bonusAmount + $allowanceAmount - $deductions;
         
         // Get employee currency or base currency
         $currency = $employee->currency ?? $this->getBaseCurrency();
@@ -147,6 +158,7 @@ class SalaryReleaseController extends Controller
             'base_salary' => number_format($baseSalary, 2),
             'commission_amount' => number_format($commissionAmount, 2),
             'bonus_amount' => number_format($bonusAmount, 2),
+            'allowance_amount' => number_format($allowanceAmount, 2),
             'deductions' => number_format($deductions, 2),
             'total_calculated' => number_format($totalCalculated, 2),
             'currency_symbol' => $currencySymbol,
@@ -164,6 +176,20 @@ class SalaryReleaseController extends Controller
                     'amount_formatted' => $bonusCurrency->symbol . number_format($bonus->amount, 2),
                     'amount_base' => number_format($bonusAmountInBase, 2),
                     'amount_base_formatted' => $baseCurrency->symbol . number_format($bonusAmountInBase, 2),
+                ];
+            }),
+            'allowances' => $allowances->map(function($allowance) use ($baseCurrency) {
+                $allowanceAmountInBase = $allowance->getAmountInBaseCurrency();
+                $allowanceCurrency = $allowance->currency ?? $baseCurrency;
+                
+                return [
+                    'id' => $allowance->id,
+                    'type_label' => $allowance->allowanceType->label,
+                    'currency' => $allowanceCurrency->symbol,
+                    'amount' => number_format($allowance->amount, 2),
+                    'amount_formatted' => $allowanceCurrency->symbol . number_format($allowance->amount, 2),
+                    'amount_base' => number_format($allowanceAmountInBase, 2),
+                    'amount_base_formatted' => $baseCurrency->symbol . number_format($allowanceAmountInBase, 2),
                 ];
             }),
         ]);
@@ -259,15 +285,26 @@ class SalaryReleaseController extends Controller
             return $bonus->getAmountInBaseCurrency();
         });
         
+        // Get active employee allowances (convert to base currency)
+        $allowances = $employee->employeeAllowances()
+            ->where('is_active', true)
+            ->with(['allowanceType', 'currency'])
+            ->get();
+        
+        $allowanceAmount = $allowances->sum(function($allowance) {
+            return $allowance->getAmountInBaseCurrency();
+        });
+        
         $baseSalary = $employee->salary;
         $deductions = $validated['deductions'] ?? 0;
-        $totalAmount = $baseSalary + $commissionAmount + $bonusAmount - $deductions;
+        $totalAmount = $baseSalary + $commissionAmount + $bonusAmount + $allowanceAmount - $deductions;
         
         $validated['user_id'] = auth()->id();
         $validated['currency_id'] = $employee->currency_id ?? $this->getBaseCurrency()->id;
         $validated['base_salary'] = $baseSalary;
         $validated['commission_amount'] = $commissionAmount;
         $validated['bonus_amount'] = $bonusAmount;
+        $validated['allowance_amount'] = $allowanceAmount;
         $validated['total_amount'] = $totalAmount;
         
         // Capture exchange rate at time of creation for historical accuracy
@@ -326,7 +363,7 @@ class SalaryReleaseController extends Controller
         ]);
         
         $deductions = $validated['deductions'] ?? 0;
-        $validated['total_amount'] = $salaryRelease->base_salary + $salaryRelease->commission_amount + $salaryRelease->bonus_amount - $deductions;
+        $validated['total_amount'] = $salaryRelease->base_salary + $salaryRelease->commission_amount + $salaryRelease->bonus_amount + $salaryRelease->allowance_amount - $deductions;
         
         $salaryRelease->update($validated);
         
@@ -346,7 +383,13 @@ class SalaryReleaseController extends Controller
         $this->authorize('view', $salaryRelease);
         $salaryRelease->load(['employee', 'user', 'currency']);
         
-        $pdf = Pdf::loadView('salary-releases.pdf', compact('salaryRelease'));
+        // Load active allowances for this employee at the time of salary release
+        $employeeAllowances = $salaryRelease->employee->employeeAllowances()
+            ->where('is_active', true)
+            ->with(['allowanceType', 'currency'])
+            ->get();
+        
+        $pdf = Pdf::loadView('salary-releases.pdf', compact('salaryRelease', 'employeeAllowances'));
         return $pdf->download('salary-slip-' . $salaryRelease->id . '.pdf');
     }
 }

@@ -14,7 +14,7 @@ class SalaryReleasePolicy
 
     public function view(User $user, SalaryRelease $bonus): bool
     {
-        return $user->id === $bonus->user_id;
+        return $user->tenantId() === $bonus->user_id;
     }
 
     public function create(User $user): bool
@@ -24,21 +24,21 @@ class SalaryReleasePolicy
 
     public function update(User $user, SalaryRelease $bonus): bool
     {
-        return $user->id === $bonus->user_id;
+        return $user->tenantId() === $bonus->user_id;
     }
 
     public function delete(User $user, SalaryRelease $bonus): bool
     {
-        return $user->id === $bonus->user_id;
+        return $user->tenantId() === $bonus->user_id;
     }
 
     public function restore(User $user, SalaryRelease $bonus): bool
     {
-        return $user->id === $bonus->user_id;
+        return $user->tenantId() === $bonus->user_id;
     }
 
     public function forceDelete(User $user, SalaryRelease $bonus): bool
     {
-        return $user->id === $bonus->user_id;
+        return $user->tenantId() === $bonus->user_id;
     }
 }

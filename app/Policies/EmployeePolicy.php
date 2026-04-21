@@ -14,7 +14,7 @@ class EmployeePolicy
 
     public function view(User $user, Employee $employee): bool
     {
-        return $user->id === $employee->user_id;
+        return $user->tenantId() === $employee->user_id;
     }
 
     public function create(User $user): bool
@@ -24,21 +24,21 @@ class EmployeePolicy
 
     public function update(User $user, Employee $employee): bool
     {
-        return $user->id === $employee->user_id;
+        return $user->tenantId() === $employee->user_id;
     }
 
     public function delete(User $user, Employee $employee): bool
     {
-        return $user->id === $employee->user_id;
+        return $user->tenantId() === $employee->user_id;
     }
 
     public function restore(User $user, Employee $employee): bool
     {
-        return $user->id === $employee->user_id;
+        return $user->tenantId() === $employee->user_id;
     }
 
     public function forceDelete(User $user, Employee $employee): bool
     {
-        return $user->id === $employee->user_id;
+        return $user->tenantId() === $employee->user_id;
     }
 }

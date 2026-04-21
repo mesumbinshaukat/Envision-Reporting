@@ -69,6 +69,19 @@
                 <td>Bonus</td>
                 <td>{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->bonus_amount, 2) }}</td>
             </tr>
+            @if(isset($employeeAllowances) && $employeeAllowances->count() > 0)
+                @foreach($employeeAllowances as $allowance)
+                <tr>
+                    <td>{{ $allowance->allowanceType->label }}</td>
+                    <td>{{ $allowance->currency ? $allowance->currency->symbol : ($salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.') }}{{ number_format($allowance->amount, 2) }}</td>
+                </tr>
+                @endforeach
+            @elseif($salaryRelease->allowance_amount > 0)
+                <tr>
+                    <td>Allowances</td>
+                    <td>{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->allowance_amount, 2) }}</td>
+                </tr>
+            @endif
             <tr>
                 <td>Deductions</td>
                 <td class="text-red">-{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->deductions, 2) }}</td>

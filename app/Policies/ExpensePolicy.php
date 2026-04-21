@@ -14,7 +14,7 @@ class ExpensePolicy
 
     public function view(User $user, Expense $invoice): bool
     {
-        return $user->id === $invoice->user_id;
+        return $user->tenantId() === $invoice->user_id;
     }
 
     public function create(User $user): bool
@@ -24,21 +24,21 @@ class ExpensePolicy
 
     public function update(User $user, Expense $invoice): bool
     {
-        return $user->id === $invoice->user_id;
+        return $user->tenantId() === $invoice->user_id;
     }
 
     public function delete(User $user, Expense $invoice): bool
     {
-        return $user->id === $invoice->user_id;
+        return $user->tenantId() === $invoice->user_id;
     }
 
     public function restore(User $user, Expense $invoice): bool
     {
-        return $user->id === $invoice->user_id;
+        return $user->tenantId() === $invoice->user_id;
     }
 
     public function forceDelete(User $user, Expense $invoice): bool
     {
-        return $user->id === $invoice->user_id;
+        return $user->tenantId() === $invoice->user_id;
     }
 }

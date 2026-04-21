@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Hash;
 
 class EmployeeUserController extends Controller
 {
+    use \App\Traits\HandlesAuthGuards;
+
     public function store(Request $request, Employee $employee)
     {
         $validated = $request->validate([
@@ -23,7 +25,7 @@ class EmployeeUserController extends Controller
 
         EmployeeUser::create([
             'employee_id' => $employee->id,
-            'admin_id' => auth()->id(),
+            'admin_id' => $this->getCurrentUserId(),
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'name' => $employee->name,

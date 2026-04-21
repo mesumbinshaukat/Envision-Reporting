@@ -45,6 +45,8 @@ A comprehensive Laravel-based management system for handling clients, employees,
 - ✅ **Pagination** - Efficient data handling with 10 items per page
 - ✅ **Soft Deletes** - Safe deletion with recovery options
 - ✅ **Authorization Policies** - Role-based access control
+- ✅ **Moderators & Supervisors** - Admin can create delegated users with feature-level permissions (Read/Write)
+- ✅ **Feature Registry** - Central list of permission-able features for consistent future expansion
 
 ---
 
@@ -269,6 +271,8 @@ Comprehensive financial report with paid/unpaid invoice breakdown.
 - CSRF protection on all forms
 - Authorization policies for data access
 - User-specific data isolation
+- Feature-level access control (Read/Write) for moderators & supervisors
+- Sidebar hides features the user cannot access (direct URL access still returns 403)
 - Secure password hashing
 - Rate limiting on login attempts
 - Soft deletes for data recovery
@@ -295,6 +299,12 @@ php artisan test
 - ✅ Updated audit PDF with paid/unpaid invoice sections
 - ✅ Excluded bonuses from net income calculation
 - ✅ Changed currency symbol to Rs. (Rupees)
+
+### Version 3.0 (April 2026)
+- ✅ Added moderator/supervisor roles
+- ✅ Added per-feature permissions (Read/Write) with centralized registry in `config/features.php`
+- ✅ Added tenant scoping via `users.admin_id` so delegated users see the admin’s data
+- ✅ Hardened UI navigation to hide inaccessible features while preserving 403 protection for direct URLs
 
 ---
 

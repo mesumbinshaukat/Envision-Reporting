@@ -105,11 +105,18 @@
                                 <td class="py-3 px-4 hidden sm:table-cell">{{ $employee->currency ? $employee->currency->symbol : 'Rs.' }}{{ number_format($employee->salary, 2) }}</td>
                                 <td class="py-3 px-4 hidden xl:table-cell">{{ $employee->commission_rate }}%</td>
                                 <td class="py-3 px-4">
-                                    <div class="flex flex-col sm:flex-row gap-2">
+                                    <div class="flex flex-col sm:flex-row gap-2 flex-wrap">
                                         <a href="{{ route('employees.show', $employee) }}" class="text-navy-900 hover:underline text-sm">View</a>
                                         <a href="{{ route('employees.edit', $employee) }}" class="text-navy-900 hover:underline text-sm">Edit</a>
-                                        <button 
-                                            onclick="toggleGeolocation({{ $employee->id }}, this)" 
+                                        <button
+                                            onclick="printSalarySlip({{ $employee->id }}, '{{ $employee->name }}')"
+                                            class="text-navy-900 hover:underline text-sm text-left"
+                                            title="Print Salary Slip"
+                                        >
+                                            🖨️ Salary Slip
+                                        </button>
+                                        <button
+                                            onclick="toggleGeolocation({{ $employee->id }}, this)"
                                             class="text-sm {{ $employee->geolocation_required ? 'text-orange-600' : 'text-green-600' }} hover:underline text-left"
                                             data-geolocation="{{ $employee->geolocation_required ? '1' : '0' }}"
                                         >
@@ -185,6 +192,27 @@
                     </form>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Salary Slip Modal -->
+    <div id="salarySlipModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black bg-opacity-50" onclick="closeSalarySlipModal()"></div>
+        <div class="relative z-10 max-w-md mx-auto mt-32 bg-white border border-navy-900 rounded-lg shadow-xl p-6 space-y-4">
+            <div>
+                <h3 class="text-xl font-bold text-navy-900">Print Salary Slip</h3>
+                <p class="text-sm text-gray-600 mt-1">Select the month for <span id="salarySlipEmployeeName" class="font-semibold"></span></p>
+            </div>
+            <form id="salarySlipForm" method="GET" action="" class="space-y-4">
+                <div>
+                    <label for="salaryMonth" class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                    <input type="month" id="salaryMonth" name="month" class="w-full px-4 py-2 border border-navy-900 rounded" required>
+                </div>
+                <div class="flex gap-3 justify-end">
+                    <button type="button" onclick="closeSalarySlipModal()" class="px-4 py-2 border border-navy-900 text-navy-900 rounded hover:bg-navy-900 hover:text-white">Cancel</button>
+                    <button type="submit" class="px-6 py-2 bg-navy-900 text-white rounded hover:bg-opacity-90">🖨️ Print PDF</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -293,6 +321,33 @@
             .finally(() => {
                 button.disabled = false;
             });
+        }
+
+        // Salary Slip Modal Functions
+        window.printSalarySlip = function(employeeId, employeeName) {
+            const modal = document.getElementById('salarySlipModal');
+            const form = document.getElementById('salarySlipForm');
+            const nameSpan = document.getElementById('salarySlipEmployeeName');
+            const monthInput = document.getElementById('salaryMonth');
+
+            // Set employee name
+            nameSpan.textContent = employeeName;
+
+            // Set default month to current month
+            const now = new Date();
+            const currentMonth = now.toISOString().slice(0, 7);
+            monthInput.value = currentMonth;
+
+            // Set form action
+            form.action = `/employees/${employeeId}/salary-slip`;
+
+            // Show modal
+            modal.classList.remove('hidden');
+        }
+
+        window.closeSalarySlipModal = function() {
+            const modal = document.getElementById('salarySlipModal');
+            modal.classList.add('hidden');
         }
 
         function createBulkManager(config) {

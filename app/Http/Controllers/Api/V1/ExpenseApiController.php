@@ -21,7 +21,7 @@ class ExpenseApiController extends BaseApiController
             return $this->forbidden('Only admin users can view expenses');
         }
 
-        $query = Expense::where('user_id', $request->user()->id)->with('currency');
+        $query = Expense::where('user_id', $request->user()->tenantId())->with('currency');
 
         // Apply filters
         $this->applyFilters($query, [
@@ -56,7 +56,7 @@ class ExpenseApiController extends BaseApiController
             'date' => 'required|date',
         ]);
 
-        $validated['user_id'] = $request->user()->id;
+        $validated['user_id'] = $request->user()->tenantId();
 
         // Capture exchange rate
         $currency = Currency::find($validated['currency_id']);
@@ -76,7 +76,7 @@ class ExpenseApiController extends BaseApiController
             return $this->forbidden('Only admin users can view expenses');
         }
 
-        $expense = Expense::where('user_id', $request->user()->id)->with('currency')->find($id);
+        $expense = Expense::where('user_id', $request->user()->tenantId())->with('currency')->find($id);
 
         if (!$expense) {
             return $this->notFound('Expense not found');
@@ -91,7 +91,7 @@ class ExpenseApiController extends BaseApiController
             return $this->forbidden('Only admin users can update expenses');
         }
 
-        $expense = Expense::where('user_id', $request->user()->id)->find($id);
+        $expense = Expense::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$expense) {
             return $this->notFound('Expense not found');
@@ -116,7 +116,7 @@ class ExpenseApiController extends BaseApiController
             return $this->forbidden('Only admin users can delete expenses');
         }
 
-        $expense = Expense::where('user_id', $request->user()->id)->find($id);
+        $expense = Expense::where('user_id', $request->user()->tenantId())->find($id);
 
         if (!$expense) {
             return $this->notFound('Expense not found');

@@ -26,7 +26,7 @@ class InvoicePolicy
     {
         // Admin user
         if ($user instanceof User) {
-            return $user->id === $invoice->user_id;
+            return $user->tenantId() === $invoice->user_id;
         }
         
         // Employee user
@@ -52,7 +52,7 @@ class InvoicePolicy
     {
         // Admin user
         if ($user instanceof User) {
-            return $user->id === $invoice->user_id;
+            return $user->tenantId() === $invoice->user_id;
         }
         
         // Employee user - can update if they created it and it's not approved yet
@@ -71,7 +71,7 @@ class InvoicePolicy
     {
         // Only admin can delete
         if ($user instanceof User) {
-            return $user->id === $invoice->user_id;
+            return $user->tenantId() === $invoice->user_id;
         }
         
         return false;
@@ -84,7 +84,7 @@ class InvoicePolicy
     {
         // Only admin can restore
         if ($user instanceof User) {
-            return $user->id === $invoice->user_id;
+            return $user->tenantId() === $invoice->user_id;
         }
         
         return false;
@@ -97,7 +97,7 @@ class InvoicePolicy
     {
         // Only admin can force delete
         if ($user instanceof User) {
-            return $user->id === $invoice->user_id;
+            return $user->tenantId() === $invoice->user_id;
         }
         
         return false;

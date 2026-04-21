@@ -18,6 +18,7 @@ class SalaryRelease extends Model
         'base_salary',
         'commission_amount',
         'bonus_amount',
+        'allowance_amount',
         'deductions',
         'total_amount',
         'partial_amount',

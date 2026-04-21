@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\EmployeeIpWhitelist;
 use App\Traits\HandlesCurrency;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,7 @@ class EmployeeController extends Controller
     use AuthorizesRequests, HandlesCurrency;
     public function index(Request $request)
     {
-        $userId = auth()->id();
+        $userId = $this->resolveCurrencyOwnerId();
         $query = Employee::where('user_id', $userId)->with(['currency', 'employeeUser']);
         
         if ($request->has('search')) {
@@ -93,7 +94,7 @@ class EmployeeController extends Controller
             }
         }
 
-        $validated['user_id'] = auth()->id();
+        $validated['user_id'] = $this->resolveCurrencyOwnerId();
         $validated['commission_rate'] = $validated['commission_rate'] ?? 0;
         $validated['is_sales_person'] = $request->boolean('is_sales_person');
         $validated['geolocation_mode'] = $geolocationMode;
@@ -105,7 +106,7 @@ class EmployeeController extends Controller
             if ($shouldCreateAccount && $request->user_password) {
                 \App\Models\EmployeeUser::create([
                     'employee_id' => $employee->id,
-                    'admin_id' => auth()->id(),
+                    'admin_id' => $validated['user_id'],
                     'email' => $validated['email'],
                     'password' => \Hash::make($request->user_password),
                     'name' => $employee->name,
@@ -373,7 +374,7 @@ class EmployeeController extends Controller
             ], 422);
         }
 
-        $employees = Employee::where('user_id', auth()->id())
+        $employees = Employee::where('user_id', $this->resolveCurrencyOwnerId())
             ->whereIn('id', $ids)
             ->with('employeeUser')
             ->get();
@@ -446,7 +447,7 @@ class EmployeeController extends Controller
 
         $ids = collect($data['ids'])->unique()->values();
 
-        $employees = Employee::where('user_id', auth()->id())
+        $employees = Employee::where('user_id', $this->resolveCurrencyOwnerId())
             ->whereIn('id', $ids)
             ->with(['currency', 'employeeUser'])
             ->get();
@@ -498,7 +499,7 @@ class EmployeeController extends Controller
 
         $ids = collect($data['updates'])->pluck('id')->unique();
 
-        $employees = Employee::where('user_id', auth()->id())
+        $employees = Employee::where('user_id', $this->resolveCurrencyOwnerId())
             ->whereIn('id', $ids)
             ->with('employeeUser')
             ->get()
@@ -540,5 +541,135 @@ class EmployeeController extends Controller
             'success' => true,
             'message' => 'Employees updated successfully.',
         ]);
+    }
+
+    /**
+     * Generate salary slip PDF for an employee
+     */
+    public function salarySlip(Request $request, Employee $employee)
+    {
+        $this->authorize('view', $employee);
+
+        // Validate month parameter
+        $validated = $request->validate([
+            'month' => 'required|string|regex:/^\d{4}-\d{2}$/',
+        ]);
+
+        $month = $validated['month'];
+        $monthStart = date('Y-m-01', strtotime($month . '-01'));
+        $monthEnd = date('Y-m-t', strtotime($month . '-01'));
+
+        // Load employee with currency
+        $employee->load('currency');
+        $currency = $employee->currency ?? $this->getBaseCurrency();
+
+        // Get salary release for this month if exists
+        $salaryRelease = $employee->salaryReleases()
+            ->where('month', $month)
+            ->with('currency')
+            ->first();
+
+        // If salary release exists, use it directly like SalaryReleaseController
+        if ($salaryRelease) {
+            $salaryRelease->load(['employee', 'user', 'currency']);
+            
+            // Load active allowances for this employee at the time of salary release
+            $employeeAllowances = $salaryRelease->employee->employeeAllowances()
+                ->where('is_active', true)
+                ->with(['allowanceType', 'currency'])
+                ->get();
+            
+            $pdf = Pdf::loadView('salary-releases.pdf', compact('salaryRelease', 'employeeAllowances'));
+            $filename = 'salary-slip-' . $salaryRelease->id . '.pdf';
+            return $pdf->download($filename);
+        }
+
+        // If no salary release exists, calculate components dynamically
+        $baseSalary = $employee->salary;
+        $commissionAmount = 0;
+        $bonusAmount = 0;
+        $deductions = 0;
+        $allowanceAmount = 0;
+
+        // Commission calculation from invoices with payments in this month
+        $invoices = $employee->invoices()
+            ->with(['client', 'currency', 'payments' => function($query) use ($monthStart, $monthEnd) {
+                $query->where('payment_date', '>=', $monthStart)
+                      ->where('payment_date', '<=', $monthEnd);
+            }])
+            ->get();
+
+        foreach ($invoices as $invoice) {
+            if ($employee->commission_rate && $employee->commission_rate > 0) {
+                $payments = $invoice->payments;
+                if ($payments->count() > 0) {
+                    $paidAmount = $payments->sum('amount');
+
+                    // Convert to base currency for calculation
+                    if ($invoice->currency && !$invoice->currency->is_base) {
+                        $paidAmountInBase = $invoice->currency->toBase($paidAmount);
+                        $taxInBase = $invoice->currency->toBase($invoice->tax);
+                        $invoiceAmountInBase = $invoice->currency->toBase($invoice->amount);
+                    } else {
+                        $paidAmountInBase = $paidAmount;
+                        $taxInBase = $invoice->tax;
+                        $invoiceAmountInBase = $invoice->amount;
+                    }
+
+                    // Calculate commission after tax deduction
+                    $taxPerPayment = $invoiceAmountInBase > 0 ? ($taxInBase / $invoiceAmountInBase) * $paidAmountInBase : 0;
+                    $netAmount = $paidAmountInBase - $taxPerPayment;
+                    $commissionRate = $employee->commission_rate / 100;
+                    $invoiceCommission = $netAmount * $commissionRate;
+                    $commissionAmount += $invoiceCommission;
+                }
+            }
+        }
+
+        // Get bonuses for this month
+        $bonuses = $employee->bonuses()
+            ->where('date', '>=', $monthStart)
+            ->where('date', '<=', $monthEnd)
+            ->with('currency')
+            ->get();
+
+        foreach ($bonuses as $bonus) {
+            $bonusAmount += $bonus->getAmountInBaseCurrency();
+        }
+
+        // Get active allowances for this employee
+        $employeeAllowances = $employee->employeeAllowances()
+            ->where('is_active', true)
+            ->with(['allowanceType', 'currency'])
+            ->get();
+
+        foreach ($employeeAllowances as $allowance) {
+            $allowanceAmount += $allowance->getAmountInBaseCurrency();
+        }
+
+        // Calculate total
+        $totalAmount = $baseSalary + $commissionAmount + $bonusAmount + $allowanceAmount - $deductions;
+
+        // Create a temporary salary release object for the PDF view
+        $tempSalaryRelease = new \stdClass();
+        $tempSalaryRelease->month = $month;
+        $tempSalaryRelease->release_date = now();
+        $tempSalaryRelease->base_salary = $baseSalary;
+        $tempSalaryRelease->commission_amount = $commissionAmount;
+        $tempSalaryRelease->bonus_amount = $bonusAmount;
+        $tempSalaryRelease->allowance_amount = $allowanceAmount;
+        $tempSalaryRelease->deductions = $deductions;
+        $tempSalaryRelease->total_amount = $totalAmount;
+        $tempSalaryRelease->notes = null;
+        $tempSalaryRelease->employee = $employee;
+        $tempSalaryRelease->currency = $currency;
+
+        $pdf = Pdf::loadView('salary-releases.pdf', [
+            'salaryRelease' => $tempSalaryRelease,
+            'employeeAllowances' => $employeeAllowances,
+        ]);
+
+        $filename = 'salary-slip-' . str_replace(' ', '-', strtolower($employee->name)) . '-' . $month . '.pdf';
+        return $pdf->download($filename);
     }
 }

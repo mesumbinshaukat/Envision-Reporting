@@ -9,7 +9,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ClientController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, \App\Traits\HandlesAuthGuards;
     /**
      * Display a listing of the resource.
      */
@@ -28,7 +28,7 @@ class ClientController extends Controller
                     $q->where('employee_id', $employeeId);
                 });
         } else {
-            $userId = auth()->id();
+            $userId = $this->getCurrentUserId();
             $query = Client::where('user_id', $userId);
         }
         
@@ -63,7 +63,7 @@ class ClientController extends Controller
             $employeeUser = auth()->guard('employee')->user();
             $userId = $employeeUser->admin_id;
         } else {
-            $userId = auth()->id();
+            $userId = $this->getCurrentUserId();
         }
         
         $validated = $request->validate([
@@ -153,7 +153,7 @@ class ClientController extends Controller
             $employeeUser = auth()->guard('employee')->user();
             $userId = $employeeUser->admin_id;
         } else {
-            $userId = auth()->id();
+            $userId = $this->getCurrentUserId();
         }
         
         $validated = $request->validate([
@@ -214,7 +214,7 @@ class ClientController extends Controller
             abort(403); // Employees can't see trash
         }
         
-        $userId = auth()->id();
+        $userId = $this->getCurrentUserId();
         $clients = Client::where('user_id', $userId)->onlyTrashed()->with(['createdByEmployee', 'deletedByEmployee'])->latest('deleted_at')->paginate(10);
         
         return view('clients.trash', compact('clients'));

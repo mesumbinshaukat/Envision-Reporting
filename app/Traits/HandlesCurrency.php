@@ -15,6 +15,11 @@ trait HandlesCurrency
             return optional(auth()->guard('employee')->user())->admin_id;
         }
 
+        $user = auth()->guard('web')->user();
+        if ($user instanceof \App\Models\User) {
+            return $user->tenantId();
+        }
+
         return auth()->id();
     }
 

@@ -14,7 +14,7 @@ class ExpenseController extends Controller
     use AuthorizesRequests, HandlesCurrency;
     public function index(Request $request)
     {
-        $userId = auth()->id();
+        $userId = $this->resolveCurrencyOwnerId();
         $query = Expense::where('user_id', $userId)->with('currency');
         
         if ($request->has('date_from')) {
@@ -58,7 +58,7 @@ class ExpenseController extends Controller
             'date' => 'required|date',
         ]);
         
-        $validated['user_id'] = auth()->id();
+        $validated['user_id'] = $this->resolveCurrencyOwnerId();
         
         // Capture exchange rate at time of creation for historical accuracy
         if (isset($validated['currency_id'])) {

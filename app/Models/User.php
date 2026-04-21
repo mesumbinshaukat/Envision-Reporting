@@ -24,9 +24,11 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'admin_id',
         'name',
         'email',
         'password',
+        'role',
         'profile_photo_path',
         'office_latitude',
         'office_longitude',
@@ -60,6 +62,91 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function featurePermissions()
+    {
+        return $this->hasMany(UserFeaturePermission::class);
+    }
+
+    public function admin()
+    {
+        return $this->belongsTo(User::class, 'admin_id');
+    }
+
+    public function managedUsers()
+    {
+        return $this->hasMany(User::class, 'admin_id');
+    }
+
+    /**
+     * Multi-user tenancy:
+     * - Admin users "own" data under their own id.
+     * - Moderators/Supervisors operate on behalf of their admin (admin_id).
+     */
+    public function tenantId(): int
+    {
+        if ($this->isAdmin()) {
+            return (int) $this->id;
+        }
+
+        return (int) ($this->admin_id ?? $this->id);
+    }
+
+    public function isAdmin(): bool
+    {
+        return ($this->role ?? 'admin') === 'admin';
+    }
+
+    public function isSupervisor(): bool
+    {
+        return ($this->role ?? 'admin') === 'supervisor';
+    }
+
+    public function isModerator(): bool
+    {
+        return ($this->role ?? 'admin') === 'moderator';
+    }
+
+    public function isEmployee()
+    {
+        return false;
+    }
+
+    public function canReadFeature(string $featureKey): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        $row = $this->featurePermissions->firstWhere('feature_key', $featureKey);
+
+        if ($row) {
+            return (bool) ($row->can_read || $row->can_write);
+        }
+
+        $defaults = config('features.role_defaults.' . ($this->role ?? 'moderator'), []);
+        $fallback = $defaults[$featureKey] ?? null;
+
+        return (bool) ($fallback['read'] ?? false) || (bool) ($fallback['write'] ?? false);
+    }
+
+    public function canWriteFeature(string $featureKey): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        $row = $this->featurePermissions->firstWhere('feature_key', $featureKey);
+
+        if ($row) {
+            return (bool) $row->can_write;
+        }
+
+        $defaults = config('features.role_defaults.' . ($this->role ?? 'moderator'), []);
+        $fallback = $defaults[$featureKey] ?? null;
+
+        return (bool) ($fallback['write'] ?? false);
     }
 
     public function officeSchedule()
@@ -131,16 +218,5 @@ class User extends Authenticatable
         $relativePath = ltrim($this->profile_photo_path, '/');
 
         return asset('storage/' . $relativePath);
-    }
-
-    // Helper method to check if this is an admin user
-    public function isAdmin()
-    {
-        return true;
-    }
-
-    public function isEmployee()
-    {
-        return false;
     }
 }

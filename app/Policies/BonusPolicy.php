@@ -14,7 +14,7 @@ class BonusPolicy
 
     public function view(User $user, Bonus $expense): bool
     {
-        return $user->id === $expense->user_id;
+        return $user->tenantId() === $expense->user_id;
     }
 
     public function create(User $user): bool
@@ -24,21 +24,21 @@ class BonusPolicy
 
     public function update(User $user, Bonus $expense): bool
     {
-        return $user->id === $expense->user_id;
+        return $user->tenantId() === $expense->user_id;
     }
 
     public function delete(User $user, Bonus $expense): bool
     {
-        return $user->id === $expense->user_id;
+        return $user->tenantId() === $expense->user_id;
     }
 
     public function restore(User $user, Bonus $expense): bool
     {
-        return $user->id === $expense->user_id;
+        return $user->tenantId() === $expense->user_id;
     }
 
     public function forceDelete(User $user, Bonus $expense): bool
     {
-        return $user->id === $expense->user_id;
+        return $user->tenantId() === $expense->user_id;
     }
 }

@@ -18,7 +18,7 @@ class CurrencyController extends Controller
 
     public function index()
     {
-        $userId = auth()->id();
+        $userId = optional(auth()->user())->tenantId() ?? auth()->id();
         $currencies = Currency::where('user_id', $userId)->orderBy('is_base', 'desc')->orderBy('code')->get();
         $baseCurrency = $currencies->where('is_base', true)->first();
         $templates = $this->currencyService->getCurrencyTemplates();
@@ -28,7 +28,7 @@ class CurrencyController extends Controller
 
     public function store(Request $request)
     {
-        $userId = auth()->id();
+        $userId = optional(auth()->user())->tenantId() ?? auth()->id();
         
         $validated = $request->validate([
             'code' => 'required|string|max:10',
@@ -81,7 +81,8 @@ class CurrencyController extends Controller
     public function update(Request $request, Currency $currency)
     {
         // Ensure user owns this currency
-        if ($currency->user_id !== auth()->id()) {
+        $userId = optional(auth()->user())->tenantId() ?? auth()->id();
+        if ($currency->user_id !== $userId) {
             abort(403);
         }
 
@@ -104,11 +105,12 @@ class CurrencyController extends Controller
     public function setBase(Currency $currency)
     {
         // Ensure user owns this currency
-        if ($currency->user_id !== auth()->id()) {
+        $userId = optional(auth()->user())->tenantId() ?? auth()->id();
+        if ($currency->user_id !== $userId) {
             abort(403);
         }
 
-        $this->currencyService->setBaseCurrency(auth()->id(), $currency->id);
+        $this->currencyService->setBaseCurrency($userId, $currency->id);
 
         return redirect()->route('currencies.index')->with('success', 'Base currency updated successfully');
     }
@@ -116,7 +118,8 @@ class CurrencyController extends Controller
     public function toggleActive(Currency $currency)
     {
         // Ensure user owns this currency
-        if ($currency->user_id !== auth()->id()) {
+        $userId = optional(auth()->user())->tenantId() ?? auth()->id();
+        if ($currency->user_id !== $userId) {
             abort(403);
         }
 
@@ -134,7 +137,8 @@ class CurrencyController extends Controller
     public function destroy(Currency $currency)
     {
         // Ensure user owns this currency
-        if ($currency->user_id !== auth()->id()) {
+        $userId = optional(auth()->user())->tenantId() ?? auth()->id();
+        if ($currency->user_id !== $userId) {
             abort(403);
         }
 
