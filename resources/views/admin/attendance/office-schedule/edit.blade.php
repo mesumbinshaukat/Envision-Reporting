@@ -76,6 +76,48 @@
                         </select>
                         <p class="text-xs text-gray-500 mt-1">Statistics and late/overtime calculations follow this timezone.</p>
                     </div>
+
+                    <div>
+                        <label for="grace_time_minutes" class="block text-sm font-semibold text-navy-900 mb-1">Grace Time (Minutes)</label>
+                        <input
+                            type="number"
+                            name="grace_time_minutes"
+                            id="grace_time_minutes"
+                            value="{{ old('grace_time_minutes', $schedule->grace_time_minutes ?? 0) }}"
+                            class="w-full border border-gray-300 rounded px-3 py-2"
+                            min="0"
+                            required
+                        >
+                        <p class="text-xs text-gray-500 mt-1">Extra minutes allowed after start time before check-in is considered late.</p>
+                    </div>
+
+                    <div>
+                        <label for="late_count_for_deduction" class="block text-sm font-semibold text-navy-900 mb-1">Late Count for Deduction</label>
+                        <input
+                            type="number"
+                            name="late_count_for_deduction"
+                            id="late_count_for_deduction"
+                            value="{{ old('late_count_for_deduction', $schedule->late_count_for_deduction ?? 3) }}"
+                            class="w-full border border-gray-300 rounded px-3 py-2"
+                            min="1"
+                            required
+                        >
+                        <p class="text-xs text-gray-500 mt-1">Number of lates that equal one day's salary deduction (e.g., 3 lates = 1 day).</p>
+                    </div>
+
+                    <div>
+                        <label for="salary_divisor" class="block text-sm font-semibold text-navy-900 mb-1">Salary Divisor (Days)</label>
+                        <input
+                            type="number"
+                            name="salary_divisor"
+                            id="salary_divisor"
+                            value="{{ old('salary_divisor', $schedule->salary_divisor ?? 30) }}"
+                            class="w-full border border-gray-300 rounded px-3 py-2"
+                            min="1"
+                            required
+                        >
+                        <p class="text-xs text-gray-500 mt-1">The divisor used to calculate one day's salary for deductions (typically 30).</p>
+                    </div>
                 </div>
 
                 <div>

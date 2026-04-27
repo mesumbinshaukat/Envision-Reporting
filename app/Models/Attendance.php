@@ -27,6 +27,8 @@ class Attendance extends Model
         'check_out_user_agent',
         'check_out_distance_meters',
         'attendance_date',
+        'is_late',
+        'late_minutes',
     ];
 
     protected $casts = [

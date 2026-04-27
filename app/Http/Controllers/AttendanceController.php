@@ -313,19 +313,44 @@ class AttendanceController extends Controller
             ]);
         }
 
+        // Calculate late status
+        $dayName = strtolower($today->format('l'));
+        $specificSchedule = $employee->schedules()->where('day_of_week', $dayName)->first();
+        $globalSchedule = (new \App\Services\OfficeScheduleService())->getSchedule($user);
+
+        $startTime = $specificSchedule ? $specificSchedule->start_time : $globalSchedule->start_time;
+        $graceTime = $globalSchedule->grace_time_minutes ?? 0;
+        $timezone = $globalSchedule->timezone ?? config('app.timezone');
+
+        $checkInTime = Carbon::now()->setTimezone($timezone);
+        $scheduledStart = Carbon::parse($today->toDateString() . ' ' . $startTime, $timezone);
+
+        $isLate = false;
+        $lateMinutes = 0;
+
+        // Only check for late if the day is a working day (either globally or specifically set for employee)
+        $isWorkingDay = $specificSchedule || in_array($dayName, $globalSchedule->working_days, true);
+
+        if ($isWorkingDay && $checkInTime->greaterThan($scheduledStart->copy()->addMinutes($graceTime))) {
+            $isLate = true;
+            $lateMinutes = (int) $scheduledStart->diffInMinutes($checkInTime, false);
+        }
+
         // Create new attendance record with check-in time and location
         $attendance = Attendance::create([
             'employee_user_id' => $employeeUser->id,
             'attendance_date' => $today,
-            'check_in' => Carbon::now(),
+            'check_in' => Carbon::now(), // Save the original system time
             'check_in_latitude' => $latitude,
             'check_in_longitude' => $longitude,
             'check_in_ip' => $ipPair['ipv4'] ?? $ipPair['ipv6'],
             'check_in_ip_v6' => $ipPair['ipv6'],
             'check_in_user_agent' => $request->userAgent(),
             'check_in_distance_meters' => $distance,
+            'is_late' => $isLate,
+            'late_minutes' => $lateMinutes,
         ]);
-
+        
         // Log successful check-in
         $geoService->logAttempt(
             $employeeUser->id,
@@ -345,8 +370,8 @@ class AttendanceController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Successfully checked in at ' . $attendance->check_in->format('h:i A'),
-            'check_in_time' => $attendance->check_in->format('h:i A'),
+            'message' => 'Successfully checked in at ' . $attendance->check_in->setTimezone($timezone)->format('h:i A'),
+            'check_in_time' => $attendance->check_in->setTimezone($timezone)->format('h:i A'),
         ]);
     }
 

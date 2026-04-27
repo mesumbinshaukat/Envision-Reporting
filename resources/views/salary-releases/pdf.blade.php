@@ -83,8 +83,16 @@
                 </tr>
             @endif
             <tr>
-                <td>Deductions</td>
-                <td class="text-red">-{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->deductions, 2) }}</td>
+                <td>Late Deduction</td>
+                <td style="color: red;">-{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->late_deduction, 2) }}</td>
+            </tr>
+            <tr>
+                <td>Leave Deduction</td>
+                <td style="color: red;">-{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->leave_deduction, 2) }}</td>
+            </tr>
+            <tr>
+                <td>Manual Deductions</td>
+                <td>-{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->deductions, 2) }}</td>
             </tr>
             <tr class="total-row">
                 <td><strong>Total Amount</strong></td>

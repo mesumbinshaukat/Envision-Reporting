@@ -101,6 +101,36 @@
                 <input type="number" name="commission_rate" id="commission_rate" value="{{ old('commission_rate', $employee->commission_rate) }}" step="0.01" min="0" max="100" class="w-full px-4 py-2 border border-navy-900 rounded">
             </div>
 
+            <div>
+                <label for="max_monthly_leaves" class="block text-sm font-semibold text-navy-900 mb-1">Max Monthly Leaves</label>
+                <input type="number" name="max_monthly_leaves" id="max_monthly_leaves" value="{{ old('max_monthly_leaves', $employee->max_monthly_leaves ?? 0) }}" min="0" class="w-full px-4 py-2 border border-navy-900 rounded">
+                <p class="text-xs text-gray-500 mt-1">Number of leaves allowed per month before deductions start.</p>
+            </div>
+
+            <div class="border-t border-gray-300 pt-4">
+                <h3 class="text-lg font-bold text-navy-900 mb-2">Specific Employee Timings (Optional)</h3>
+                <p class="text-xs text-gray-600 mb-4">Set specific timings for this employee on certain days. If left empty, global office timings will apply.</p>
+                
+                <div class="space-y-3">
+                    @foreach(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as $day)
+                        @php
+                            $specificSchedule = $employee->schedules->firstWhere('day_of_week', $day);
+                            $startTime = old("schedules.$day.start_time", $specificSchedule?->start_time);
+                            $endTime = old("schedules.$day.end_time", $specificSchedule?->end_time);
+                        @endphp
+                        <div class="grid grid-cols-3 gap-4 items-center">
+                            <span class="capitalize text-sm font-semibold text-navy-900">{{ $day }}</span>
+                            <div>
+                                <input type="time" name="schedules[{{ $day }}][start_time]" value="{{ $startTime ? date('H:i', strtotime($startTime)) : '' }}" class="w-full px-2 py-1 border border-navy-900 rounded text-sm" placeholder="Start">
+                            </div>
+                            <div>
+                                <input type="time" name="schedules[{{ $day }}][end_time]" value="{{ $endTime ? date('H:i', strtotime($endTime)) : '' }}" class="w-full px-2 py-1 border border-navy-900 rounded text-sm" placeholder="End">
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
             @if($employee->employeeUser)
                 <div class="border-t border-gray-300 pt-4 space-y-4">
                     <div>

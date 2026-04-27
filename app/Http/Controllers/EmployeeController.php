@@ -67,11 +67,15 @@ class EmployeeController extends Controller
             'joining_date' => 'nullable|date',
             'last_date' => 'nullable|date',
             'salary' => 'required|numeric|min:0',
+            'max_monthly_leaves' => 'nullable|integer|min:0',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
             'geolocation_mode' => ['nullable', Rule::in(Employee::GEOLOCATION_MODE_OPTIONS)],
             'create_user_account' => 'nullable|boolean',
             'user_password' => 'required_if:create_user_account,1|nullable|min:8',
             'is_sales_person' => 'nullable|boolean',
+            'schedules' => 'nullable|array',
+            'schedules.*.start_time' => 'nullable|date_format:H:i',
+            'schedules.*.end_time' => 'nullable|date_format:H:i',
         ]);
         
         $shouldCreateAccount = $request->boolean('create_user_account');
@@ -116,6 +120,19 @@ class EmployeeController extends Controller
             if (!empty($ipWhitelistEntries)) {
                 $this->createEmployeeIpWhitelists($employee, $ipWhitelistEntries);
             }
+
+            // Save specific schedules
+            if (!empty($validated['schedules'])) {
+                foreach ($validated['schedules'] as $day => $times) {
+                    if (!empty($times['start_time']) && !empty($times['end_time'])) {
+                        $employee->schedules()->create([
+                            'day_of_week' => $day,
+                            'start_time' => $times['start_time'],
+                            'end_time' => $times['end_time'],
+                        ]);
+                    }
+                }
+            }
         });
         
         return redirect()->route('employees.index')->with('success', 'Employee created successfully.');
@@ -131,7 +148,7 @@ class EmployeeController extends Controller
     public function edit(Employee $employee)
     {
         $this->authorize('update', $employee);
-        $employee->load('ipWhitelists');
+        $employee->load(['ipWhitelists', 'schedules']);
         $currencies = $this->getUserCurrencies();
         $baseCurrency = $this->getBaseCurrency();
         $geolocationModeOptions = $this->geolocationModeOptions();
@@ -155,9 +172,13 @@ class EmployeeController extends Controller
             'joining_date' => 'nullable|date',
             'last_date' => 'nullable|date',
             'salary' => 'required|numeric|min:0',
+            'max_monthly_leaves' => 'nullable|integer|min:0',
             'commission_rate' => 'nullable|numeric|min:0|max:100',
             'geolocation_mode' => ['nullable', Rule::in(Employee::GEOLOCATION_MODE_OPTIONS)],
             'is_sales_person' => 'nullable|boolean',
+            'schedules' => 'nullable|array',
+            'schedules.*.start_time' => 'nullable|date_format:H:i',
+            'schedules.*.end_time' => 'nullable|date_format:H:i',
         ]);
 
         $validated['commission_rate'] = $validated['commission_rate'] ?? 0;
@@ -185,8 +206,24 @@ class EmployeeController extends Controller
         $validated['geolocation_mode'] = $geolocationMode;
         $validated['geolocation_required'] = $geolocationMode !== Employee::GEO_MODE_DISABLED;
         
-        $employee->update($validated);
-        $this->syncEmployeeIpWhitelists($employee, $ipWhitelistEntries, $geolocationMode);
+        DB::transaction(function () use ($employee, $validated, $ipWhitelistEntries, $geolocationMode) {
+            $employee->update($validated);
+            $this->syncEmployeeIpWhitelists($employee, $ipWhitelistEntries, $geolocationMode);
+
+            // Sync specific schedules
+            $employee->schedules()->delete();
+            if (!empty($validated['schedules'])) {
+                foreach ($validated['schedules'] as $day => $times) {
+                    if (!empty($times['start_time']) && !empty($times['end_time'])) {
+                        $employee->schedules()->create([
+                            'day_of_week' => $day,
+                            'start_time' => $times['start_time'],
+                            'end_time' => $times['end_time'],
+                        ]);
+                    }
+                }
+            }
+        });
         
         return redirect()->route('employees.index')->with('success', 'Employee updated successfully.');
     }

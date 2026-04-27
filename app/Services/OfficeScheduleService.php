@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Attendance;
+use App\Models\Employee;
 use App\Models\OfficeClosure;
 use App\Models\OfficeSchedule;
 use App\Models\User;
@@ -73,20 +74,34 @@ class OfficeScheduleService
         return $workingDays;
     }
 
-    public function isWorkingDay(Carbon $date, OfficeSchedule $schedule, ?Collection $closures = null): bool
+    public function isWorkingDay(Carbon $date, OfficeSchedule $schedule, ?Collection $closures = null, ?Employee $employee = null): bool
     {
-        $workingDays = $schedule->working_days ?: self::DEFAULT_WORKING_DAYS;
         $dayName = strtolower($date->format('l'));
+
+        // If employee is provided, check their specific schedules first
+        if ($employee) {
+            $hasSpecificSchedule = $employee->schedules()->where('day_of_week', $dayName)->exists();
+            if ($hasSpecificSchedule) {
+                return !$this->isClosure($date, $closures);
+            }
+        }
+
+        $workingDays = $schedule->working_days ?: self::DEFAULT_WORKING_DAYS;
 
         if (!in_array($dayName, $workingDays, true)) {
             return false;
         }
 
+        return !$this->isClosure($date, $closures);
+    }
+
+    private function isClosure(Carbon $date, ?Collection $closures): bool
+    {
         if (!$closures || $closures->isEmpty()) {
-            return true;
+            return false;
         }
 
-        return !$closures->contains(function (OfficeClosure $closure) use ($date) {
+        return $closures->contains(function (OfficeClosure $closure) use ($date) {
             $start = Carbon::parse($closure->start_date)->startOfDay();
             $end = $closure->end_date
                 ? Carbon::parse($closure->end_date)->endOfDay()
@@ -94,6 +109,21 @@ class OfficeScheduleService
 
             return $date->betweenIncluded($start, $end);
         });
+    }
+
+    public function countExpectedWorkingDays(Employee $employee, Carbon $start, Carbon $end): int
+    {
+        $schedule = $this->getSchedule($employee->user);
+        $closures = $this->getClosuresForRange($employee->user, $start, $end);
+        $count = 0;
+
+        foreach (CarbonPeriod::create($start->copy(), $end->copy()) as $date) {
+            if ($this->isWorkingDay($date, $schedule, $closures, $employee)) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     public function resolveScheduleWindow(Carbon $date, OfficeSchedule $schedule): ?array

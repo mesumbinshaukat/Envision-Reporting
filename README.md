@@ -1,4 +1,4 @@
-# Envision Reporting - Client & Employee Management System
+# Bizentify - Client & Employee Management System
 
 A comprehensive Laravel-based management system for handling clients, employees, invoices, expenses, bonuses, salary releases, and financial reporting with PDF export capabilities.
 
@@ -31,7 +31,9 @@ A comprehensive Laravel-based management system for handling clients, employees,
 - **Invoice Management** - Create invoices with automatic commission calculation, status tracking, and PDF export
 - **Expense Tracking** - Record and categorize business expenses with date filtering
 - **Bonus System** - Award bonuses to employees with flexible release types
-- **Salary Release** - Automated salary calculation with commissions, bonuses, and deductions
+- **Salary Release** - Automated salary calculation with commissions, bonuses, and late/leave deductions
+- **Attendance Tracking** - Daily check-in/out with geolocation, IP whitelisting, and auto-late detection
+- **Flexible Scheduling** - Global office hours plus per-employee schedule overrides for specific days
 - **Comprehensive Reports** - Detailed audit reports with paid/unpaid breakdowns and net income calculations
 
 ### Advanced Features
@@ -47,6 +49,9 @@ A comprehensive Laravel-based management system for handling clients, employees,
 - ✅ **Authorization Policies** - Role-based access control
 - ✅ **Moderators & Supervisors** - Admin can create delegated users with feature-level permissions (Read/Write)
 - ✅ **Feature Registry** - Central list of permission-able features for consistent future expansion
+- ✅ **Advanced Attendance** - Geolocation enforcement, IP whitelisting, and distance tracking
+- ✅ **Automated Deductions** - Late-based and leave-based automated salary deductions
+- ✅ **Employee Portal** - Dedicated dashboard for employees to check-in and view salary slips
 
 ---
 
@@ -75,7 +80,7 @@ A comprehensive Laravel-based management system for handling clients, employees,
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd envision_reporting
+   cd bizentify
    ```
 
 2. **Install PHP dependencies**
@@ -166,7 +171,9 @@ Access the dashboard after login to view:
    - Base salary
    - Commissions from paid invoices
    - Unreleased bonuses
-   - Deductions
+   - Late deductions (e.g., 3 lates = 1 day)
+   - Leave deductions (extra leaves beyond monthly limit)
+   - Manual deductions
 4. Choose full or partial release
 5. Submit to release salary and mark commissions/bonuses as paid
 
@@ -186,10 +193,19 @@ Access the dashboard after login to view:
 - **Tracking**: Prevents duplicate commission payments
 
 ### Salary Release
-- **Auto-Calculation**: Base + Commissions + Bonuses - Deductions
+- **Auto-Calculation**: Base + Commissions + Bonuses - Deductions (Late/Leave/Manual)
+- **Late Rules**: Automated deduction based on "X lates = 1 day salary" configurable per office
+- **Leave Limits**: Automated deduction for leaves exceeding the employee's monthly allowance
 - **Month Tracking**: Associate each release with a specific month
 - **Partial Releases**: Release partial amounts with validation
 - **Live Preview**: See breakdown before submission
+
+### Attendance & Scheduling
+- **Check-in/out**: Simple interface for employees with status tracking
+- **Geolocation**: Enforce check-ins only within a specific radius of the office
+- **IP Whitelisting**: Allow office-only check-ins or provide whitelist overrides
+- **Custom Schedules**: Define specific timings for individual employees (e.g., for students or partial shifts)
+- **Grace Period**: Configurable grace time (in minutes) before a check-in is marked "Late"
 
 ### Net Income Calculation
 ```
@@ -306,6 +322,14 @@ php artisan test
 - ✅ Added tenant scoping via `users.admin_id` so delegated users see the admin’s data
 - ✅ Hardened UI navigation to hide inaccessible features while preserving 403 protection for direct URLs
 
+### Version 4.0 (April 2026 - Current)
+- ✅ **Advanced Attendance**: Added geolocation enforcement, IP whitelisting, and distance tracking for check-ins
+- ✅ **Flexible Scheduling**: Implemented global office hours and per-employee schedule overrides
+- ✅ **Smart Deductions**: Automated salary deductions for lates (e.g., 3 lates = 1 day) and extra leaves
+- ✅ **Deduction Settings**: Configurable grace time and late limits from the frontend
+- ✅ **Employee Accounts**: Dedicated login for employees to manage attendance and view slips
+- ✅ **Detailed Slips**: PDF and UI updates to show breakdown of automated deductions
+
 ---
 
 ## 🤝 Contributing
@@ -328,7 +352,7 @@ This project is open-sourced software licensed under the [MIT license](https://o
 
 ## 👥 Support
 
-For support, email support@envisionreporting.com or open an issue in the repository.
+For support, email [EMAIL_ADDRESS] or open an issue in the repository.
 
 ---
 
@@ -345,7 +369,7 @@ For support, email support@envisionreporting.com or open an issue in the reposit
 
 **Project Maintainer**: Your Name  
 **Email**: your.email@example.com  
-**Website**: https://envisionreporting.com
+**Website**: https://bizentify.com
 
 ---
 

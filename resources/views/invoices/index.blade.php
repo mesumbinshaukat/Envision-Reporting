@@ -84,10 +84,10 @@
                                     <td class="py-2 md:py-3 px-3 md:px-4 text-xs md:text-sm">
                                         <div class="font-semibold whitespace-nowrap">
                                             @if($invoice->is_one_time)
-                                                <span class="text-blue-600">{{ Str::limit($invoice->one_time_client_name, 20) }}</span>
+                                                <span class="text-blue-600">{{ Str::limit($invoice->client_name, 20) }}</span>
                                                 <span class="text-xs text-gray-500 block md:inline md:ml-1">(One-Time)</span>
                                             @else
-                                                {{ Str::limit($invoice->client->name, 20) }}
+                                                {{ Str::limit($invoice->client_name, 20) }}
                                             @endif
                                         </div>
                                     </td>
@@ -146,7 +146,7 @@
                                         <div class="flex flex-col gap-1">
                                             @if($invoice->status != 'Payment Done')
                                                 @if($invoice->approval_status == 'approved')
-                                                    <button onclick="openPaymentModal({{ $invoice->id }}, '{{ $invoice->is_one_time ? addslashes($invoice->one_time_client_name) : addslashes($invoice->client->name) }}', {{ $invoice->amount }}, {{ $invoice->paid_amount }}, {{ $invoice->remaining_amount > 0 ? $invoice->remaining_amount : $invoice->amount }})" class="text-green-600 hover:underline font-semibold text-xs text-left">Pay</button>
+                                                    <button onclick="openPaymentModal({{ $invoice->id }}, '{{ addslashes($invoice->client_name) }}', {{ $invoice->amount }}, {{ $invoice->paid_amount }}, {{ $invoice->remaining_amount > 0 ? $invoice->remaining_amount : $invoice->amount }})" class="text-green-600 hover:underline font-semibold text-xs text-left">Pay</button>
                                                 @else
                                                     <span class="text-gray-400 text-xs cursor-not-allowed" title="Invoice must be approved before payment">Pay</span>
                                                 @endif

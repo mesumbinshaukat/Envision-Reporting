@@ -43,7 +43,17 @@
                 </div>
 
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-600 mb-1">Deductions</h3>
+                    <h3 class="text-sm font-semibold text-gray-600 mb-1">Late Deduction</h3>
+                    <p class="text-lg text-red-600 font-semibold">{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->late_deduction, 2) }}</p>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-600 mb-1">Leave Deduction</h3>
+                    <p class="text-lg text-red-600 font-semibold">{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->leave_deduction, 2) }}</p>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-600 mb-1">Manual Deductions</h3>
                     <p class="text-lg text-navy-900">{{ $salaryRelease->currency ? $salaryRelease->currency->symbol : 'Rs.' }}{{ number_format($salaryRelease->deductions, 2) }}</p>
                 </div>
 

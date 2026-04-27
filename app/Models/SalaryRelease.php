@@ -20,6 +20,8 @@ class SalaryRelease extends Model
         'bonus_amount',
         'allowance_amount',
         'deductions',
+        'late_deduction',
+        'leave_deduction',
         'total_amount',
         'partial_amount',
         'release_date',

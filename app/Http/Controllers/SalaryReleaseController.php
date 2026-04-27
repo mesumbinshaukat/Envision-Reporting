@@ -44,7 +44,7 @@ class SalaryReleaseController extends Controller
         return view('salary-releases.create', compact('employees', 'currencies', 'baseCurrency'));
     }
 
-    public function preview(Request $request)
+    public function preview(Request $request, \App\Services\OfficeScheduleService $scheduleService)
     {
         $request->validate([
             'employee_id' => 'required|exists:employees,id',
@@ -66,15 +66,15 @@ class SalaryReleaseController extends Controller
             ->exists();
         
         // If releasing salary in November, only count November payments
-        $salaryMonthDate = date('Y-m-01', strtotime($releaseMonth . '-01'));
-        $salaryMonthEnd = date('Y-m-t', strtotime($salaryMonthDate));
+        $salaryMonthDate = \Carbon\Carbon::parse($releaseMonth . '-01');
+        $salaryMonthEnd = $salaryMonthDate->copy()->endOfMonth();
         
         // Get all invoices where this employee is the salesperson
         // Include payments from previous month only that haven't had commission paid
         $invoices = $employee->invoices()
             ->with(['client', 'currency', 'payments' => function($query) use ($salaryMonthDate, $salaryMonthEnd) {
-                $query->where('payment_date', '>=', $salaryMonthDate)
-                      ->where('payment_date', '<=', $salaryMonthEnd)
+                $query->where('payment_date', '>=', $salaryMonthDate->toDateString())
+                      ->where('payment_date', '<=', $salaryMonthEnd->toDateString())
                       ->where('commission_paid', false);
             }])
             ->get();
@@ -105,7 +105,7 @@ class SalaryReleaseController extends Controller
                     }
                     
                     // Calculate commission after tax deduction (in base currency)
-                    $taxPerPayment = ($taxInBase / $invoiceAmountInBase) * $paidAmountInBase;
+                    $taxPerPayment = $invoiceAmountInBase > 0 ? ($taxInBase / $invoiceAmountInBase) * $paidAmountInBase : 0;
                     $netAmount = $paidAmountInBase - $taxPerPayment;
                     $commissionRate = $employee->commission_rate / 100;
                     $invoiceCommission = $netAmount * $commissionRate;
@@ -147,8 +147,34 @@ class SalaryReleaseController extends Controller
         });
         
         $baseSalary = $employee->salary;
+        
+        // Calculate Advanced Deductions (Late & Leave)
+        $globalSchedule = $scheduleService->getSchedule($employee->user);
+        $divisor = $globalSchedule->salary_divisor ?? 30;
+        $oneDaySalary = $baseSalary / $divisor;
+        
+        // Late Deduction
+        $lateCountForDeduction = $globalSchedule->late_count_for_deduction ?? 3;
+        $latesCount = \App\Models\Attendance::forEmployee($employee->employeeUser->id ?? 0)
+            ->where('attendance_date', '>=', $salaryMonthDate->toDateString())
+            ->where('attendance_date', '<=', $salaryMonthEnd->toDateString())
+            ->where('is_late', true)
+            ->count();
+        $lateDeduction = floor($latesCount / $lateCountForDeduction) * $oneDaySalary;
+        
+        // Leave Deduction
+        $expectedWorkingDays = $scheduleService->countExpectedWorkingDays($employee, $salaryMonthDate, $salaryMonthEnd);
+        $actualPresentDays = \App\Models\Attendance::forEmployee($employee->employeeUser->id ?? 0)
+            ->where('attendance_date', '>=', $salaryMonthDate->toDateString())
+            ->where('attendance_date', '<=', $salaryMonthEnd->toDateString())
+            ->count();
+        $leavesTaken = max(0, $expectedWorkingDays - $actualPresentDays);
+        $maxLeaves = $employee->max_monthly_leaves ?? 0;
+        $extraLeaves = max(0, $leavesTaken - $maxLeaves);
+        $leaveDeduction = $extraLeaves * $oneDaySalary;
+
         $deductions = $request->deductions ?? 0;
-        $totalCalculated = $baseSalary + $commissionAmount + $bonusAmount + $allowanceAmount - $deductions;
+        $totalCalculated = $baseSalary + $commissionAmount + $bonusAmount + $allowanceAmount - $deductions - $lateDeduction - $leaveDeduction;
         
         // Get employee currency or base currency
         $currency = $employee->currency ?? $this->getBaseCurrency();
@@ -160,6 +186,8 @@ class SalaryReleaseController extends Controller
             'bonus_amount' => number_format($bonusAmount, 2),
             'allowance_amount' => number_format($allowanceAmount, 2),
             'deductions' => number_format($deductions, 2),
+            'late_deduction' => number_format($lateDeduction, 2),
+            'leave_deduction' => number_format($leaveDeduction, 2),
             'total_calculated' => number_format($totalCalculated, 2),
             'currency_symbol' => $currencySymbol,
             'already_released' => $alreadyReleased,
@@ -195,7 +223,7 @@ class SalaryReleaseController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, \App\Services\OfficeScheduleService $scheduleService)
     {
         $validated = $request->validate([
             'employee_id' => 'required|exists:employees,id',
@@ -208,10 +236,10 @@ class SalaryReleaseController extends Controller
         $employee = Employee::findOrFail($validated['employee_id']);
         
         // Validate that release_date is not before the salary month
-        $salaryMonthStart = date('Y-m-01', strtotime($validated['month'] . '-01'));
-        if ($validated['release_date'] < $salaryMonthStart) {
+        $salaryMonthStart = \Carbon\Carbon::parse($validated['month'] . '-01');
+        if ($validated['release_date'] < $salaryMonthStart->toDateString()) {
             return redirect()->back()->withErrors([
-                'release_date' => 'Release date cannot be before the salary month (' . date('F Y', strtotime($validated['month'] . '-01')) . ')'
+                'release_date' => 'Release date cannot be before the salary month (' . $salaryMonthStart->format('F Y') . ')'
             ])->withInput();
         }
         
@@ -222,19 +250,18 @@ class SalaryReleaseController extends Controller
         
         if ($existingRelease) {
             return redirect()->back()->withErrors([
-                'month' => 'Salary has already been released for this employee for ' . date('F Y', strtotime($validated['month'] . '-01'))
+                'month' => 'Salary has already been released for this employee for ' . $salaryMonthStart->format('F Y')
             ])->withInput();
         }
         
-        // If releasing salary in November, only count November payments
-        $salaryMonthDate = date('Y-m-01', strtotime($validated['month'] . '-01'));
-        $salaryMonthEnd = date('Y-m-t', strtotime($salaryMonthDate));
+        // If releasing salary for a month, only count payments in that month
+        $salaryMonthEnd = $salaryMonthStart->copy()->endOfMonth();
         
         // Get all invoices with payments from salary month only
         $invoices = $employee->invoices()
-            ->with(['currency', 'payments' => function($query) use ($salaryMonthDate, $salaryMonthEnd) {
-                $query->where('payment_date', '>=', $salaryMonthDate)
-                      ->where('payment_date', '<=', $salaryMonthEnd)
+            ->with(['currency', 'payments' => function($query) use ($salaryMonthStart, $salaryMonthEnd) {
+                $query->where('payment_date', '>=', $salaryMonthStart->toDateString())
+                      ->where('payment_date', '<=', $salaryMonthEnd->toDateString())
                       ->where('commission_paid', false);
             }])
             ->get();
@@ -262,7 +289,7 @@ class SalaryReleaseController extends Controller
                     }
                     
                     // Calculate commission after tax deduction (in base currency)
-                    $taxPerPayment = ($taxInBase / $invoiceAmountInBase) * $paidAmountInBase;
+                    $taxPerPayment = $invoiceAmountInBase > 0 ? ($taxInBase / $invoiceAmountInBase) * $paidAmountInBase : 0;
                     $netAmount = $paidAmountInBase - $taxPerPayment;
                     $commissionRate = $employee->commission_rate / 100;
                     $invoiceCommission = $netAmount * $commissionRate;
@@ -296,8 +323,34 @@ class SalaryReleaseController extends Controller
         });
         
         $baseSalary = $employee->salary;
+
+        // Calculate Advanced Deductions (Late & Leave)
+        $globalSchedule = $scheduleService->getSchedule($employee->user);
+        $divisor = $globalSchedule->salary_divisor ?? 30;
+        $oneDaySalary = $baseSalary / $divisor;
+        
+        // Late Deduction
+        $lateCountForDeduction = $globalSchedule->late_count_for_deduction ?? 3;
+        $latesCount = \App\Models\Attendance::forEmployee($employee->employeeUser->id ?? 0)
+            ->where('attendance_date', '>=', $salaryMonthStart->toDateString())
+            ->where('attendance_date', '<=', $salaryMonthEnd->toDateString())
+            ->where('is_late', true)
+            ->count();
+        $lateDeduction = floor($latesCount / $lateCountForDeduction) * $oneDaySalary;
+        
+        // Leave Deduction
+        $expectedWorkingDays = $scheduleService->countExpectedWorkingDays($employee, $salaryMonthStart, $salaryMonthEnd);
+        $actualPresentDays = \App\Models\Attendance::forEmployee($employee->employeeUser->id ?? 0)
+            ->where('attendance_date', '>=', $salaryMonthStart->toDateString())
+            ->where('attendance_date', '<=', $salaryMonthEnd->toDateString())
+            ->count();
+        $leavesTaken = max(0, $expectedWorkingDays - $actualPresentDays);
+        $maxLeaves = $employee->max_monthly_leaves ?? 0;
+        $extraLeaves = max(0, $leavesTaken - $maxLeaves);
+        $leaveDeduction = $extraLeaves * $oneDaySalary;
+
         $deductions = $validated['deductions'] ?? 0;
-        $totalAmount = $baseSalary + $commissionAmount + $bonusAmount + $allowanceAmount - $deductions;
+        $totalAmount = $baseSalary + $commissionAmount + $bonusAmount + $allowanceAmount - $deductions - $lateDeduction - $leaveDeduction;
         
         $validated['user_id'] = auth()->id();
         $validated['currency_id'] = $employee->currency_id ?? $this->getBaseCurrency()->id;
@@ -305,6 +358,8 @@ class SalaryReleaseController extends Controller
         $validated['commission_amount'] = $commissionAmount;
         $validated['bonus_amount'] = $bonusAmount;
         $validated['allowance_amount'] = $allowanceAmount;
+        $validated['late_deduction'] = $lateDeduction;
+        $validated['leave_deduction'] = $leaveDeduction;
         $validated['total_amount'] = $totalAmount;
         
         // Capture exchange rate at time of creation for historical accuracy
@@ -363,7 +418,7 @@ class SalaryReleaseController extends Controller
         ]);
         
         $deductions = $validated['deductions'] ?? 0;
-        $validated['total_amount'] = $salaryRelease->base_salary + $salaryRelease->commission_amount + $salaryRelease->bonus_amount + $salaryRelease->allowance_amount - $deductions;
+        $validated['total_amount'] = $salaryRelease->base_salary + $salaryRelease->commission_amount + $salaryRelease->bonus_amount + $salaryRelease->allowance_amount - $deductions - $salaryRelease->late_deduction - $salaryRelease->leave_deduction;
         
         $salaryRelease->update($validated);
         

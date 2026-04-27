@@ -49,6 +49,9 @@ class OfficeScheduleController extends Controller
             'timezone' => ['nullable', 'timezone'],
             'working_days' => ['required', 'array', 'min:1'],
             'working_days.*' => ['in:' . implode(',', self::DAY_OPTIONS)],
+            'grace_time_minutes' => ['required', 'integer', 'min:0'],
+            'late_count_for_deduction' => ['required', 'integer', 'min:1'],
+            'salary_divisor' => ['required', 'integer', 'min:1'],
         ]);
 
         $payload = [
@@ -56,6 +59,9 @@ class OfficeScheduleController extends Controller
             'end_time' => $validated['end_time'],
             'timezone' => Arr::get($validated, 'timezone', config('app.timezone')),
             'working_days' => $validated['working_days'],
+            'grace_time_minutes' => $validated['grace_time_minutes'],
+            'late_count_for_deduction' => $validated['late_count_for_deduction'],
+            'salary_divisor' => $validated['salary_divisor'],
         ];
 
         /** @var OfficeSchedule $schedule */

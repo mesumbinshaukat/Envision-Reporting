@@ -37,6 +37,7 @@ class Employee extends Model
         'joining_date',
         'last_date',
         'salary',
+        'max_monthly_leaves',
         'commission_rate',
         'is_sales_person',
         'geolocation_required',
@@ -106,6 +107,11 @@ class Employee extends Model
     public function ipWhitelists()
     {
         return $this->hasMany(EmployeeIpWhitelist::class);
+    }
+
+    public function schedules()
+    {
+        return $this->hasMany(EmployeeSchedule::class);
     }
 
     public function getProfilePhotoUrlAttribute(): ?string

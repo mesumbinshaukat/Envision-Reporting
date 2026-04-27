@@ -15,6 +15,9 @@ class OfficeSchedule extends Model
         'start_time',
         'end_time',
         'working_days',
+        'grace_time_minutes',
+        'late_count_for_deduction',
+        'salary_divisor',
         'timezone',
     ];
 

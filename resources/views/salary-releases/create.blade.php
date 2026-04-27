@@ -73,7 +73,17 @@
                     </div>
 
                     <div class="flex justify-between border-b border-gray-300 pb-2">
-                        <span class="font-semibold text-navy-900">Deductions:</span>
+                        <span class="font-semibold text-navy-900">Late Deduction:</span>
+                        <span id="preview_late_deduction" class="text-red-600">Rs.0.00</span>
+                    </div>
+
+                    <div class="flex justify-between border-b border-gray-300 pb-2">
+                        <span class="font-semibold text-navy-900">Leave Deduction:</span>
+                        <span id="preview_leave_deduction" class="text-red-600">Rs.0.00</span>
+                    </div>
+
+                    <div class="flex justify-between border-b border-gray-300 pb-2">
+                        <span class="font-semibold text-navy-900">Manual Deductions:</span>
                         <span id="preview_deductions" class="text-navy-900">Rs.0.00</span>
                     </div>
 
@@ -145,6 +155,8 @@
                 document.getElementById('preview_base').textContent = currSymbol + data.base_salary;
                 document.getElementById('preview_commission').textContent = currSymbol + data.commission_amount;
                 document.getElementById('preview_bonus').textContent = currSymbol + data.bonus_amount;
+                document.getElementById('preview_late_deduction').textContent = currSymbol + data.late_deduction;
+                document.getElementById('preview_leave_deduction').textContent = currSymbol + data.leave_deduction;
                 document.getElementById('preview_deductions').textContent = currSymbol + data.deductions;
                 document.getElementById('preview_total').textContent = currSymbol + data.total_calculated;
                 
